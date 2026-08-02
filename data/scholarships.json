@@ -1,0 +1,182 @@
+[
+  {
+    "id": "rhodes",
+    "name": "Rhodes Scholarship",
+    "host": "University of Oxford",
+    "level": "graduate",
+    "value": "Full tuition + stipend (~£18k/yr) + travel",
+    "eligibility": "Citizens of Rhodes constituencies (incl. Bangladesh as of 2018); under 24; bachelor's degree; outstanding intellect, character, leadership.",
+    "tags": ["UK", "leadership", "elite", "Bangladesh-eligible"],
+    "summary": "Bangladesh became a Rhodes constituency in 2018. Selection emphasizes intellectual distinction + service leadership."
+  },
+  {
+    "id": "chevening",
+    "name": "Chevening Scholarship",
+    "host": "UK universities",
+    "level": "master's",
+    "value": "Full tuition + stipend + flights",
+    "eligibility": "2+ years work experience, leadership potential, UK master's offer",
+    "tags": ["UK", "master's", "leadership", "Bangladesh-friendly"],
+    "summary": "UK government scholarship. Bangladesh has a strong Chevening pipeline - leadership essays carry the application."
+  },
+  {
+    "id": "commonwealth",
+    "name": "Commonwealth Scholarship",
+    "host": "UK universities",
+    "level": "master's,phd",
+    "value": "Full tuition + stipend",
+    "eligibility": "Commonwealth citizens, financial need, development impact focus",
+    "tags": ["UK", "development", "Bangladesh-friendly"],
+    "summary": "Strong Bangladesh alumni network. Application weights development relevance of proposed research."
+  },
+  {
+    "id": "daad",
+    "name": "DAAD Scholarship",
+    "host": "German universities",
+    "level": "master's,phd",
+    "value": "Full stipend + tuition coverage",
+    "eligibility": "Strong academic record, study plan, German or English program",
+    "tags": ["Germany", "research"],
+    "summary": "Germany's central scholarship body. Heavy on academic merit and clear research/study motivation."
+  },
+  {
+    "id": "fulbright",
+    "name": "Fulbright Foreign Student Program",
+    "host": "US universities",
+    "level": "master's,phd",
+    "value": "Full tuition + stipend + travel",
+    "eligibility": "Bachelor's, leadership, intent to return home for 2 years post-degree",
+    "tags": ["USA", "leadership", "Bangladesh-friendly"],
+    "summary": "Bangladesh Fulbright commission has annual cohort. Leadership and 'return home' commitment are essential."
+  },
+  {
+    "id": "knight-hennessy",
+    "name": "Knight-Hennessy Scholars (Stanford)",
+    "host": "Stanford University",
+    "level": "graduate",
+    "value": "Full tuition + stipend + travel",
+    "eligibility": "Admission to any Stanford grad program, leadership, civic mindset, under-32 ideally",
+    "tags": ["USA", "Stanford", "leadership"],
+    "summary": "Adds full funding to any Stanford grad program. Independent app from program admission."
+  },
+  {
+    "id": "schwarzman",
+    "name": "Schwarzman Scholars",
+    "host": "Tsinghua University, Beijing",
+    "level": "master's",
+    "value": "Full tuition + stipend + travel",
+    "eligibility": "Bachelor's, under 29, English proficient, leadership in any field",
+    "tags": ["China", "leadership", "Bangladesh-friendly"],
+    "summary": "One-year Tsinghua master's in Global Affairs. Highly selective leadership scholarship."
+  },
+  {
+    "id": "gates-cambridge",
+    "name": "Gates Cambridge Scholarship",
+    "host": "University of Cambridge",
+    "level": "master's,phd",
+    "value": "Full tuition + stipend + travel + family allowance",
+    "eligibility": "Non-UK citizen, Cambridge grad admission, academic excellence, leadership, commitment to others",
+    "tags": ["UK", "Cambridge", "elite"],
+    "summary": "Full funding on top of Cambridge grad admission. Very selective; intellectual ability + commitment to improving lives of others."
+  },
+  {
+    "id": "nus-asean",
+    "name": "NUS ASEAN Undergraduate Scholarship",
+    "host": "NUS Singapore",
+    "level": "undergraduate",
+    "value": "Tuition + S$5,800/yr + S$3k laptop",
+    "eligibility": "ASEAN citizen (incl. Bangladesh-equivalent SAARC programs), strong academics",
+    "tags": ["Singapore", "ASEAN", "undergraduate"],
+    "summary": "NUS offers undergrad scholarships for South + Southeast Asian students with strong academics."
+  },
+  {
+    "id": "agh-poland",
+    "name": "Polish Government Scholarship",
+    "host": "Polish universities",
+    "level": "master's,phd",
+    "value": "Tuition waiver + monthly stipend",
+    "eligibility": "Developing country citizen, Polish or English program admission",
+    "tags": ["Poland", "low-cost", "Bangladesh-friendly"],
+    "summary": "Low-competition pathway to EU education for Bangladeshi students with strong academics."
+  },
+  {
+    "id": "manaaki",
+    "name": "Manaaki New Zealand Scholarship",
+    "host": "New Zealand universities",
+    "level": "master's,phd",
+    "value": "Full tuition + stipend + travel + insurance",
+    "eligibility": "Commonwealth and developing country citizens; 2+ years work experience preferred",
+    "tags": ["New Zealand", "development", "Bangladesh-friendly"],
+    "summary": "Strong development focus. Applicants from Bangladesh need clear post-study impact plan."
+  },
+  {
+    "id": "australia-awards",
+    "name": "Australia Awards Scholarships",
+    "host": "Australian universities",
+    "level": "master's,phd",
+    "value": "Full tuition + stipend + flights",
+    "eligibility": "Developing country citizen, 2+ years work experience, development link",
+    "tags": ["Australia", "development", "Bangladesh-friendly"],
+    "summary": "Bangladesh is a focus country. Application weights development relevance."
+  },
+  {
+    "id": "erasmus-mundus",
+    "name": "Erasmus Mundus Joint Master's",
+    "host": "EU consortium universities",
+    "level": "master's",
+    "value": "Full tuition + €1.4k/mo stipend + travel",
+    "eligibility": "Bachelor's, strong academics, English/EU lang proficiency",
+    "tags": ["EU", "research", "master's"],
+    "summary": "Two-country EU master's with full funding. Highly competitive - research fit and motivation letter matter most."
+  },
+  {
+    "id": "kgsp",
+    "name": "Korean Government Scholarship (GKS)",
+    "host": "Korean universities",
+    "level": "undergraduate,master's,phd",
+    "value": "Tuition + monthly stipend + Korean language training",
+    "eligibility": "Non-Korean citizen, strong academics, under 25 (undergrad) / 40 (grad)",
+    "tags": ["Korea", "language", "Bangladesh-friendly"],
+    "summary": "Korea's flagship scholarship. Includes a year of Korean language training before degree."
+  },
+  {
+    "id": "swedish-institute",
+    "name": "Swedish Institute Scholarships for Global Professionals",
+    "host": "Swedish universities",
+    "level": "master's",
+    "value": "Full tuition + monthly grant + travel",
+    "eligibility": "Strong leadership in development fields, 3000+ hr work/volunteer",
+    "tags": ["Sweden", "development", "leadership"],
+    "summary": "Selective Swedish scholarship for leaders in development. Bangladesh is an eligible country."
+  },
+  {
+    "id": "kaist-undergrad",
+    "name": "KAIST International Undergraduate Scholarship",
+    "host": "KAIST, Korea",
+    "level": "undergraduate",
+    "value": "Tuition + stipend",
+    "eligibility": "Top STEM students, IMO/IPhO/etc. boost",
+    "tags": ["Korea", "STEM", "undergraduate"],
+    "summary": "Direct STEM merit scholarship at one of Asia's top tech universities. Olympiad results help."
+  },
+  {
+    "id": "yale-need-based",
+    "name": "Yale Need-Based Aid (International)",
+    "host": "Yale University",
+    "level": "undergraduate",
+    "value": "Full demonstrated need",
+    "eligibility": "Yale admission + financial need (need-blind for internationals)",
+    "tags": ["USA", "need-blind", "undergraduate"],
+    "summary": "Yale meets 100% of demonstrated need for internationals. No separate application needed."
+  },
+  {
+    "id": "mit-need-based",
+    "name": "MIT Need-Based Aid (International)",
+    "host": "MIT",
+    "level": "undergraduate",
+    "value": "Full demonstrated need",
+    "eligibility": "MIT admission + financial need (need-blind for internationals)",
+    "tags": ["USA", "need-blind", "undergraduate"],
+    "summary": "MIT is need-blind for international applicants - financial need does not affect admission decision."
+  }
+]

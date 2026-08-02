@@ -1,0 +1,362 @@
+[
+  {
+    "id": "mit",
+    "name": "Massachusetts Institute of Technology",
+    "country": "USA",
+    "city": "Cambridge, MA",
+    "tier": "elite",
+    "acceptanceRate": 0.04,
+    "topPrograms": ["Computer Science", "Electrical Engineering", "Mathematics", "Physics", "Aerospace"],
+    "requirements": {
+      "gpa": "3.9+ unweighted typical",
+      "tests": "SAT 1520+ or ACT 34+ (test-optional but recommended). TOEFL 100+ / IELTS 7.5+ for non-native English.",
+      "essays": "MIT-specific short responses (5)",
+      "recs": "2 teacher + 1 counselor",
+      "differentiators": "Olympiad medals (IMO, IPhO, IOI), original research, exceptional projects"
+    },
+    "tags": ["STEM", "research", "elite-global", "need-blind-intl-partial"],
+    "summary": "MIT admits ~4% of applicants. Successful international applicants typically combine top-decile testing, deep technical projects, and either Olympiad-level competition results or original research."
+  },
+  {
+    "id": "stanford",
+    "name": "Stanford University",
+    "country": "USA",
+    "city": "Stanford, CA",
+    "tier": "elite",
+    "acceptanceRate": 0.036,
+    "topPrograms": ["Computer Science", "Engineering", "Biology", "Economics", "Symbolic Systems"],
+    "requirements": {
+      "gpa": "3.95+ unweighted typical",
+      "tests": "SAT 1500+ or ACT 34+. TOEFL 100+ / IELTS 7+.",
+      "essays": "3 short essays + supplements",
+      "recs": "2 teacher + counselor",
+      "differentiators": "Intellectual vitality, founder-mindset, sustained impact in 1–2 areas over 'well-rounded'"
+    },
+    "tags": ["STEM", "entrepreneurship", "elite-global"],
+    "summary": "Stanford rewards depth and intellectual vitality. Founders, researchers, and athletes with one extraordinary signal beat well-rounded profiles."
+  },
+  {
+    "id": "harvard",
+    "name": "Harvard University",
+    "country": "USA",
+    "city": "Cambridge, MA",
+    "tier": "elite",
+    "acceptanceRate": 0.034,
+    "topPrograms": ["Economics", "Government", "Computer Science", "Biology", "History"],
+    "requirements": {
+      "gpa": "3.9+ unweighted typical",
+      "tests": "SAT 1520+ or ACT 34+. TOEFL 100+.",
+      "essays": "Common App + 5 Harvard supplements",
+      "recs": "2 teacher + counselor",
+      "differentiators": "National/international leadership, distinguished awards, unique personal narrative"
+    },
+    "tags": ["liberal-arts", "research", "elite-global"],
+    "summary": "Harvard values demonstrated leadership at scale and a coherent narrative. International applicants need standout national-level distinctions."
+  },
+  {
+    "id": "cmu",
+    "name": "Carnegie Mellon University",
+    "country": "USA",
+    "city": "Pittsburgh, PA",
+    "tier": "top10",
+    "acceptanceRate": 0.11,
+    "topPrograms": ["Computer Science (SCS)", "Robotics", "Information Systems", "Drama", "Design"],
+    "requirements": {
+      "gpa": "3.85+ typical for SCS",
+      "tests": "SAT 1500+ for SCS. TOEFL 100+.",
+      "essays": "Common App + CMU short responses",
+      "recs": "2 teacher + counselor",
+      "differentiators": "Strong programming portfolio, contest results (USACO Gold+, ICPC, IOI), demonstrated CS depth"
+    },
+    "tags": ["STEM", "CS", "elite-global"],
+    "summary": "CMU SCS is the toughest CS admit in the US. Competitive programming results and shipped technical projects matter more than well-rounded ECs."
+  },
+  {
+    "id": "berkeley",
+    "name": "UC Berkeley",
+    "country": "USA",
+    "city": "Berkeley, CA",
+    "tier": "top10",
+    "acceptanceRate": 0.114,
+    "topPrograms": ["EECS", "Computer Science", "Business (Haas)", "Molecular Biology", "Mathematics"],
+    "requirements": {
+      "gpa": "3.9+ unweighted for EECS",
+      "tests": "SAT optional but 1500+ helps. TOEFL 80+.",
+      "essays": "4 UC Personal Insight Questions",
+      "recs": "Not required",
+      "differentiators": "Strong PIQs, sustained EC depth, demonstrated initiative"
+    },
+    "tags": ["STEM", "public-ivy", "elite-global"],
+    "summary": "Berkeley uses 4 Personal Insight Questions instead of recs. EECS is hyper-competitive - depth and demonstrated CS impact carry the application."
+  },
+  {
+    "id": "uchicago",
+    "name": "University of Chicago",
+    "country": "USA",
+    "city": "Chicago, IL",
+    "tier": "elite",
+    "acceptanceRate": 0.054,
+    "topPrograms": ["Economics", "Mathematics", "Physics", "Philosophy", "Public Policy"],
+    "requirements": {
+      "gpa": "3.9+ typical",
+      "tests": "Test-optional. 1520+ if submitting.",
+      "essays": "Famous 'UChicago essays' - quirky prompts",
+      "recs": "2 teacher + counselor",
+      "differentiators": "Intellectual curiosity demonstrated through unconventional thinking and academic depth"
+    },
+    "tags": ["liberal-arts", "intellectual", "elite-global"],
+    "summary": "UChicago rewards unconventional intellectuals. The essays are the soul of the application."
+  },
+  {
+    "id": "princeton",
+    "name": "Princeton University",
+    "country": "USA",
+    "city": "Princeton, NJ",
+    "tier": "elite",
+    "acceptanceRate": 0.046,
+    "topPrograms": ["Mathematics", "Computer Science", "Public Policy", "Physics", "Operations Research"],
+    "requirements": {
+      "gpa": "3.95+ typical",
+      "tests": "SAT 1500+ recommended. TOEFL 100+.",
+      "essays": "Princeton-specific supplements + graded paper",
+      "recs": "2 teacher + counselor",
+      "differentiators": "Senior thesis culture - independent research signal valued highly"
+    },
+    "tags": ["liberal-arts", "research", "elite-global", "need-blind-intl"],
+    "summary": "Princeton is need-blind for internationals and values research aptitude. The graded paper requirement is unique."
+  },
+  {
+    "id": "yale",
+    "name": "Yale University",
+    "country": "USA",
+    "city": "New Haven, CT",
+    "tier": "elite",
+    "acceptanceRate": 0.046,
+    "topPrograms": ["Political Science", "Economics", "Computer Science", "History", "Biology"],
+    "requirements": {
+      "gpa": "3.95+ typical",
+      "tests": "SAT 1510+ or ACT 34+. TOEFL 100+.",
+      "essays": "Why Yale + several short responses",
+      "recs": "2 teacher + counselor",
+      "differentiators": "Residential college culture - applicants who'll thrive in collaborative communities"
+    },
+    "tags": ["liberal-arts", "elite-global", "need-blind-intl"],
+    "summary": "Yale is need-blind for internationals. Strong fit signal: collaborative, community-oriented leaders."
+  },
+  {
+    "id": "oxford",
+    "name": "University of Oxford",
+    "country": "UK",
+    "city": "Oxford",
+    "tier": "elite",
+    "acceptanceRate": 0.17,
+    "topPrograms": ["PPE", "Mathematics", "Computer Science", "Engineering", "Medicine"],
+    "requirements": {
+      "gpa": "A*A*A at A-level / 38–40 IB",
+      "tests": "Course-specific tests (MAT, PAT, TSA, LNAT). IELTS 7.5+.",
+      "essays": "Personal Statement (UCAS)",
+      "recs": "1 academic reference",
+      "differentiators": "Subject-specific aptitude tests + interview performance dominate the decision"
+    },
+    "tags": ["UK", "subject-specific", "elite-global"],
+    "summary": "Oxford admits by subject. The aptitude test + interview matter more than well-rounded ECs."
+  },
+  {
+    "id": "cambridge",
+    "name": "University of Cambridge",
+    "country": "UK",
+    "city": "Cambridge",
+    "tier": "elite",
+    "acceptanceRate": 0.18,
+    "topPrograms": ["Mathematics", "Natural Sciences", "Computer Science", "Engineering", "Economics"],
+    "requirements": {
+      "gpa": "A*A*A at A-level / 40–42 IB",
+      "tests": "STEP for Maths, ENGAA for Engineering, etc. IELTS 7.5+.",
+      "essays": "Personal Statement + Cambridge supplement (SAQ)",
+      "recs": "1 academic reference",
+      "differentiators": "Tripos system - extreme subject depth expected from day one"
+    },
+    "tags": ["UK", "subject-specific", "elite-global"],
+    "summary": "Cambridge expects subject mastery from application day. STEP-level math problem-solving is the deepest filter."
+  },
+  {
+    "id": "imperial",
+    "name": "Imperial College London",
+    "country": "UK",
+    "city": "London",
+    "tier": "top10",
+    "acceptanceRate": 0.14,
+    "topPrograms": ["Computing", "Engineering", "Mathematics", "Physics", "Medicine"],
+    "requirements": {
+      "gpa": "A*A*A at A-level / 39+ IB",
+      "tests": "MAT for Maths, occasional interview. IELTS 6.5–7+.",
+      "essays": "UCAS personal statement",
+      "recs": "1 academic reference",
+      "differentiators": "STEM-only focus - pure subject excellence wins"
+    },
+    "tags": ["UK", "STEM", "elite-global"],
+    "summary": "Imperial is a STEM-only university. Pure subject excellence and grade ceilings carry the application."
+  },
+  {
+    "id": "ucl",
+    "name": "University College London",
+    "country": "UK",
+    "city": "London",
+    "tier": "top50",
+    "acceptanceRate": 0.32,
+    "topPrograms": ["Economics", "Computer Science", "Architecture", "Medicine", "Neuroscience"],
+    "requirements": {
+      "gpa": "A*AA at A-level / 38+ IB typical",
+      "tests": "Course-specific (BMAT for medicine). IELTS 6.5+.",
+      "essays": "UCAS personal statement",
+      "recs": "1 academic reference",
+      "differentiators": "Cosmopolitan, international focus; strong personal statement matters"
+    },
+    "tags": ["UK", "international", "top50"],
+    "summary": "UCL is more internationally accessible than Oxbridge while remaining a Top-10 UK research university."
+  },
+  {
+    "id": "toronto",
+    "name": "University of Toronto",
+    "country": "Canada",
+    "city": "Toronto",
+    "tier": "top50",
+    "acceptanceRate": 0.43,
+    "topPrograms": ["Computer Science", "Engineering Science", "Rotman Commerce", "Life Sciences"],
+    "requirements": {
+      "gpa": "90%+ average for CS / Engineering Science",
+      "tests": "SAT optional; IELTS 6.5+.",
+      "essays": "Program-specific supplemental applications",
+      "recs": "Not required for most programs",
+      "differentiators": "Engineering Science and CS supplemental apps are the bar - strong math and coding background"
+    },
+    "tags": ["Canada", "STEM", "international-friendly"],
+    "summary": "U of T's CS and Engineering Science programs are extremely competitive; the supplemental application is decisive."
+  },
+  {
+    "id": "uwaterloo",
+    "name": "University of Waterloo",
+    "country": "Canada",
+    "city": "Waterloo, ON",
+    "tier": "top200",
+    "acceptanceRate": 0.53,
+    "topPrograms": ["Computer Science", "Software Engineering", "Mathematics", "Engineering"],
+    "requirements": {
+      "gpa": "95%+ average for CS",
+      "tests": "AIF (Admission Information Form). Euclid / CCC contests count.",
+      "essays": "AIF essays",
+      "recs": "Not required",
+      "differentiators": "Math contest results (Euclid, CCC) directly boost admission. Co-op program is unique."
+    },
+    "tags": ["Canada", "CS", "contests"],
+    "summary": "Waterloo CS is contest-driven: Euclid and CCC results materially shift admission probability."
+  },
+  {
+    "id": "nus",
+    "name": "National University of Singapore",
+    "country": "Singapore",
+    "city": "Singapore",
+    "tier": "top50",
+    "acceptanceRate": 0.07,
+    "topPrograms": ["Computer Science", "Business", "Engineering", "Life Sciences"],
+    "requirements": {
+      "gpa": "Top 5% of cohort",
+      "tests": "SAT 1450+ / IB 40+. IELTS 6.5+.",
+      "essays": "Personal statement + interview for some programs",
+      "recs": "1–2 references",
+      "differentiators": "Strong international applicant pool; Asian-context activities valued"
+    },
+    "tags": ["Asia", "STEM", "international"],
+    "summary": "NUS is Asia's top university for STEM. South Asian applicants compete with the strongest regional pool."
+  },
+  {
+    "id": "ntu",
+    "name": "Nanyang Technological University",
+    "country": "Singapore",
+    "city": "Singapore",
+    "tier": "top50",
+    "acceptanceRate": 0.31,
+    "topPrograms": ["Engineering", "Computer Science", "Business", "Media"],
+    "requirements": {
+      "gpa": "Top 10% of cohort",
+      "tests": "SAT 1400+ / IB 38+.",
+      "essays": "Personal statement",
+      "recs": "1 reference",
+      "differentiators": "Engineering-heavy focus, strong industry partnerships"
+    },
+    "tags": ["Asia", "STEM"],
+    "summary": "NTU is a strong, slightly more accessible alternative to NUS for STEM."
+  },
+  {
+    "id": "tum",
+    "name": "Technical University of Munich",
+    "country": "Germany",
+    "city": "Munich",
+    "tier": "top100",
+    "acceptanceRate": 0.40,
+    "topPrograms": ["Informatics", "Mechanical Engineering", "Physics", "Mathematics"],
+    "requirements": {
+      "gpa": "1.8 German equivalent (~3.6 US)",
+      "tests": "TestAS for some programs. IELTS 6.5+ or German B2.",
+      "essays": "Letter of motivation",
+      "recs": "Optional",
+      "differentiators": "Low tuition for internationals (~€150/sem). Strong industry pipeline."
+    },
+    "tags": ["Germany", "low-cost", "STEM"],
+    "summary": "TUM offers world-class STEM education at near-zero tuition - a huge ROI play for South Asian families."
+  },
+  {
+    "id": "iit-bombay",
+    "name": "IIT Bombay",
+    "country": "India",
+    "city": "Mumbai",
+    "tier": "top200",
+    "acceptanceRate": 0.002,
+    "topPrograms": ["Computer Science", "Electrical Engineering", "Mechanical", "Aerospace"],
+    "requirements": {
+      "gpa": "JEE Advanced rank required",
+      "tests": "JEE Advanced (top 0.2% nationally)",
+      "essays": "None",
+      "recs": "None",
+      "differentiators": "JEE Advanced rank is the single gatekeeping signal"
+    },
+    "tags": ["India", "exam-based", "STEM"],
+    "summary": "IIT Bombay is exam-only: JEE Advanced rank determines admission. No essays, no ECs."
+  },
+  {
+    "id": "buet",
+    "name": "Bangladesh University of Engineering and Technology",
+    "country": "Bangladesh",
+    "city": "Dhaka",
+    "tier": "regional",
+    "acceptanceRate": 0.012,
+    "topPrograms": ["Computer Science", "Electrical Engineering", "Civil", "Mechanical"],
+    "requirements": {
+      "gpa": "HSC GPA 5.0 (Physics + Chem + Math 4.0+ each)",
+      "tests": "BUET admission test (Math, Physics, Chem, English)",
+      "essays": "None",
+      "recs": "None",
+      "differentiators": "Admission test rank is decisive. No essays or ECs considered."
+    },
+    "tags": ["Bangladesh", "exam-based", "STEM"],
+    "summary": "BUET is Bangladesh's top engineering school. Pure HSC + admission test performance."
+  },
+  {
+    "id": "iba-du",
+    "name": "Institute of Business Administration (DU)",
+    "country": "Bangladesh",
+    "city": "Dhaka",
+    "tier": "regional",
+    "acceptanceRate": 0.04,
+    "topPrograms": ["BBA", "MBA"],
+    "requirements": {
+      "gpa": "HSC GPA 4.5+",
+      "tests": "IBA admission test (Math, English, Analytical)",
+      "essays": "None for undergrad",
+      "recs": "None",
+      "differentiators": "Admission test heavily weights English and analytical reasoning"
+    },
+    "tags": ["Bangladesh", "business", "exam-based"],
+    "summary": "IBA-DU is Bangladesh's most prestigious business school. The admission test is the entire filter."
+  }
+]

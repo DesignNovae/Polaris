@@ -62,7 +62,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/signin"
-              className="rounded-full border border-polaris-300 bg-white px-8 py-3.5 text-sm font-medium text-ink hover:bg-polaris-50 hover:border-polaris-400 transition-colors duration-150"
+              className="rounded-full border border-polaris-300/40 bg-paper px-8 py-3.5 text-sm font-medium text-ink hover:bg-paper-soft hover:border-polaris-400/50 transition-colors duration-150"
             >
               Sign in
             </Link>
@@ -80,7 +80,7 @@ export default function HomePage() {
             ].map((f) => (
               <span
                 key={f}
-                className="rounded-full border border-polaris-200 bg-white/80 px-3.5 py-1.5 text-xs text-ink-dim font-medium"
+                className="rounded-full border border-polaris-200/50 bg-paper/80 px-3.5 py-1.5 text-xs text-ink-dim font-medium"
               >
                 {f}
               </span>

@@ -1,6 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  // Class-based dark mode driven by <html data-theme="dark"> - set by the
+  // ThemeProvider. Lets us use `dark:` utility prefixes for components
+  // that need tone-specific dark overrides.
   darkMode: ["selector", '[data-theme="dark"]'],
   content: [
     "./app/**/*.{ts,tsx}",
@@ -10,6 +13,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Surface + text tokens swap via CSS variables so the dark theme
+        // (set on <html data-theme="dark">) re-themes every utility class
+        // automatically. Brand colors (polaris/nova/aurora) stay fixed.
         bg: {
           DEFAULT: "rgb(var(--c-paper) / <alpha-value>)",
           soft:    "rgb(var(--c-paper-soft) / <alpha-value>)",
@@ -43,7 +49,7 @@ const config: Config = {
           50:  "#FDF4E9",
           100: "#FBE9D6",
           200: "#F2D9BE",
-          300: "#EAC397",
+          300: "#EAC397", // solid bright shade for dark-mode text
           400: "#D89466",
           500: "#C47D4E",
           600: "#B06A3B",
@@ -52,23 +58,25 @@ const config: Config = {
         aurora: {
           50:  "#E3EEE6",
           100: "#D3E6D8",
-          200: "#B7D4BE",
-          300: "#8FB89A",
+          200: "#B7D4BE", // SOLID - was rgba(.4) which had no contrast on dark
+          300: "#8FB89A", // solid bright for dark-mode text
           400: "#6B9E7B",
           500: "#5B8C6D",
           600: "#4A7458",
           700: "#365A41",
         },
+        // Supporting accent for the app shell (hard-deadline / alert states).
         rose: {
           50:  "#F5DDE3",
           100: "#EFC8D2",
           200: "#E5B0BF",
-          300: "#D58FA4",
+          300: "#D58FA4", // solid bright for dark-mode text
           400: "#C36F89",
           500: "#B8546A",
           600: "#A24159",
           700: "#7E3145",
         },
+        // Flat signal accents from the prototype.
         signal: {
           rose: "#B8546A",
           sky: "#5E8CA8",
@@ -78,7 +86,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
         serif: ["var(--font-libre)", "Georgia", "Cambria", "serif"],
-        mono: ["ui-monospace", "monospace"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       backgroundImage: {
         "paper-radial": "radial-gradient(ellipse at top, rgba(139,94,60,0.06), transparent 60%), radial-gradient(ellipse at bottom right, rgba(196,125,78,0.05), transparent 60%)",
@@ -98,6 +106,7 @@ const config: Config = {
           "50%": { transform: "translateY(-8px)" },
         },
       },
+      // App shell: 14-col grid for the workload heatmap / calendar gutter.
       gridTemplateColumns: {
         "14": "repeat(14, minmax(0, 1fr))",
       },
