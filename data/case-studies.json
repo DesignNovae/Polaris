@@ -1,0 +1,213 @@
+[
+  {
+    "id": "cs-mit-1",
+    "title": "Bangladeshi student admitted to MIT EECS",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Notre Dame College, Dhaka",
+      "gpa": "5.0/5.0 HSC, A-level A*A*A*",
+      "tests": "SAT 1560, TOEFL 113",
+      "ecs": ["IOI silver medalist", "Published research with BUET CSE faculty", "Founded school CS club", "USACO Gold"],
+      "tier": "elite"
+    },
+    "whatWorked": "Reverse-engineered MIT's preference for sustained technical depth: 3 years of competitive programming culminating in IOI medal + a published paper on graph algorithms. Demonstrated CS impact, not breadth.",
+    "tags": ["MIT", "CS", "Olympiad", "research", "Bangladesh"]
+  },
+  {
+    "id": "cs-stanford-1",
+    "title": "Indian student admitted to Stanford CS",
+    "profile": {
+      "country": "India",
+      "school": "Delhi Public School, RK Puram",
+      "gpa": "96.4% CBSE",
+      "tests": "SAT 1550, TOEFL 115",
+      "ecs": ["Built mental-health chatbot used by 12k users", "ISEF semifinalist", "Stanford SUMaC alum"],
+      "tags": ["product-builder"],
+      "tier": "elite"
+    },
+    "whatWorked": "Founder-mindset signal: shipped a real product with measurable users, not a hackathon prototype. Stanford essays linked the chatbot to a personal narrative about a family member's depression.",
+    "tags": ["Stanford", "founder", "product", "India"]
+  },
+  {
+    "id": "cs-cmu-1",
+    "title": "Pakistani student admitted to CMU SCS",
+    "profile": {
+      "country": "Pakistan",
+      "school": "Lahore Grammar School",
+      "gpa": "A-level A*A*A*",
+      "tests": "SAT 1530, IELTS 8.0",
+      "ecs": ["ICPC regional finalist", "Codeforces master (2200+)", "Open-source contributor to LLVM"],
+      "tier": "elite"
+    },
+    "whatWorked": "Pure CS depth. CMU SCS rewards programming excellence + open-source impact over well-rounded profiles. Codeforces rating and LLVM PRs were the entire story.",
+    "tags": ["CMU", "CS", "competitive-programming", "open-source"]
+  },
+  {
+    "id": "cs-cambridge-1",
+    "title": "Bangladeshi student admitted to Cambridge Maths",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Scholastica, Dhaka",
+      "gpa": "A-level A*A*A* (Math, Further Math, Physics)",
+      "tests": "STEP I:1, II:1, III:1; IELTS 8.5",
+      "ecs": ["IMO bronze", "BdMO national champion", "Self-studied undergraduate analysis"],
+      "tier": "elite"
+    },
+    "whatWorked": "Cambridge Maths is brutal-subject-depth. STEP triple-1 + IMO medal + demonstrated mathematical maturity (undergrad-level books) made the interview a formality.",
+    "tags": ["Cambridge", "Math", "STEP", "Olympiad", "Bangladesh"]
+  },
+  {
+    "id": "cs-oxford-1",
+    "title": "Indian student admitted to Oxford PPE",
+    "profile": {
+      "country": "India",
+      "school": "Modern School, New Delhi",
+      "gpa": "IB 44/45",
+      "tests": "TSA 75 percentile; IELTS 8.5",
+      "ecs": ["Model UN circuit best delegate", "Op-eds in The Hindu", "Debate captain"],
+      "tier": "elite"
+    },
+    "whatWorked": "PPE rewards verbal & analytical reasoning. High TSA + sustained policy writing portfolio + debate trophies covered the three pillars of PPE.",
+    "tags": ["Oxford", "PPE", "policy", "India"]
+  },
+  {
+    "id": "cs-uwaterloo-1",
+    "title": "Bangladeshi student admitted to Waterloo CS (co-op)",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "St. Joseph Higher Secondary",
+      "gpa": "5.0/5.0 HSC",
+      "tests": "Euclid 92, CCC senior gold",
+      "ecs": ["Two software internships in Dhaka", "Open-source library with 800+ GitHub stars"],
+      "tier": "top200"
+    },
+    "whatWorked": "Waterloo's CS admit is contest- and work-experience-driven. Euclid 92 alone moved this applicant from waitlist to admit. AIF essays were tight and specific.",
+    "tags": ["Waterloo", "CS", "contests", "Bangladesh", "co-op"]
+  },
+  {
+    "id": "cs-toronto-1",
+    "title": "Bangladeshi student admitted to U of T Engineering Science",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Mastermind School, Dhaka",
+      "gpa": "A-level A*A*A",
+      "tests": "SAT 1490, IELTS 7.5",
+      "ecs": ["FRC robotics regional", "School yearbook editor", "Taught coding to younger students"],
+      "tier": "top50"
+    },
+    "whatWorked": "Engineering Science values curiosity across disciplines. Robotics + teaching + sustained academic excellence in math/physics fit the program's interdisciplinary brief. Strong supplemental application.",
+    "tags": ["Toronto", "engineering", "Bangladesh"]
+  },
+  {
+    "id": "cs-nus-1",
+    "title": "Indian student admitted to NUS CS (full scholarship)",
+    "profile": {
+      "country": "India",
+      "school": "DPS, Bangalore",
+      "gpa": "95% CBSE",
+      "tests": "SAT 1500, IELTS 7.5",
+      "ecs": ["INMO qualifier", "Built ed-tech app for 5k students", "Volunteered teaching"],
+      "tier": "top50"
+    },
+    "whatWorked": "NUS scholarship pool rewards strong testing + clear regional impact. Showcased measurable user numbers and India-context applicability.",
+    "tags": ["NUS", "CS", "scholarship", "India"]
+  },
+  {
+    "id": "cs-fulbright-1",
+    "title": "Bangladeshi engineer awarded Fulbright (master's in Public Policy)",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "BUET → 3 years at BRAC",
+      "gpa": "3.85/4.0",
+      "tests": "GRE 326, TOEFL 110",
+      "ecs": ["Led BRAC fintech pilot reaching 40k rural users", "Published in Bangladesh Development Studies"],
+      "tier": "elite"
+    },
+    "whatWorked": "Fulbright weights leadership + return-impact. Concrete metrics (40k users) and a clear plan to return to Bangladesh's policy sector closed the application.",
+    "tags": ["Fulbright", "policy", "Bangladesh", "leadership"]
+  },
+  {
+    "id": "cs-rhodes-1",
+    "title": "Bangladeshi student awarded Rhodes Scholarship",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Asian University for Women → Dhaka University",
+      "gpa": "3.9/4.0",
+      "tests": "IELTS 8.5",
+      "ecs": ["Founded NGO supporting Rohingya women's education (3 years, 1.2k beneficiaries)", "Published essays on gender policy", "Dhaka Tribune columnist"],
+      "tier": "elite"
+    },
+    "whatWorked": "Rhodes weights intellectual distinction + service leadership. Sustained NGO impact + published writing + clear post-Oxford return plan.",
+    "tags": ["Rhodes", "Oxford", "Bangladesh", "leadership", "service"]
+  },
+  {
+    "id": "cs-tum-1",
+    "title": "Bangladeshi student admitted to TUM Informatics (full)",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Notre Dame College, Dhaka → BUET 2 yr transfer",
+      "gpa": "3.8/4.0",
+      "tests": "TestAS 110; IELTS 7.0",
+      "ecs": ["Open-source contributions", "Software intern in Dhaka", "German language A2"],
+      "tier": "top100"
+    },
+    "whatWorked": "Low TUM tuition makes ROI strong. Motivation letter explicitly tied research interest to a TUM lab. German A2 signaled commitment.",
+    "tags": ["TUM", "Germany", "Bangladesh", "low-cost"]
+  },
+  {
+    "id": "cs-imperial-1",
+    "title": "Sri Lankan student admitted to Imperial Computing",
+    "profile": {
+      "country": "Sri Lanka",
+      "school": "Royal College, Colombo",
+      "gpa": "A-level A*A*A*",
+      "tests": "MAT 78; IELTS 8.0",
+      "ecs": ["IOI participant", "Hackathon winner (3 national)", "Personal portfolio site with 12 projects"],
+      "tier": "top10"
+    },
+    "whatWorked": "Imperial filters on pure subject excellence. MAT score + IOI + portfolio of shipped projects covered the bar.",
+    "tags": ["Imperial", "CS", "Sri Lanka"]
+  },
+  {
+    "id": "cs-knight-hennessy-1",
+    "title": "Bangladeshi engineer awarded Knight-Hennessy (Stanford MBA)",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "BUET CSE → 5 yr at startup → Stanford GSB admit",
+      "gpa": "3.75/4.0",
+      "tests": "GMAT 750",
+      "ecs": ["Co-founded healthtech startup serving 200k Bangladeshis", "Published in Lancet Digital Health"],
+      "tier": "elite"
+    },
+    "whatWorked": "Knight-Hennessy looks for civic-minded leaders. Founder of a healthtech with measurable impact + clear vision for return-to-region application.",
+    "tags": ["Stanford", "Knight-Hennessy", "founder", "Bangladesh"]
+  },
+  {
+    "id": "cs-gates-cam-1",
+    "title": "Indian student awarded Gates Cambridge (PhD Computer Science)",
+    "profile": {
+      "country": "India",
+      "school": "IIT Delhi → 1 yr research → Cambridge PhD admit",
+      "gpa": "9.4/10 CGPA",
+      "tests": "GRE 335; IELTS 8.5",
+      "ecs": ["3 publications (NeurIPS, ICML)", "Open-source ML toolkit with 4k stars"],
+      "tier": "elite"
+    },
+    "whatWorked": "Gates Cambridge selects on academic excellence + commitment to improving lives. Research with concrete societal applications (medical imaging) made the case.",
+    "tags": ["Gates", "Cambridge", "PhD", "India", "ML"]
+  },
+  {
+    "id": "cs-budget-1",
+    "title": "Bangladeshi student admitted to U of T on partial scholarship (financial constraint case)",
+    "profile": {
+      "country": "Bangladesh",
+      "school": "Government Laboratory High School, Dhaka",
+      "gpa": "A-level A*A*A",
+      "tests": "SAT 1480, IELTS 7.5",
+      "ecs": ["Math Olympiad national level", "Tutored 80+ students for free", "Built personal-finance tracker used by 2k Bangladeshis"],
+      "tier": "top50"
+    },
+    "whatWorked": "Demonstrated frugal impact in supplemental: built useful tools from limited resources. Need-aware schools (U of T, McMaster) valued the narrative.",
+    "tags": ["Toronto", "scholarship", "Bangladesh", "financial-aid"]
+  }
+]

@@ -80,7 +80,7 @@ export default function SignUpPage() {
                     "rounded-xl border px-2 py-2 text-sm capitalize transition-colors duration-150 " +
                     (role === r
                       ? "bg-polaris-100 border-polaris-400 text-ink"
-                      : "bg-white border-polaris-200 text-ink-dim hover:border-polaris-300")
+                      : "bg-paper border-polaris-200/50 text-ink-dim hover:border-polaris-300/60")
                   }
                 >
                   {r}
@@ -99,7 +99,7 @@ export default function SignUpPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-polaris-200 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-polaris-200/50 bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
               placeholder="Your name"
             />
           </div>
@@ -114,7 +114,7 @@ export default function SignUpPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-polaris-200 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-polaris-200/50 bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
               placeholder="you@example.com"
             />
           </div>
@@ -130,7 +130,7 @@ export default function SignUpPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-polaris-200 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-polaris-200/50 bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
               placeholder="At least 8 characters"
             />
           </div>

@@ -22,11 +22,12 @@ next-env.d.ts
 # ---- TypeScript ----
 *.tsbuildinfo
 
-# ---- Environment variables ----
+# ---- Environment variables & Secrets ----
 .env
 .env.*
 !.env.example
 !.env.local.example
+test-db-hardcoded.js
 
 # ---- Vercel ----
 .vercel
@@ -71,3 +72,4 @@ desktop.ini
 
 # ---- Agents ----
 .agents/
+test-db-hardcoded.js

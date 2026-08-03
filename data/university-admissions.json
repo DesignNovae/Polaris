@@ -1,0 +1,328 @@
+{
+  "_meta": {
+    "description": "Admissions enrichment for the university KB, keyed by university id. Real official links, application systems, deadline patterns (month/day, year-agnostic - the next occurrence is computed at render time), test policy, English requirements, indicative international tuition, and aid/scholarship notes.",
+    "lastUpdated": "2026-06-11",
+    "verifyNote": "Dates and policies follow recent published cycles. Always confirm on the official admissions page before relying on them."
+  },
+  "mit": {
+    "officialWebsite": "https://web.mit.edu",
+    "admissionsUrl": "https://mitadmissions.org/apply/",
+    "applicationSystems": ["MIT Application Portal"],
+    "deadlines": [
+      { "label": "Early Action", "month": 11, "day": 1 },
+      { "label": "Regular Action", "month": 1, "day": 6 },
+      { "label": "Financial aid documents (RA)", "month": 2, "day": 15 }
+    ],
+    "testPolicy": "SAT or ACT required",
+    "english": "TOEFL 90+ (100 recommended) or IELTS 7.5 recommended",
+    "tuitionIntl": "≈$62k/yr before aid",
+    "aid": "Need-blind for all applicants incl. international; meets 100% of demonstrated need",
+    "scholarships": "All MIT aid is need-based - no merit awards",
+    "typeTags": ["Private", "STEM-heavy", "Need-blind intl"],
+    "sourceUrls": ["https://mitadmissions.org/apply/firstyear/deadlines-requirements/"]
+  },
+  "stanford": {
+    "officialWebsite": "https://www.stanford.edu",
+    "admissionsUrl": "https://admission.stanford.edu",
+    "applicationSystems": ["Common App"],
+    "deadlines": [
+      { "label": "Restrictive Early Action", "month": 11, "day": 1 },
+      { "label": "Regular Decision", "month": 1, "day": 5 }
+    ],
+    "testPolicy": "SAT or ACT required (resumed for recent cycles)",
+    "english": "No fixed minimum; TOEFL 100+ competitive",
+    "tuitionIntl": "≈$65k/yr before aid",
+    "aid": "Need-aware for internationals; meets full demonstrated need if admitted",
+    "scholarships": "Need-based aid; Knight-Hennessy is graduate-level",
+    "typeTags": ["Private", "Research", "Entrepreneurial"],
+    "sourceUrls": ["https://admission.stanford.edu/apply/dates-deadlines/"]
+  },
+  "harvard": {
+    "officialWebsite": "https://www.harvard.edu",
+    "admissionsUrl": "https://college.harvard.edu/admissions",
+    "applicationSystems": ["Common App"],
+    "deadlines": [
+      { "label": "Restrictive Early Action", "month": 11, "day": 1 },
+      { "label": "Regular Decision", "month": 1, "day": 1 }
+    ],
+    "testPolicy": "SAT or ACT required (resumed)",
+    "english": "No fixed minimum; strong TOEFL/IELTS expected",
+    "tuitionIntl": "≈$59k/yr before aid",
+    "aid": "Need-blind for all incl. international; families <$85k pay nothing",
+    "scholarships": "All aid need-based",
+    "typeTags": ["Ivy League", "Private", "Need-blind intl"],
+    "sourceUrls": ["https://college.harvard.edu/admissions/apply/application-timeline"]
+  },
+  "cmu": {
+    "officialWebsite": "https://www.cmu.edu",
+    "admissionsUrl": "https://www.cmu.edu/admission/",
+    "applicationSystems": ["Common App"],
+    "deadlines": [
+      { "label": "Early Decision 1", "month": 11, "day": 1 },
+      { "label": "Early Decision 2 / Regular", "month": 1, "day": 3 }
+    ],
+    "testPolicy": "Varies by college - verify current policy for SCS",
+    "english": "TOEFL 102+ or IELTS 7.5 recommended",
+    "tuitionIntl": "≈$64k/yr",
+    "aid": "Very limited need-based aid for internationals",
+    "scholarships": "Limited merit; plan full cost",
+    "typeTags": ["Private", "CS powerhouse", "STEM-heavy"],
+    "sourceUrls": ["https://www.cmu.edu/admission/admission/application-timeline"]
+  },
+  "berkeley": {
+    "officialWebsite": "https://www.berkeley.edu",
+    "admissionsUrl": "https://admissions.berkeley.edu",
+    "applicationSystems": ["UC Application"],
+    "deadlines": [
+      { "label": "UC Application opens", "month": 10, "day": 1 },
+      { "label": "UC Application closes", "month": 12, "day": 2 }
+    ],
+    "testPolicy": "Test-blind - SAT/ACT not considered",
+    "english": "TOEFL 80+ / IELTS 6.5+",
+    "tuitionIntl": "≈$50k/yr nonresident; no intl aid",
+    "aid": "No need-based aid for internationals (public university)",
+    "scholarships": "Rare external/merit only",
+    "typeTags": ["Public", "STEM-heavy", "Test-blind"],
+    "sourceUrls": ["https://admissions.berkeley.edu/apply-to-berkeley/"]
+  },
+  "uchicago": {
+    "officialWebsite": "https://www.uchicago.edu",
+    "admissionsUrl": "https://collegeadmissions.uchicago.edu",
+    "applicationSystems": ["Common App", "Coalition"],
+    "deadlines": [
+      { "label": "EA / ED1", "month": 11, "day": 1 },
+      { "label": "ED2 / Regular Decision", "month": 1, "day": 6 }
+    ],
+    "testPolicy": "Test-optional",
+    "english": "TOEFL 104+ or IELTS 7+",
+    "tuitionIntl": "≈$66k/yr before aid",
+    "aid": "Need-aware intl with strong need-based program",
+    "scholarships": "Merit scholarships available (auto-considered)",
+    "typeTags": ["Private", "Liberal Arts core", "Essay-driven"],
+    "sourceUrls": ["https://collegeadmissions.uchicago.edu/apply/application-dates-deadlines"]
+  },
+  "princeton": {
+    "officialWebsite": "https://www.princeton.edu",
+    "admissionsUrl": "https://admission.princeton.edu",
+    "applicationSystems": ["Common App"],
+    "deadlines": [
+      { "label": "Restrictive Early Action", "month": 11, "day": 1 },
+      { "label": "Regular Decision", "month": 1, "day": 1 }
+    ],
+    "testPolicy": "Verify current cycle - recently test-optional",
+    "english": "TOEFL 100+ competitive",
+    "tuitionIntl": "≈$62k/yr before aid",
+    "aid": "Need-blind for all incl. international; most generous aid in the Ivy League",
+    "scholarships": "All aid need-based; graded paper required with application",
+    "typeTags": ["Ivy League", "Need-blind intl", "Research"],
+    "sourceUrls": ["https://admission.princeton.edu/how-apply/application-dates-deadlines"]
+  },
+  "yale": {
+    "officialWebsite": "https://www.yale.edu",
+    "admissionsUrl": "https://admissions.yale.edu",
+    "applicationSystems": ["Common App", "Coalition", "QuestBridge"],
+    "deadlines": [
+      { "label": "Restrictive Early Action", "month": 11, "day": 1 },
+      { "label": "Regular Decision", "month": 1, "day": 2 }
+    ],
+    "testPolicy": "Test-flexible - SAT/ACT/AP/IB scores required",
+    "english": "TOEFL 100+ / IELTS 7+",
+    "tuitionIntl": "≈$67k/yr before aid",
+    "aid": "Need-blind for all incl. international; meets full need",
+    "scholarships": "All aid need-based",
+    "typeTags": ["Ivy League", "Need-blind intl", "Collaborative"],
+    "sourceUrls": ["https://admissions.yale.edu/dates-deadlines"]
+  },
+  "oxford": {
+    "officialWebsite": "https://www.ox.ac.uk",
+    "admissionsUrl": "https://www.ox.ac.uk/admissions/undergraduate",
+    "applicationSystems": ["UCAS"],
+    "deadlines": [
+      { "label": "UCAS deadline (all courses)", "month": 10, "day": 15 },
+      { "label": "Admissions tests (course-specific)", "month": 10, "day": 31 },
+      { "label": "Interviews", "month": 12, "day": 1 }
+    ],
+    "testPolicy": "Course admissions tests (MAT/PAT/TSA…) - SAT not used",
+    "english": "IELTS 7.0–7.5 by course",
+    "tuitionIntl": "£35k–£60k/yr by course",
+    "aid": "Very limited intl undergrad aid (Reach Oxford for low-income countries)",
+    "scholarships": "Reach Oxford; college-specific awards",
+    "typeTags": ["UK", "Collegiate", "Subject-first"],
+    "sourceUrls": ["https://www.ox.ac.uk/admissions/undergraduate/applying-to-oxford"]
+  },
+  "cambridge": {
+    "officialWebsite": "https://www.cam.ac.uk",
+    "admissionsUrl": "https://www.undergraduate.study.cam.ac.uk",
+    "applicationSystems": ["UCAS", "My Cambridge Application"],
+    "deadlines": [
+      { "label": "UCAS deadline", "month": 10, "day": 15 },
+      { "label": "Admissions assessments", "month": 10, "day": 28 },
+      { "label": "Interviews", "month": 12, "day": 1 }
+    ],
+    "testPolicy": "Course assessments (ESAT/TMUA/STEP for Maths)",
+    "english": "IELTS 7.5 overall",
+    "tuitionIntl": "£27k–£68k/yr by course",
+    "aid": "Cambridge Trust scholarships for internationals",
+    "scholarships": "Cambridge Trust; college awards",
+    "typeTags": ["UK", "Collegiate", "Subject-depth"],
+    "sourceUrls": ["https://www.undergraduate.study.cam.ac.uk/applying"]
+  },
+  "imperial": {
+    "officialWebsite": "https://www.imperial.ac.uk",
+    "admissionsUrl": "https://www.imperial.ac.uk/study/apply/undergraduate/",
+    "applicationSystems": ["UCAS"],
+    "deadlines": [
+      { "label": "UCAS equal consideration", "month": 1, "day": 29 }
+    ],
+    "testPolicy": "Course tests for some programs (ESAT/MAT)",
+    "english": "IELTS 6.5–7.0 by course",
+    "tuitionIntl": "£40k–£47k/yr",
+    "aid": "Limited intl aid; some departmental scholarships",
+    "scholarships": "President's Undergraduate Scholarships",
+    "typeTags": ["UK", "STEM-only", "Research"],
+    "sourceUrls": ["https://www.imperial.ac.uk/study/apply/undergraduate/process/"]
+  },
+  "ucl": {
+    "officialWebsite": "https://www.ucl.ac.uk",
+    "admissionsUrl": "https://www.ucl.ac.uk/prospective-students/undergraduate",
+    "applicationSystems": ["UCAS"],
+    "deadlines": [
+      { "label": "UCAS equal consideration", "month": 1, "day": 29 }
+    ],
+    "testPolicy": "Course-specific tests for select programs",
+    "english": "IELTS 6.5–7.5 by 'level' band of the course",
+    "tuitionIntl": "£28k–£38k/yr",
+    "aid": "Some intl scholarships (UCL Global Undergraduate)",
+    "scholarships": "UCL Global Undergraduate Scholarship (need-based)",
+    "typeTags": ["UK", "Research", "International-heavy"],
+    "sourceUrls": ["https://www.ucl.ac.uk/prospective-students/undergraduate/how-apply"]
+  },
+  "toronto": {
+    "officialWebsite": "https://www.utoronto.ca",
+    "admissionsUrl": "https://future.utoronto.ca",
+    "applicationSystems": ["OUAC"],
+    "deadlines": [
+      { "label": "OUAC application (most programs)", "month": 1, "day": 15 },
+      { "label": "Supplemental applications", "month": 2, "day": 1 }
+    ],
+    "testPolicy": "SAT not required (school grades drive admission)",
+    "english": "IELTS 6.5 (no band below 6.0) / TOEFL 89+",
+    "tuitionIntl": "CAD $61k–$72k/yr",
+    "aid": "Lester B. Pearson Scholarship (full ride, school nomination)",
+    "scholarships": "Pearson (full); entrance awards automatic",
+    "typeTags": ["Canada", "Public", "Research"],
+    "sourceUrls": ["https://future.utoronto.ca/apply/dates-deadlines/"]
+  },
+  "uwaterloo": {
+    "officialWebsite": "https://uwaterloo.ca",
+    "admissionsUrl": "https://uwaterloo.ca/future-students/admissions",
+    "applicationSystems": ["OUAC 105"],
+    "deadlines": [
+      { "label": "OUAC application", "month": 2, "day": 1 },
+      { "label": "AIF + documents", "month": 2, "day": 21 },
+      { "label": "Euclid contest (boosts CS/Math)", "month": 4, "day": 3 }
+    ],
+    "testPolicy": "No SAT; Euclid/CCC contests materially help CS & Math",
+    "english": "IELTS 6.5 / TOEFL 90+",
+    "tuitionIntl": "CAD $54k–$73k/yr (CS/Eng higher)",
+    "aid": "Entrance scholarships; paid co-op offsets cost significantly",
+    "scholarships": "Automatic entrance awards; contest-linked offers",
+    "typeTags": ["Canada", "Co-op", "CS/Math"],
+    "sourceUrls": ["https://uwaterloo.ca/future-students/admissions/dates-and-deadlines"]
+  },
+  "nus": {
+    "officialWebsite": "https://www.nus.edu.sg",
+    "admissionsUrl": "https://www.nus.edu.sg/oam/",
+    "applicationSystems": ["NUS Applicant Portal"],
+    "deadlines": [
+      { "label": "International window opens", "month": 11, "day": 1 },
+      { "label": "International window closes", "month": 3, "day": 3 }
+    ],
+    "testPolicy": "Accepts SAT (1450+) / IB / A-Levels / national boards",
+    "english": "IELTS 6.5 / TOEFL 92+",
+    "tuitionIntl": "SGD 30k–40k/yr with Tuition Grant (3-yr work bond)",
+    "aid": "MOE Tuition Grant (bond); need + merit awards",
+    "scholarships": "ASEAN/Science & Tech scholarships; Global Merit",
+    "typeTags": ["Asia", "Public", "STEM-heavy"],
+    "sourceUrls": ["https://www.nus.edu.sg/oam/apply-to-nus"]
+  },
+  "ntu": {
+    "officialWebsite": "https://www.ntu.edu.sg",
+    "admissionsUrl": "https://www.ntu.edu.sg/admissions",
+    "applicationSystems": ["NTU Application Portal"],
+    "deadlines": [
+      { "label": "International window opens", "month": 10, "day": 1 },
+      { "label": "International window closes", "month": 3, "day": 1 }
+    ],
+    "testPolicy": "Accepts SAT (1400+) / IB / A-Levels / national boards",
+    "english": "IELTS 6.0–6.5 / TOEFL 90+",
+    "tuitionIntl": "SGD 32k–38k/yr with Tuition Grant (bond)",
+    "aid": "MOE Tuition Grant; need-based bursaries",
+    "scholarships": "Nanyang Scholarship (full, merit)",
+    "typeTags": ["Asia", "Public", "Engineering"],
+    "sourceUrls": ["https://www.ntu.edu.sg/admissions/undergraduate/admission-guide"]
+  },
+  "tum": {
+    "officialWebsite": "https://www.tum.de/en/",
+    "admissionsUrl": "https://www.tum.de/en/studies/application",
+    "applicationSystems": ["TUMonline"],
+    "deadlines": [
+      { "label": "Winter intake closes", "month": 7, "day": 15 },
+      { "label": "Summer intake closes", "month": 1, "day": 15 }
+    ],
+    "testPolicy": "Aptitude assessment per program; TestAS for some",
+    "english": "IELTS 6.5 / TOEFL 88+ (or German B2/C1 for German-taught)",
+    "tuitionIntl": "€2k–€3k/semester for non-EU (Bavaria) + ~€85 fees",
+    "aid": "Deutschlandstipendium (€300/mo); low cost overall",
+    "scholarships": "TUM scholarships; DAAD for internationals",
+    "typeTags": ["Germany", "Public", "Low-cost"],
+    "sourceUrls": ["https://www.tum.de/en/studies/application/application-info-portal"]
+  },
+  "iit-bombay": {
+    "officialWebsite": "https://www.iitb.ac.in",
+    "admissionsUrl": "https://jeeadv.ac.in",
+    "applicationSystems": ["JEE Advanced", "JoSAA counselling"],
+    "deadlines": [
+      { "label": "JEE Main session 1", "month": 1, "day": 24 },
+      { "label": "JEE Advanced", "month": 5, "day": 18 },
+      { "label": "JoSAA counselling", "month": 6, "day": 10 }
+    ],
+    "testPolicy": "JEE Advanced rank only - no essays/ECs",
+    "english": "Not required (Indian national system)",
+    "tuitionIntl": "₹2–3 lakh/yr (~$3k)",
+    "aid": "Merit-cum-means fee waivers",
+    "scholarships": "Institute merit-cum-means scheme",
+    "typeTags": ["India", "Public", "Exam-based"],
+    "sourceUrls": ["https://jeeadv.ac.in/"]
+  },
+  "buet": {
+    "officialWebsite": "https://www.buet.ac.bd",
+    "admissionsUrl": "https://ugadmission.buet.ac.bd",
+    "applicationSystems": ["BUET Admission Test"],
+    "deadlines": [
+      { "label": "Admission test (typical window)", "month": 6, "day": 15 }
+    ],
+    "testPolicy": "BUET admission test only",
+    "english": "Not required",
+    "tuitionIntl": "Nominal public fees",
+    "aid": "Public university - minimal fees",
+    "scholarships": "Board scholarships",
+    "typeTags": ["Bangladesh", "Public", "Exam-based"],
+    "sourceUrls": ["https://ugadmission.buet.ac.bd/"]
+  },
+  "iba-du": {
+    "officialWebsite": "https://iba-du.edu",
+    "admissionsUrl": "https://iba-du.edu/admission",
+    "applicationSystems": ["IBA Admission Test"],
+    "deadlines": [
+      { "label": "BBA admission test (typical)", "month": 12, "day": 1 }
+    ],
+    "testPolicy": "IBA admission test only",
+    "english": "Test includes heavy English section",
+    "tuitionIntl": "Nominal public fees",
+    "aid": "Public university - minimal fees",
+    "scholarships": "Merit awards",
+    "typeTags": ["Bangladesh", "Business", "Exam-based"],
+    "sourceUrls": ["https://iba-du.edu/"]
+  }
+}

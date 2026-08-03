@@ -177,7 +177,7 @@ export default function RoadmapPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {}}
-            className="rounded-full border border-polaris-300 bg-white px-5 py-2.5 text-sm text-ink hover:bg-polaris-50 hover:border-polaris-400 transition-colors duration-150 cursor-default"
+            className="rounded-full border border-polaris-300/40 bg-paper px-5 py-2.5 text-sm text-ink hover:bg-paper-soft hover:border-polaris-400/50 transition-colors duration-150 cursor-default"
           >
             Run intake
           </button>
@@ -189,13 +189,13 @@ export default function RoadmapPage() {
           </button>
           <button
             onClick={() => {}}
-            className="rounded-full border border-aurora-400 bg-white px-5 py-2.5 text-sm text-aurora-500 hover:bg-aurora-400/10 hover:border-aurora-500 transition-colors duration-150 cursor-default"
+            className="rounded-full border border-aurora-400/40 bg-paper px-5 py-2.5 text-sm text-aurora-500 hover:bg-aurora-400/10 hover:border-aurora-500/50 transition-colors duration-150 cursor-default"
           >
             Try University Fit
           </button>
           <button
             onClick={() => {}}
-            className="rounded-full border border-polaris-300 bg-white px-5 py-2.5 text-sm text-ink hover:bg-polaris-50 hover:border-polaris-400 transition-colors duration-150 cursor-default"
+            className="rounded-full border border-polaris-300/40 bg-paper px-5 py-2.5 text-sm text-ink hover:bg-paper-soft hover:border-polaris-400/50 transition-colors duration-150 cursor-default"
           >
             Case studies
           </button>

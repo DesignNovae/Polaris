@@ -59,7 +59,7 @@ export default function SignInPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-polaris-200 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-polaris-200/50 bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
               placeholder="you@example.com"
             />
           </div>
@@ -74,7 +74,7 @@ export default function SignInPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-polaris-200 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
+              className="w-full rounded-xl border border-polaris-200/50 bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-muted focus:border-polaris-400 focus:outline-none transition-colors"
               placeholder="••••••••"
             />
           </div>
