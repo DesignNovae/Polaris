@@ -3,6 +3,7 @@ import { Inter, Libre_Baskerville } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
 import { ThemeProvider, THEME_PREFLIGHT_SCRIPT } from "@/components/app/ThemeProvider";
+import { LangProvider } from "@/lib/i18n/LangProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,7 +43,9 @@ export default function RootLayout({
       >
         <SessionProvider>
           <ThemeProvider>
-            {children}
+            <LangProvider>
+              {children}
+            </LangProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>

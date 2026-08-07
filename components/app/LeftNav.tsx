@@ -128,8 +128,8 @@ function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string
   const active = activeId === item.id;
   const locked = !!item.minPlan && !planMeets(plan, item.minPlan);
 
-  // Enable /roadmap and /action-lab as real pages. Everything else is a no-op in the skeleton.
-  const href = (item.id === "roadmap" || item.id === "action-lab") ? `/${item.id}` : "#";
+  // Enable real pages instead of skeleton no-ops
+  const href = (item.id === "roadmap" || item.id === "action-lab" || item.id === "universities") ? `/${item.id}` : "#";
 
   return (
     <li>
