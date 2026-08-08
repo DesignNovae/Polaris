@@ -40,6 +40,7 @@ export function TopBar() {
 
   const name = session?.user?.name ?? "";
   const email = session?.user?.email ?? "";
+  const role = session?.user?.role as string | undefined;
   const plan = (session?.user?.plan as "free" | "pro" | "elite") ?? "free";
   const initials =
     name.split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "P";
@@ -221,6 +222,11 @@ export function TopBar() {
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<UserGlyph />}>Account</MenuLink>
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CogGlyph />}>Settings</MenuLink>
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CardGlyph />}>Billing &amp; plan</MenuLink>
+                    {(role === "parent" || role === "partner") && (
+                      <MenuLink href="/monitor" onClick={() => setProfileOpen(false)} icon={<MonitorGlyph />}>
+                        Monitor dashboard
+                      </MenuLink>
+                    )}
                   </ul>
 
                   <div className="border-t border-polaris-500/10 py-1.5">
@@ -251,7 +257,7 @@ function MenuLink({
   href, onClick, icon, children,
 }: {
   href: string;
-  onClick: () => void;
+  onClick?: () => void;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -259,7 +265,12 @@ function MenuLink({
     <li>
       <Link
         href={href}
-        onClick={(e) => { e.preventDefault(); onClick(); }}
+        onClick={(e) => {
+          if (href === "#") {
+            e.preventDefault();
+          }
+          onClick?.();
+        }}
         className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ink hover:bg-paper-soft transition-colors"
         role="menuitem"
       >
@@ -325,6 +336,15 @@ function MoonGlyph() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}function MonitorGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={glyphCls}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M8 8h8" />
+      <path d="M8 12h8" />
+      <path d="M8 16h5" />
     </svg>
   );
 }
