@@ -27,6 +27,7 @@ import {
 } from "@/lib/admissions";
 import { roadmapStore } from "@/lib/roadmap/store";
 import { UniversityLogo } from "./UniversityLogo";
+import { FitBreakdown, FACTORS } from "./FitBreakdown";
 import { Icon } from "./ui";
 import { PremiumSelect, OptionDot } from "@/components/ui/PremiumSelect";
 import { cn } from "@/lib/cn";
@@ -52,14 +53,6 @@ function CountryBadge({ country, className }: { country: string; className?: str
     </span>
   );
 }
-
-type FactorId = keyof ProbabilityInputs;
-const FACTORS: { id: FactorId; label: string; min: number; max: number; step: number; fmt: (v: number) => string }[] = [
-  { id: "gpa", label: "GPA / academic ceiling", min: 0, max: 4, step: 0.01, fmt: (v) => v.toFixed(2) },
-  { id: "testPercentile", label: "Standardized testing", min: 0, max: 100, step: 1, fmt: (v) => `${v.toFixed(0)}%ile` },
-  { id: "ecCount", label: "Strong extracurriculars", min: 0, max: 10, step: 1, fmt: (v) => v.toFixed(0) },
-  { id: "research", label: "Research / shipped work", min: 0, max: 10, step: 1, fmt: (v) => v.toFixed(0) },
-];
 
 const BAND_STYLES: Record<FitBand, string> = {
   "Reach": "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-400/15 dark:text-rose-100 dark:ring-rose-400/30",
@@ -383,6 +376,9 @@ export function UniversitiesClient({
             onSave={() => toggleWishlist(detail)}
             onClose={() => setDetailId(null)}
             onImportDeadlines={() => setImportUni(detail)}
+            inputs={inputs}
+            onInputsChange={setInputs}
+            onInputsReset={() => setInputs(initialInputs)}
           />
         )}
         {compareOpen && compareUnis.length >= 2 && (
@@ -533,6 +529,7 @@ function UrgencyRing({ days }: { days: number }) {
 
 function UniDetailModal({
   u, fit, saved, onSave, onClose, onImportDeadlines,
+  inputs, onInputsChange, onInputsReset,
 }: {
   u: UniProfile;
   fit: ReturnType<typeof computeFit>;
@@ -540,6 +537,9 @@ function UniDetailModal({
   onSave: () => void;
   onClose: () => void;
   onImportDeadlines: () => void;
+  inputs: ProbabilityInputs;
+  onInputsChange: (next: ProbabilityInputs) => void;
+  onInputsReset: () => void;
 }) {
   function askStrategist() {
     roadmapStore.emit("UNIVERSITY_VIEWED", `Asked Strategist about ${u.name} (fit: ${fit.band})`);
@@ -597,6 +597,18 @@ function UniDetailModal({
 
         <div className="px-6 py-5 space-y-5">
           <p className="text-[13px] text-ink leading-relaxed">{u.summary}</p>
+
+          {/* Acceptance-probability engine: the score, why it is what it is,
+              and live what-if sliders. */}
+          <section>
+            <SectionHead title="Why this score" />
+            <FitBreakdown
+              fit={fit}
+              inputs={inputs}
+              onChange={onInputsChange}
+              onReset={onInputsReset}
+            />
+          </section>
 
           {/* Deadlines */}
           {u.admissions && u.admissions.deadlines.length > 0 && (
