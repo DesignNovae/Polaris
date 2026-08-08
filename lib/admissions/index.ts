@@ -13,7 +13,7 @@
  */
 
 import admissionsJson from "@/data/university-admissions.json";
-import type { UniversityForModel, ProbabilityInputs } from "@/lib/ml/probability";
+import type { UniversityForModel, ProbabilityInputs, Factor } from "@/lib/ml/probability";
 import { scoreProbability } from "@/lib/ml/probability";
 
 /* ─── enrichment types ─── */
@@ -120,6 +120,10 @@ export type FitResult = {
   explanation: string;
   topDriver?: string;
   biggestGap?: string;
+  /** Per-factor weights + contributions, so the UI can show its working. */
+  factors: Factor[];
+  /** The school's published admit rate, for context next to the estimate. */
+  baseline: number;
 };
 
 export function fitBandOf(p: number): FitBand {
@@ -161,5 +165,7 @@ export function computeFit(
     explanation,
     topDriver: top?.name,
     biggestGap: gap?.name,
+    factors,
+    baseline: res.baseline,
   };
 }
