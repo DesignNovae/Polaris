@@ -124,6 +124,8 @@ export type FitResult = {
   factors: Factor[];
   /** The school's published admit rate, for context next to the estimate. */
   baseline: number;
+  /** This school's starting difficulty penalty (harder school = more negative). */
+  intercept: number;
 };
 
 export function fitBandOf(p: number): FitBand {
@@ -167,5 +169,6 @@ export function computeFit(
     biggestGap: gap?.name,
     factors,
     baseline: res.baseline,
+    intercept: res.intercept,
   };
 }
