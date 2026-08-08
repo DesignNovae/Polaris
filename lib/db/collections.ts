@@ -14,6 +14,9 @@ export type DbUser = {
   password: string;
   role: UserRole;
   plan: Plan;
+  /* Optional contact + avatar (editable from /account). */
+  phone?: string;
+  avatarUrl?: string;
   createdAt: Date;
 };
 
@@ -26,6 +29,18 @@ export async function getUserById(id: string): Promise<DbUser | null> {
     .findOne({ _id: new ObjectId(id) });
   return user;
 }
+
+export async function updateUser(
+  userId: string,
+  fields: Partial<Pick<DbUser, "name" | "password" | "phone" | "avatarUrl">>,
+) {
+  const db = await getDb();
+  await db
+    .collection<DbUser>("users")
+    .updateOne({ _id: new ObjectId(userId) }, { $set: fields });
+}
+
+/* ─── Student profiles ─── */
 
 export type DbProfile = StudentProfile & {
   _id?: ObjectId;

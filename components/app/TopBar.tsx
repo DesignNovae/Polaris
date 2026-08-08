@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, Pill } from "./ui";
 import { useTheme } from "./ThemeProvider";
 import { cn } from "@/lib/cn";
+import { getMissingFields } from "@/lib/profile";
 
 const TITLES: Record<string, { eyebrow: string; title: string }> = {
   roadmap:      { eyebrow: "Workspace", title: "Roadmap" },
@@ -43,6 +44,40 @@ export function TopBar() {
   const initials =
     name.split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "P";
   const planTone = plan === "elite" ? "aurora" : plan === "pro" ? "polaris" : "ink";
+
+  // Avatar - real photo when set; kept in sync app-wide via the upload event.
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/account", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.account?.avatarUrl) setAvatarUrl(d.account.avatarUrl); })
+      .catch(() => {});
+    
+    function onAvatar(e: Event) {
+      setAvatarUrl((e as CustomEvent<{ url: string }>).detail?.url ?? "");
+    }
+    window.addEventListener("polaris:avatarUpdated", onAvatar);
+    return () => { alive = false; window.removeEventListener("polaris:avatarUpdated", onAvatar); };
+  }, []);
+
+  // Profile completion - lazy-loaded the first time the menu opens
+  const [completion, setCompletion] = useState<number | null>(null);
+  useEffect(() => {
+    if (!profileOpen || completion !== null) return;
+    let alive = true;
+    Promise.all([
+      fetch("/api/account").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/profile").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([a, p]) => {
+        if (!alive) return;
+        const missing = getMissingFields(p?.profile ?? null, a?.account ?? {});
+        setCompletion(Math.max(0, Math.min(100, Math.round(((8 - missing.length) / 8) * 100))));
+      })
+      .catch(() => { if (alive) setCompletion(100); });
+    return () => { alive = false; };
+  }, [profileOpen, completion]);
 
   // Click outside closes menu
   useEffect(() => {
@@ -117,7 +152,7 @@ export function TopBar() {
               )}
               title="Account"
             >
-              <Avatar initials={initials} size={26} tone={planTone} />
+              <HeaderAvatar url={avatarUrl} initials={initials} size={26} tone={planTone} />
               <span className="hidden md:inline text-[12.5px] font-medium text-paper truncate max-w-[120px]">
                 {name || "Account"}
               </span>
@@ -137,12 +172,47 @@ export function TopBar() {
                   {/* Identity */}
                   <div className="px-4 pt-4 pb-3.5 border-b border-polaris-500/10">
                     <div className="flex items-center gap-3">
-                      <Avatar initials={initials} size={40} tone={planTone} />
+                      <HeaderAvatar url={avatarUrl} initials={initials} size={40} tone={planTone} ring />
                       <div className="min-w-0 flex-1">
                         <div className="text-[13.5px] font-semibold text-ink truncate">{name || "Signed in"}</div>
                         <div className="text-[11px] text-ink-muted truncate">{email}</div>
                       </div>
                       <Pill tone={planTone}>{plan}</Pill>
+                    </div>
+
+                    {/* Profile completion */}
+                    <div className="mt-3">
+                      {completion === null ? (
+                        <div className="h-1.5 rounded-full bg-paper-deep dark:bg-white/[0.07] animate-pulse" />
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between text-[10.5px] mb-1">
+                            <span className="text-ink-muted font-medium">Profile completion</span>
+                            <span className={cn("font-bold tabular-nums", completion === 100 ? "text-aurora-700 dark:text-aurora-200" : "text-ink")}>
+                              {completion}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-paper-deep dark:bg-white/[0.07] overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${completion}%` }}
+                              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                              className={cn(
+                                "h-full rounded-full",
+                                completion === 100
+                                  ? "bg-gradient-to-r from-aurora-400 to-aurora-500"
+                                  : "bg-gradient-to-r from-polaris-400 to-nova-400",
+                              )}
+                            />
+                          </div>
+                          {completion < 100 && (
+                            <Link href="/account" onClick={() => setProfileOpen(false)}
+                              className="mt-1.5 inline-block text-[10.5px] font-semibold text-polaris-600 dark:text-polaris-300 hover:underline">
+                              Complete your profile →
+                            </Link>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -266,4 +336,31 @@ function LogoutGlyph() {
       <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   );
+}
+
+/* ─── avatar with photo support ─── */
+
+function HeaderAvatar({
+  url, initials, size, tone, ring,
+}: {
+  url: string;
+  initials: string;
+  size: number;
+  tone: "aurora" | "polaris" | "ink";
+  ring?: boolean;
+}) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt=""
+        height={size}
+        width={size}
+        className={cn("rounded-full object-cover shrink-0", ring && "ring-2 ring-polaris-400/40")}
+        style={{ height: size, width: size }}
+      />
+    );
+  }
+  return <Avatar initials={initials} size={size} tone={tone === "ink" ? "ink" : tone} />;
 }
