@@ -2,21 +2,7 @@
 
 import { GemmaDiscoveryRefresh } from "@/components/app/GemmaDiscoveryRefresh";
 
-/**
- * Universities - premium discovery + fit engine.
- *
- *   Header (fit disclaimer · scenario lab toggle)
- *   Search + filter chips (country / difficulty / aid / tests / shortlist)
- *   3D card grid (tilt-on-hover, logo depth, deadline urgency, fit band)
- *   Detail modal (product page: requirements, deadlines → calendar import,
- *                 aid, programs, official links, source badge, Ask Strategist)
- *   Compare bar → side-by-side modal (up to 3)
- *
- * Fit bands (Reach → Safety) come from the real probability engine against
- * the student's profile and are always labelled as estimates. Shortlist
- * persists in localStorage; shortlisting + deadline imports emit shared
- * store events so the Strategist knows.
- */
+
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +13,7 @@ import {
 } from "@/lib/admissions";
 import { roadmapStore } from "@/lib/roadmap/store";
 import { UniversityLogo } from "./UniversityLogo";
-import { FitBreakdown, FACTORS } from "./FitBreakdown";
+import { FitBreakdown, FactorSlider, FACTORS } from "./FitBreakdown";
 import { Icon } from "./ui";
 import { PremiumSelect, OptionDot } from "@/components/ui/PremiumSelect";
 import { cn } from "@/lib/cn";
@@ -219,16 +205,7 @@ export function UniversitiesClient({
               </div>
               <div className="grid sm:grid-cols-2 gap-x-8 gap-y-3">
                 {FACTORS.map((f) => (
-                  <label key={f.id} className="flex items-center gap-3 text-[12px]">
-                    <span className="w-[170px] shrink-0 font-medium text-ink truncate">{f.label}</span>
-                    <input
-                      type="range" min={f.min} max={f.max} step={f.step}
-                      value={inputs[f.id] ?? f.min}
-                      onChange={(e) => setInputs((s) => ({ ...s, [f.id]: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-polaris-500"
-                    />
-                    <span className="w-14 text-right font-mono text-[11px] text-ink tabular-nums">{f.fmt(inputs[f.id] ?? f.min)}</span>
-                  </label>
+                  <FactorSlider key={f.id} factor={f} inputs={inputs} onChange={setInputs} labelWidth="w-[170px]" />
                 ))}
               </div>
             </div>
@@ -587,11 +564,6 @@ function UniDetailModal({
               </button>
               <button onClick={onClose} className="text-ink-muted hover:text-ink p-2" aria-label="Close"><Icon.close /></button>
             </div>
-          </div>
-          {/* Fit explanation */}
-          <div className="relative mt-4 rounded-xl bg-paper-soft px-3.5 py-2.5 text-[12px] text-ink leading-relaxed">
-            <span className="font-bold text-polaris-600 dark:text-polaris-300">Estimated fit (not official):</span>{" "}
-            {fit.explanation}
           </div>
         </div>
 
