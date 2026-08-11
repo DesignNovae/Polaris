@@ -40,4 +40,21 @@ export type PathSummary = {
   color: "polaris" | "nova" | "aurora";
 };
 
+export type StrategistRole = "user" | "agent" | "system";
+
+export type StrategistSource = {
+  label: string;
+  uri: string;
+  kind: "kb" | "case" | "web" | "profile" | "roadmap";
+};
+
+export type StrategistMessage = {
+  id: string;
+  role: StrategistRole;
+  text?: string;
+  bullets?: string[];
+  sources?: StrategistSource[];
+  createdAt: string;
+};
+
 export type { Plan, UserRole };
