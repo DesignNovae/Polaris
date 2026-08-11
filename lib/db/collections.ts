@@ -7,6 +7,20 @@ import type { StudentProfile } from "@/lib/profile";
 export type UserRole = "student" | "parent" | "partner" | "admin";
 export type Plan = "free" | "pro" | "elite";
 
+export type LlmUsageRecord = {
+  userId: string;
+  providerId: string;
+  modelId: string;
+  tier: "free" | "paid" | "local";
+  mode: string;
+  tokensIn: number;
+  tokensOut: number;
+  latencyMs: number;
+  fallback: boolean;
+  outcome: "ok" | "error";
+  errorCode?: string;
+};
+
 export type DbUser = {
   _id?: ObjectId;
   name: string;
