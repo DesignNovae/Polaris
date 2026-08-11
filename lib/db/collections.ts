@@ -7,6 +7,20 @@ import type { StudentProfile } from "@/lib/profile";
 export type UserRole = "student" | "parent" | "partner" | "admin";
 export type Plan = "free" | "pro" | "elite";
 
+export type LlmUsageRecord = {
+  userId: string;
+  providerId: string;
+  modelId: string;
+  tier: "free" | "paid" | "local";
+  mode: string;
+  tokensIn: number;
+  tokensOut: number;
+  latencyMs: number;
+  fallback: boolean;
+  outcome: "ok" | "error";
+  errorCode?: string;
+};
+
 export type DbUser = {
   _id?: ObjectId;
   name: string;
@@ -62,4 +76,41 @@ export async function upsertProfile(userId: string, profile: StudentProfile) {
 export async function getProfile(userId: string): Promise<DbProfile | null> {
   const db = await getDb();
   return db.collection<DbProfile>("profiles").findOne({ userId });
+}
+
+/* ─── Roadmap v2 (tree / skill-map) ─────────────────────────────────────── */
+
+import type { RoadmapDoc } from "@/lib/roadmap/types";
+
+export type DbRoadmapV2 = {
+  _id?: ObjectId;
+  userId: string;
+  doc: RoadmapDoc;
+  updatedAt: Date;
+};
+
+/** One live roadmap per user - replaced wholesale on every mutation. */
+export async function getRoadmapV2(userId: string): Promise<RoadmapDoc | null> {
+  const db = await getDb();
+  const row = await db.collection<DbRoadmapV2>("roadmaps_v2").findOne({ userId });
+  return row?.doc ?? null;
+}
+
+export async function saveRoadmapV2(userId: string, doc: RoadmapDoc): Promise<void> {
+  const db = await getDb();
+  await db.collection<DbRoadmapV2>("roadmaps_v2").updateOne(
+    { userId },
+    { $set: { doc, updatedAt: new Date() } },
+    { upsert: true },
+  );
+}
+
+export async function deleteRoadmapV2(userId: string): Promise<void> {
+  const db = await getDb();
+  await db.collection<DbRoadmapV2>("roadmaps_v2").deleteOne({ userId });
+}
+
+/* ─── Telemetry (Mock) ─── */
+export async function recordUsage(_opts: unknown) {
+  // Mocked until full telemetry implementation
 }

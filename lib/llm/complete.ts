@@ -23,6 +23,8 @@ export type CompleteRequest = {
   messages: ChatMessage[];
   temperature?: number;
   maxOutputTokens?: number;
+  /** Internal reasoning budget. Structured JSON jobs should use "minimal". */
+  thinkingLevel?: "minimal" | "high";
   abortSignal?: AbortSignal;
   /** Honor this user's saved model preference + attribute usage to them. */
   userId?: string;
@@ -61,6 +63,7 @@ export async function completeText(req: CompleteRequest): Promise<string | null>
         messages: req.messages,
         temperature: req.temperature ?? 0.4,
         maxOutputTokens: req.maxOutputTokens ?? 4096,
+        thinkingLevel: req.thinkingLevel ?? "minimal",
         abortSignal: req.abortSignal,
       })) {
         if (chunk.kind === "text") out += chunk.delta;
@@ -77,7 +80,11 @@ export async function completeText(req: CompleteRequest): Promise<string | null>
       route = pickFallback(current);
       fellBack = true;
     } catch (err) {
-      console.error(`[completeText] ${current.chosen.provider.id}/${current.chosen.model.id} failed:`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      // Provider failures are expected to be recoverable because callers may
+      // have a deterministic fallback. Keep the terminal signal concise and
+      // avoid printing a full SDK stack for a handled upstream 5xx.
+      console.warn(`[completeText] ${current.chosen.provider.id}/${current.chosen.model.id} unavailable: ${message}`);
       track(req, current, task, tokensIn, tokensOut, Date.now() - startedAt, fellBack, "error", "PROVIDER_ERROR");
       route = pickFallback(current);
       fellBack = true;
