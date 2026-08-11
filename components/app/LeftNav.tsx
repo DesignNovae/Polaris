@@ -14,6 +14,7 @@ import type { Plan } from "@/lib/db/collections";
 import type { NavItem } from "@/types/app";
 import { Pill, KBD } from "./ui";
 import { cn } from "@/lib/cn";
+import { StreakWidget } from "./StreakWidget";
 
 type Props = {
   plan: Plan;
@@ -97,6 +98,11 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
         </Section>
       </nav>
 
+      {/* Streak widget */}
+      <div className="px-2.5">
+        <StreakWidget />
+      </div>
+
       {/* User */}
       <div className="border-t border-white/[0.06] px-3 py-3 flex items-center gap-2.5">
         <div className="h-8 w-8 rounded-full bg-polaris-500 text-white inline-flex items-center justify-center font-serif font-semibold text-xs">
@@ -129,7 +135,7 @@ function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string
   const locked = !!item.minPlan && !planMeets(plan, item.minPlan);
 
   // Enable real pages instead of skeleton no-ops
-  const href = (item.id === "roadmap" || item.id === "action-lab" || item.id === "universities") ? `/${item.id}` : "#";
+  const href = (["roadmap", "action-lab", "universities", "deadlines"] as string[]).includes(item.id) ? `/${item.id}` : "#";
 
   return (
     <li>

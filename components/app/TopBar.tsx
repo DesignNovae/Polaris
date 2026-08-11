@@ -222,11 +222,9 @@ export function TopBar() {
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<UserGlyph />}>Account</MenuLink>
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CogGlyph />}>Settings</MenuLink>
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CardGlyph />}>Billing &amp; plan</MenuLink>
-                    {(role === "parent" || role === "partner") && (
-                      <MenuLink href="/monitor" onClick={() => setProfileOpen(false)} icon={<MonitorGlyph />}>
-                        Monitor dashboard
-                      </MenuLink>
-                    )}
+                    <MenuLink href="/monitor" onClick={() => setProfileOpen(false)} icon={<MonitorGlyph />}>
+                      Monitor dashboard
+                    </MenuLink>
                   </ul>
 
                   <div className="border-t border-polaris-500/10 py-1.5">
