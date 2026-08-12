@@ -2,21 +2,7 @@
 
 import { GemmaDiscoveryRefresh } from "@/components/app/GemmaDiscoveryRefresh";
 
-/**
- * Universities - premium discovery + fit engine.
- *
- *   Header (fit disclaimer · scenario lab toggle)
- *   Search + filter chips (country / difficulty / aid / tests / shortlist)
- *   3D card grid (tilt-on-hover, logo depth, deadline urgency, fit band)
- *   Detail modal (product page: requirements, deadlines → calendar import,
- *                 aid, programs, official links, source badge, Ask Strategist)
- *   Compare bar → side-by-side modal (up to 3)
- *
- * Fit bands (Reach → Safety) come from the real probability engine against
- * the student's profile and are always labelled as estimates. Shortlist
- * persists in localStorage; shortlisting + deadline imports emit shared
- * store events so the Strategist knows.
- */
+
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +13,7 @@ import {
 } from "@/lib/admissions";
 import { roadmapStore } from "@/lib/roadmap/store";
 import { UniversityLogo } from "./UniversityLogo";
+import { FitBreakdown, FactorSlider, FACTORS } from "./FitBreakdown";
 import { Icon } from "./ui";
 import { PremiumSelect, OptionDot } from "@/components/ui/PremiumSelect";
 import { cn } from "@/lib/cn";
@@ -52,14 +39,6 @@ function CountryBadge({ country, className }: { country: string; className?: str
     </span>
   );
 }
-
-type FactorId = keyof ProbabilityInputs;
-const FACTORS: { id: FactorId; label: string; min: number; max: number; step: number; fmt: (v: number) => string }[] = [
-  { id: "gpa", label: "GPA / academic ceiling", min: 0, max: 4, step: 0.01, fmt: (v) => v.toFixed(2) },
-  { id: "testPercentile", label: "Standardized testing", min: 0, max: 100, step: 1, fmt: (v) => `${v.toFixed(0)}%ile` },
-  { id: "ecCount", label: "Strong extracurriculars", min: 0, max: 10, step: 1, fmt: (v) => v.toFixed(0) },
-  { id: "research", label: "Research / shipped work", min: 0, max: 10, step: 1, fmt: (v) => v.toFixed(0) },
-];
 
 const BAND_STYLES: Record<FitBand, string> = {
   "Reach": "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-400/15 dark:text-rose-100 dark:ring-rose-400/30",
@@ -226,16 +205,7 @@ export function UniversitiesClient({
               </div>
               <div className="grid sm:grid-cols-2 gap-x-8 gap-y-3">
                 {FACTORS.map((f) => (
-                  <label key={f.id} className="flex items-center gap-3 text-[12px]">
-                    <span className="w-[170px] shrink-0 font-medium text-ink truncate">{f.label}</span>
-                    <input
-                      type="range" min={f.min} max={f.max} step={f.step}
-                      value={inputs[f.id] ?? f.min}
-                      onChange={(e) => setInputs((s) => ({ ...s, [f.id]: parseFloat(e.target.value) }))}
-                      className="flex-1 accent-polaris-500"
-                    />
-                    <span className="w-14 text-right font-mono text-[11px] text-ink tabular-nums">{f.fmt(inputs[f.id] ?? f.min)}</span>
-                  </label>
+                  <FactorSlider key={f.id} factor={f} inputs={inputs} onChange={setInputs} labelWidth="w-[170px]" />
                 ))}
               </div>
             </div>
@@ -383,6 +353,9 @@ export function UniversitiesClient({
             onSave={() => toggleWishlist(detail)}
             onClose={() => setDetailId(null)}
             onImportDeadlines={() => setImportUni(detail)}
+            inputs={inputs}
+            onInputsChange={setInputs}
+            onInputsReset={() => setInputs(initialInputs)}
           />
         )}
         {compareOpen && compareUnis.length >= 2 && (
@@ -533,6 +506,7 @@ function UrgencyRing({ days }: { days: number }) {
 
 function UniDetailModal({
   u, fit, saved, onSave, onClose, onImportDeadlines,
+  inputs, onInputsChange, onInputsReset,
 }: {
   u: UniProfile;
   fit: ReturnType<typeof computeFit>;
@@ -540,6 +514,9 @@ function UniDetailModal({
   onSave: () => void;
   onClose: () => void;
   onImportDeadlines: () => void;
+  inputs: ProbabilityInputs;
+  onInputsChange: (next: ProbabilityInputs) => void;
+  onInputsReset: () => void;
 }) {
   function askStrategist() {
     roadmapStore.emit("UNIVERSITY_VIEWED", `Asked Strategist about ${u.name} (fit: ${fit.band})`);
@@ -588,15 +565,22 @@ function UniDetailModal({
               <button onClick={onClose} className="text-ink-muted hover:text-ink p-2" aria-label="Close"><Icon.close /></button>
             </div>
           </div>
-          {/* Fit explanation */}
-          <div className="relative mt-4 rounded-xl bg-paper-soft px-3.5 py-2.5 text-[12px] text-ink leading-relaxed">
-            <span className="font-bold text-polaris-600 dark:text-polaris-300">Estimated fit (not official):</span>{" "}
-            {fit.explanation}
-          </div>
         </div>
 
         <div className="px-6 py-5 space-y-5">
           <p className="text-[13px] text-ink leading-relaxed">{u.summary}</p>
+
+          {/* Acceptance-probability engine: the score, why it is what it is,
+              and live what-if sliders. */}
+          <section>
+            <SectionHead title="Why this score" />
+            <FitBreakdown
+              fit={fit}
+              inputs={inputs}
+              onChange={onInputsChange}
+              onReset={onInputsReset}
+            />
+          </section>
 
           {/* Deadlines */}
           {u.admissions && u.admissions.deadlines.length > 0 && (
