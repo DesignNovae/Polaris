@@ -73,5 +73,3 @@ export const POST = withErrorHandling(async (req) => {
     },
   });
 });
-
-

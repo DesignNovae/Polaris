@@ -7,6 +7,17 @@ import type { StudentProfile } from "@/lib/profile";
 export type UserRole = "student" | "parent" | "partner" | "admin";
 export type Plan = "free" | "pro" | "elite";
 
+export type Subscription = {
+  status?: string;
+  planId?: Plan;
+  billingCycle?: "monthly" | "yearly";
+  startedAt?: string;
+  renewsAt?: string;
+  canceledAt?: string;
+  priceMinor?: number;
+  currency?: string;
+};
+
 export type LlmUsageRecord = {
   userId: string;
   providerId: string;
@@ -28,6 +39,7 @@ export type DbUser = {
   password: string;
   role: UserRole;
   plan: Plan;
+  subscription?: Subscription;
   /* Optional contact + avatar (editable from /account). */
   phone?: string;
   avatarUrl?: string;
@@ -44,6 +56,20 @@ export async function getUserById(id: string): Promise<DbUser | null> {
   return user;
 }
 
+export async function setUserPlan(
+  userId: string,
+  plan: Plan,
+  subscription?: Subscription,
+): Promise<void> {
+  const db = await getDb();
+  const fields: Record<string, unknown> = { plan };
+  if (subscription) fields.subscription = subscription;
+  await db.collection<DbUser>("users").updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: fields },
+  );
+}
+
 export async function updateUser(
   userId: string,
   fields: Partial<Pick<DbUser, "name" | "password" | "phone" | "avatarUrl">>,
@@ -55,7 +81,6 @@ export async function updateUser(
 }
 
 /* ─── Student profiles ─── */
-
 export type DbProfile = StudentProfile & {
   _id?: ObjectId;
   userId: string;
@@ -191,7 +216,6 @@ export async function getTransaction(userId: string, transactionId: string): Pro
 }
 
 /* ─── Strategist chat history ─────────────────────────────────────────── */
-
 export type ChatRole = "user" | "assistant";
 export type ChatSource = {
   label: string;
@@ -305,7 +329,10 @@ export async function getMessages(userId: string, threadId: string, limit = 200)
     .toArray();
 }
 
-/* ─── Telemetry (Mock) ─── */
-export async function recordUsage(_opts: unknown) {
-  // Mocked until full telemetry implementation
+export async function recordUsage(record: LlmUsageRecord): Promise<void> {
+  const db = await getDb();
+  await db.collection<LlmUsageRecord & { createdAt: Date }>("llm_usage").insertOne({
+    ...record,
+    createdAt: new Date(),
+  });
 }

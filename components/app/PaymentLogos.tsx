@@ -117,5 +117,3 @@ export function CardBrandMark({ brand, height = 14 }: { brand: string | null; he
       return <span className="text-[10px] uppercase tracking-wider text-white/55 font-medium">Card</span>;
   }
 }
-
-

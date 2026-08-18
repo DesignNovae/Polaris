@@ -10,6 +10,15 @@ import type { LearningVideo, PracticeQuestion, WritingTask } from "@/lib/action-
 import { gemmaHeaders, getBrowserGemmaKey, setBrowserGemmaKey } from "@/lib/gemma/browser-key";
 import { cn } from "@/lib/cn";
 import { translateUiText } from "@/lib/i18n/bengali";
+import { InterpreterPanel } from "@/components/interpreter/InterpreterPanel";
+import { InterpreterStage } from "@/components/interpreter/InterpreterStage";
+import { InterpreterToggle } from "@/components/interpreter/InterpreterControls";
+import { LessonPlayer } from "@/components/interpreter/LessonPlayer";
+import { INTERPRETER_COPY } from "@/components/interpreter/copy";
+import { useInterpreterSettings } from "@/lib/interpreter/hooks/useInterpreterSettings";
+import { describeMedia, registerVerbatimScript, clearVerbatimScript } from "@/lib/interpreter/bootstrap";
+import { SpeechClockSource } from "@/lib/interpreter/synchronization/clocks/SpeechClockSource";
+import type { YouTubeClockSource } from "@/lib/interpreter/synchronization/clocks/YouTubeClockSource";
 
 type Lang = "en" | "bn";
 type Trace = { source: "gemma4" | "deterministic-fallback"; model: string };
@@ -108,6 +117,33 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
   const words = useMemo(() => script.split(/\s+/).filter(Boolean), [script]);
   const frames = useMemo(() => buildSpeechFrames(script), [script]);
 
+  // Sign language interpreter. A listening exam is inaccessible by construction
+  // to a Deaf or hard-of-hearing student, so this is the surface where the
+  // interpreter matters most - and the one where the words are exactly known,
+  // because Polaris wrote the script it is about to speak.
+  const [interpreterSettings, updateInterpreter] = useInterpreterSettings();
+  const interpreterCopy = INTERPRETER_COPY[lang];
+  const clockRef = useRef<SpeechClockSource | null>(null);
+  const [clock, setClock] = useState<SpeechClockSource | null>(null);
+  const mediaId = `exam-listening:${questionId}`;
+
+  const verbatim = useMemo(
+    () => registerVerbatimScript({ mediaId, script, language: "en-GB", rate: 0.92 }),
+    [mediaId, script],
+  );
+
+  useEffect(() => {
+    const source = new SpeechClockSource({ script, duration: verbatim.duration ?? 1 });
+    clockRef.current = source;
+    setClock(source);
+    return () => {
+      source.destroy();
+      clockRef.current = null;
+      setClock(null);
+      clearVerbatimScript(mediaId);
+    };
+  }, [mediaId, script, verbatim.duration]);
+
   const stopVisual = () => {
     if (visualTimerRef.current) clearTimeout(visualTimerRef.current);
     visualTimerRef.current = null;
@@ -149,6 +185,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
     setActiveWord("");
     setActiveWordIndex(-1);
     setViseme("rest");
+    clockRef.current?.onReset();
     return () => {
       window.speechSynthesis?.cancel();
       stopVisual();
@@ -160,6 +197,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
     if (state === "paused") {
       window.speechSynthesis?.resume();
       startVisual();
+      clockRef.current?.onResume();
       setState("playing");
       return;
     }
@@ -180,15 +218,18 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
     utterance.lang = utterance.voice?.lang || "en-GB";
     utterance.rate = 0.92;
     utterance.pitch = 1;
-    utterance.onstart = () => { setState("playing"); startVisual(); };
+    utterance.onstart = () => { setState("playing"); startVisual(); clockRef.current?.onStart(); };
     utterance.onboundary = (event) => {
       if (typeof event.charIndex !== "number") return;
+      // The only real observation of where the voice actually is. The interpreter
+      // re-anchors on it rather than running an independent timer.
+      clockRef.current?.onBoundary(event.charIndex);
       const alignedIndex = frames.findIndex((frame) => frame.charStart >= event.charIndex);
       if (alignedIndex >= 0 && Math.abs(alignedIndex - visualFrameIndexRef.current) > 2) {
         visualFrameIndexRef.current = alignedIndex;
       }
     };
-    utterance.onend = () => { stopVisual(); setViseme("rest"); setProgress(100); setState("finished"); };
+    utterance.onend = () => { stopVisual(); setViseme("rest"); setProgress(100); setState("finished"); clockRef.current?.onEnd(); };
     utterance.onerror = () => {
       stopVisual();
       if (lipReading) {
@@ -208,6 +249,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
     window.speechSynthesis?.pause();
     stopVisual();
     setViseme("rest");
+    clockRef.current?.onPause();
     setState("paused");
   };
 
@@ -232,14 +274,34 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-muted">{bn ? "অ্যাক্সেসিবিলিটি" : "Accessibility"}</p>
           <p className="mt-0.5 text-[11px] text-ink-dim">{bn ? "Gemma-এর তৈরি স্ক্রিপ্টের ভিজ্যুয়াল বক্তা" : "Visual speaker for the Gemma-generated script"}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setLipReading((value) => !value)}
-          aria-pressed={lipReading}
-          className={cn("rounded-full border px-3 py-1.5 text-[10.5px] font-semibold transition", lipReading ? "border-aurora-500/40 bg-aurora-500/15 text-aurora-500" : "border-ink-faint/20 text-ink-dim hover:border-polaris-500/40")}
-        >
-          {lipReading ? (bn ? "✓ লিপ-রিডিং চালু" : "✓ Lip-reading on") : (bn ? "লিপ-রিডিং সংস্করণ" : "Lip-reading version")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <InterpreterToggle
+            enabled={interpreterSettings.enabled}
+            onChange={(enabled) => updateInterpreter({ enabled })}
+            copy={interpreterCopy}
+            className="rounded-full"
+          />
+          <button
+            type="button"
+            onClick={() => setLipReading((value) => !value)}
+            aria-pressed={lipReading}
+            className={cn("rounded-full border px-3 py-1.5 text-[10.5px] font-semibold transition", lipReading ? "border-aurora-500/40 bg-aurora-500/15 text-aurora-500" : "border-ink-faint/20 text-ink-dim hover:border-polaris-500/40")}
+          >
+            {lipReading ? (bn ? "✓ লিপ-রিডিং চালু" : "✓ Lip-reading on") : (bn ? "লিপ-রিডিং সংস্করণ" : "Lip-reading version")}
+          </button>
+        </div>
+      </div>
+
+      {/* The panel returns null when the interpreter is off, so the toggle above
+          is the only thing that decides whether this block exists. */}
+      <div className="[&:not(:empty)]:border-b [&:not(:empty)]:border-ink-faint/10 [&:not(:empty)]:p-4 sm:[&:not(:empty)]:p-5">
+        <InterpreterPanel
+          mediaId={mediaId}
+          source={clock}
+          lang={lang}
+          duration={verbatim.duration}
+          className="mx-auto w-full max-w-sm"
+        />
       </div>
 
       {lipReading && (
@@ -705,6 +767,25 @@ export function GemmaVideoLearning({ lang }: { lang: Lang }) {
   const [trace, setTrace] = useState<Trace | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Sign language interpreter. The clock source arrives once the player is ready;
+  // until then the panel reports "waiting for the lesson" rather than guessing.
+  const [interpreterSettings, updateInterpreter] = useInterpreterSettings();
+  const [clock, setClock] = useState<YouTubeClockSource | null>(null);
+  const interpreterCopy = INTERPRETER_COPY[lang];
+
+  // Registers the lesson so the caption provider can fetch its published captions
+  // and, failing that, the outline provider can describe the right topic.
+  useEffect(() => {
+    describeMedia({
+      mediaId: selected.id,
+      videoId: selected.youtubeId,
+      title: selected.title,
+      topic: selected.topic,
+      exam: selected.exam,
+      source: selected.source,
+    });
+  }, [selected]);
+
   const defaults = useMemo(() => videosFor(exam, section), [exam, section]);
   const visibleVideos: VideoRecommendation[] = recommendations.length
     ? recommendations
@@ -736,19 +817,51 @@ export function GemmaVideoLearning({ lang }: { lang: Lang }) {
     }
   };
 
+  const interpreterOn = interpreterSettings.enabled;
+
+  const lessonCard = (
+    <Card className="overflow-hidden border border-ink-faint/15">
+      {/*
+        The interpreter control sits ABOVE the player, not below it. A 16:9 video
+        is tall enough to push anything underneath off the first screen, and an
+        accessibility affordance nobody can find without scrolling past the thing
+        they cannot hear is not an affordance.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-faint/12 px-4 py-2.5">
+        <InterpreterToggle
+          enabled={interpreterOn}
+          onChange={(enabled) => updateInterpreter({ enabled })}
+          copy={interpreterCopy}
+        />
+        <span className="text-[10px] text-ink-muted">{tr(selected.topic)} · {tr(selected.duration)}</span>
+      </div>
+
+      <LessonPlayer
+        key={selected.youtubeId}
+        videoId={selected.youtubeId}
+        title={selected.title}
+        onSource={setClock}
+        autoPlay={playerVersion > 0}
+      />
+      <div className="p-5">
+        <div className="flex flex-wrap items-center gap-2"><Pill tone="rose">{selected.exam}</Pill><Tag tone="ink">{tr(selected.topic)}</Tag></div>
+        <h2 className="mt-3 font-serif text-[22px] font-bold text-ink">{tr(selected.title)}</h2>
+        <p className="mt-1 text-[11.5px] text-ink-muted">{selected.source}</p>
+      </div>
+    </Card>
+  );
+
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-      <Card className="overflow-hidden border border-ink-faint/15">
-        <div className="aspect-video bg-[#0b0908]">
-          <iframe key={`${selected.youtubeId}-${playerVersion}`} title={selected.title} src={`https://www.youtube-nocookie.com/embed/${selected.youtubeId}?rel=0${playerVersion ? "&autoplay=1" : ""}`} className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-        </div>
-        <div className="p-5">
-          <div className="flex flex-wrap items-center gap-2"><Pill tone="rose">{selected.exam}</Pill><Tag tone="ink">{tr(selected.topic)}</Tag><span className="ml-auto text-[10.5px] text-ink-muted">{tr(selected.duration)}</span></div>
-          <h2 className="mt-3 font-serif text-[22px] font-bold text-ink">{tr(selected.title)}</h2>
-          <p className="mt-1 text-[11.5px] text-ink-muted">{selected.source}</p>
-        </div>
-      </Card>
-      <div className="space-y-4">
+    <div className={cn("grid gap-4", interpreterOn ? "grid-cols-1" : "xl:grid-cols-[1.3fr_0.7fr]")}>
+      <InterpreterStage
+        enabled={interpreterOn}
+        side={interpreterSettings.side}
+        size={interpreterSettings.size}
+        layout={interpreterSettings.layout}
+        media={lessonCard}
+        panel={<InterpreterPanel mediaId={selected.id} source={clock} lang={lang} className="h-full" />}
+      />
+      <div className={cn("space-y-4", interpreterOn && "xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0")}>
         <Card className="border border-ink-faint/15 p-4">
           <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Gemma পাঠ অনুসন্ধান" : "Gemma lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
           <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => { const next = value as "IELTS" | "SAT"; setExam(next); chooseSection(next === "IELTS" ? "Listening" : "Reading and Writing", next); }} />

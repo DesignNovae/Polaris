@@ -63,6 +63,7 @@ export const PLAN_CATALOG: PlanDef[] = [
       "Community resources & knowledge hub",
       "1 active roadmap with weekly tasks & replans",
       "Deadline tracking & family view",
+      "AI Strategist chat",
     ],
     featuresBn: [
       "বিশ্ববিদ্যালয় ও স্কলারশিপ ডিরেক্টরি",
@@ -71,8 +72,9 @@ export const PLAN_CATALOG: PlanDef[] = [
       "কমিউনিটি রিসোর্স ও নলেজ হাব",
       "১টি সক্রিয় রোডম্যাপ - সাপ্তাহিক টাস্ক ও রিপ্ল্যান",
       "ডেডলাইন ট্র্যাকিং ও ফ্যামিলি ভিউ",
+      "এআই স্ট্র্যাটেজিস্ট চ্যাট",
     ],
-    limits: { strategistPer5Min: 0, maxConnections: 0, activeRoadmaps: 1 },
+    limits: { strategistPer5Min: 10, maxConnections: 0, activeRoadmaps: 1 },
     accent: "ink",
   },
   {
@@ -84,7 +86,7 @@ export const PLAN_CATALOG: PlanDef[] = [
     bdt: { monthly: 55000, yearly: 549000 }, // ৳550 / ৳5,490
     features: [
       "Everything in Free",
-      "AI Strategist - chat, score analysis, next steps",
+      "30 Strategist messages / 5 min",
       "Strategist-aware roadmap replans & guidance",
       "Integration hub - GitHub, Codeforces & more",
       "Partner marketplace - matched student offers",
@@ -92,7 +94,7 @@ export const PLAN_CATALOG: PlanDef[] = [
     ],
     featuresBn: [
       "ফ্রি-র সবকিছু",
-      "এআই স্ট্র্যাটেজিস্ট - চ্যাট, স্কোর বিশ্লেষণ, পরবর্তী ধাপ",
+      "৫ মিনিটে ৩০টি স্ট্র্যাটেজিস্ট মেসেজ",
       "স্ট্র্যাটেজিস্ট-চালিত রোডম্যাপ রিপ্ল্যান ও গাইডেন্স",
       "ইন্টিগ্রেশন হাব - GitHub, Codeforces সহ",
       "পার্টনার মার্কেটপ্লেস - ম্যাচ করা অফার",
@@ -164,5 +166,3 @@ export function parsePlanDescription(desc: string): { planId: Exclude<PlanId, "f
     cycle: m[2].toLowerCase() === "monthly" ? "monthly" : "yearly",
   };
 }
-
-

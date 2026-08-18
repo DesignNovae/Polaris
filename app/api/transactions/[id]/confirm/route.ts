@@ -9,8 +9,8 @@
  *   • 8% fail with "Insufficient funds"
  *   • 2% fail with "Bank declined"
  *
- * Consultant bookings use this as a sandbox payment confirmation. Other
- * transaction descriptions are finalized without changing subscription state.
+ * Consultant bookings use this as a sandbox payment confirmation. Plan
+ * purchases also update the user's subscription state on success.
  */
 
 import { z } from "zod";
@@ -19,7 +19,9 @@ import { requireSession } from "@/lib/authz";
 import {
   getTransaction,
   setTransactionStatus,
+  setUserPlan,
 } from "@/lib/db/collections";
+import { parsePlanDescription } from "@/lib/billing/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +58,23 @@ export const POST = withErrorHandling(async (req, ctx: { params: Promise<{ id: s
   const dice = Math.random();
   if (dice < 0.90) {
     const finalized = await setTransactionStatus(session.id, id, "succeeded");
+    // Bump plan + write full subscription state if this was a plan purchase.
+    const parsed = parsePlanDescription(tx.description);
+    if (parsed) {
+      const now = new Date();
+      const renews = new Date(now);
+      if (parsed.cycle === "monthly") renews.setMonth(renews.getMonth() + 1);
+      else renews.setFullYear(renews.getFullYear() + 1);
+      await setUserPlan(session.id, parsed.planId, {
+        status: "active",
+        planId: parsed.planId,
+        billingCycle: parsed.cycle,
+        startedAt: now.toISOString(),
+        renewsAt: renews.toISOString(),
+        priceMinor: tx.amount,
+        currency: tx.currency,
+      });
+    }
     return ok({
       transaction: {
         id: finalized?._id?.toString(),
