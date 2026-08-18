@@ -135,7 +135,7 @@ function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string
   const locked = !!item.minPlan && !planMeets(plan, item.minPlan);
 
   // Enable real pages instead of skeleton no-ops
-  const href = (["roadmap", "action-lab", "universities", "deadlines"] as string[]).includes(item.id) ? `/${item.id}` : "#";
+  const href = (["roadmap", "action-lab", "universities", "deadlines", "connections"] as string[]).includes(item.id) ? `/${item.id}` : "#";
 
   return (
     <li>
