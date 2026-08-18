@@ -9,8 +9,8 @@
  *   • 8% fail with "Insufficient funds"
  *   • 2% fail with "Bank declined"
  *
- * On success we also bump the user's plan if the description starts with
- * "Polaris Pro" or "Polaris Elite".
+ * Consultant bookings use this as a sandbox payment confirmation. Plan
+ * purchases also update the user's subscription state on success.
  */
 
 import { z } from "zod";
@@ -37,7 +37,9 @@ export const POST = withErrorHandling(async (req, ctx: { params: Promise<{ id: s
 
   const tx = await getTransaction(session.id, id);
   if (!tx) throw new HttpError(404, "Transaction not found");
-  if (tx.status !== "pending" && tx.status !== "processing") {
+  // A failed sandbox attempt can be retried from the same booking. Succeeded
+  // and refunded transactions remain terminal.
+  if (tx.status !== "pending" && tx.status !== "processing" && tx.status !== "failed") {
     throw new HttpError(409, `Transaction already ${tx.status}`);
   }
 

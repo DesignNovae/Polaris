@@ -40,6 +40,9 @@ export type DbUser = {
   role: UserRole;
   plan: Plan;
   subscription?: Subscription;
+  /* Optional contact + avatar (editable from /account). */
+  phone?: string;
+  avatarUrl?: string;
   createdAt: Date;
 };
 
@@ -67,6 +70,17 @@ export async function setUserPlan(
   );
 }
 
+export async function updateUser(
+  userId: string,
+  fields: Partial<Pick<DbUser, "name" | "password" | "phone" | "avatarUrl">>,
+) {
+  const db = await getDb();
+  await db
+    .collection<DbUser>("users")
+    .updateOne({ _id: new ObjectId(userId) }, { $set: fields });
+}
+
+/* ─── Student profiles ─── */
 export type DbProfile = StudentProfile & {
   _id?: ObjectId;
   userId: string;
@@ -89,15 +103,39 @@ export async function getProfile(userId: string): Promise<DbProfile | null> {
   return db.collection<DbProfile>("profiles").findOne({ userId });
 }
 
-export async function recordUsage(record: LlmUsageRecord): Promise<void> {
+/* ─── Roadmap v2 (tree / skill-map) ─────────────────────────────────────── */
+
+import type { RoadmapDoc } from "@/lib/roadmap/types";
+
+export type DbRoadmapV2 = {
+  _id?: ObjectId;
+  userId: string;
+  doc: RoadmapDoc;
+  updatedAt: Date;
+};
+
+/** One live roadmap per user - replaced wholesale on every mutation. */
+export async function getRoadmapV2(userId: string): Promise<RoadmapDoc | null> {
   const db = await getDb();
-  await db.collection<LlmUsageRecord & { createdAt: Date }>("llm_usage").insertOne({
-    ...record,
-    createdAt: new Date(),
-  });
+  const row = await db.collection<DbRoadmapV2>("roadmaps_v2").findOne({ userId });
+  return row?.doc ?? null;
 }
 
-/* ─── Transactions (local sandbox payment ledger) ─── */
+export async function saveRoadmapV2(userId: string, doc: RoadmapDoc): Promise<void> {
+  const db = await getDb();
+  await db.collection<DbRoadmapV2>("roadmaps_v2").updateOne(
+    { userId },
+    { $set: { doc, updatedAt: new Date() } },
+    { upsert: true },
+  );
+}
+
+export async function deleteRoadmapV2(userId: string): Promise<void> {
+  const db = await getDb();
+  await db.collection<DbRoadmapV2>("roadmaps_v2").deleteOne({ userId });
+}
+
+/* ─── Transactions (sandbox payment ledger) ───────────────────────────── */
 
 export type PaymentMethod = "card" | "bkash" | "nagad" | "rocket";
 export type TransactionStatus = "pending" | "processing" | "succeeded" | "failed" | "refunded";
@@ -118,7 +156,7 @@ export type DbTransaction = {
   updatedAt: Date;
 };
 
-function makeReference(): string {
+function makeTransactionReference(): string {
   const segment = () => Math.floor(Math.random() * 9000 + 1000).toString();
   return `POL-${segment()}-${segment()}`;
 }
@@ -130,7 +168,7 @@ export async function createTransaction(
   const now = new Date();
   const doc: DbTransaction = {
     ...row,
-    reference: makeReference(),
+    reference: makeTransactionReference(),
     status: "pending",
     createdAt: now,
     updatedAt: now,
@@ -141,34 +179,43 @@ export async function createTransaction(
 
 export async function setTransactionStatus(
   userId: string,
-  txId: string,
+  transactionId: string,
   status: TransactionStatus,
   failureReason?: string,
 ): Promise<DbTransaction | null> {
-  if (!ObjectId.isValid(txId)) return null;
+  if (!ObjectId.isValid(transactionId)) return null;
   const db = await getDb();
   const update: Record<string, unknown> = { status, updatedAt: new Date() };
   if (failureReason) update.failureReason = failureReason;
   await db.collection<DbTransaction>("transactions").updateOne(
-    { _id: new ObjectId(txId), userId },
+    { _id: new ObjectId(transactionId), userId },
     { $set: update },
   );
-  return db.collection<DbTransaction>("transactions").findOne({ _id: new ObjectId(txId), userId });
+  return db.collection<DbTransaction>("transactions").findOne({
+    _id: new ObjectId(transactionId),
+    userId,
+  });
 }
 
 export async function listTransactions(userId: string, limit = 100): Promise<DbTransaction[]> {
   const db = await getDb();
   return db.collection<DbTransaction>("transactions")
-    .find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
+    .find({ userId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
 }
 
-export async function getTransaction(userId: string, txId: string): Promise<DbTransaction | null> {
-  if (!ObjectId.isValid(txId)) return null;
+export async function getTransaction(userId: string, transactionId: string): Promise<DbTransaction | null> {
+  if (!ObjectId.isValid(transactionId)) return null;
   const db = await getDb();
-  return db.collection<DbTransaction>("transactions")
-    .findOne({ _id: new ObjectId(txId), userId });
+  return db.collection<DbTransaction>("transactions").findOne({
+    _id: new ObjectId(transactionId),
+    userId,
+  });
 }
 
+/* ─── Strategist chat history ─────────────────────────────────────────── */
 export type ChatRole = "user" | "assistant";
 export type ChatSource = {
   label: string;
@@ -220,14 +267,19 @@ export async function createThread(userId: string, title = "New chat"): Promise<
 export async function listThreads(userId: string): Promise<DbChatThread[]> {
   const db = await getDb();
   return db.collection<DbChatThread>("chat_threads")
-    .find({ userId }).sort({ lastMessageAt: -1 }).limit(200).toArray();
+    .find({ userId })
+    .sort({ lastMessageAt: -1 })
+    .limit(200)
+    .toArray();
 }
 
 export async function getThread(userId: string, threadId: string): Promise<DbChatThread | null> {
   if (!ObjectId.isValid(threadId)) return null;
   const db = await getDb();
-  return db.collection<DbChatThread>("chat_threads")
-    .findOne({ _id: new ObjectId(threadId), userId });
+  return db.collection<DbChatThread>("chat_threads").findOne({
+    _id: new ObjectId(threadId),
+    userId,
+  });
 }
 
 export async function renameThread(userId: string, threadId: string, title: string): Promise<boolean> {
@@ -253,13 +305,14 @@ export async function appendMessage(
   message: Omit<DbChatMessage, "_id" | "createdAt">,
 ): Promise<DbChatMessage> {
   const db = await getDb();
-  const doc: DbChatMessage = { ...message, createdAt: new Date() };
+  const now = new Date();
+  const doc: DbChatMessage = { ...message, createdAt: now };
   const result = await db.collection<DbChatMessage>("chat_messages").insertOne(doc);
   if (ObjectId.isValid(message.threadId)) {
     await db.collection<DbChatThread>("chat_threads").updateOne(
       { _id: new ObjectId(message.threadId), userId: message.userId },
       {
-        $set: { lastMessageAt: doc.createdAt, updatedAt: doc.createdAt, lastMode: message.mode },
+        $set: { lastMessageAt: now, updatedAt: now, lastMode: message.mode },
         $inc: { messageCount: 1 },
       },
     );
@@ -270,5 +323,16 @@ export async function appendMessage(
 export async function getMessages(userId: string, threadId: string, limit = 200): Promise<DbChatMessage[]> {
   const db = await getDb();
   return db.collection<DbChatMessage>("chat_messages")
-    .find({ userId, threadId }).sort({ createdAt: 1 }).limit(limit).toArray();
+    .find({ userId, threadId })
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .toArray();
+}
+
+export async function recordUsage(record: LlmUsageRecord): Promise<void> {
+  const db = await getDb();
+  await db.collection<LlmUsageRecord & { createdAt: Date }>("llm_usage").insertOne({
+    ...record,
+    createdAt: new Date(),
+  });
 }

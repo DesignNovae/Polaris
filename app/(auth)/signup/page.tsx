@@ -46,7 +46,7 @@ export default function SignUpPage() {
         return;
       }
 
-      window.location.href = "/roadmap";
+      window.location.href = role === "student" ? "/account?welcome=1" : "/monitor";
     } catch {
       setError("Something went wrong");
       setLoading(false);

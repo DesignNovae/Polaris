@@ -1,25 +1,19 @@
 /**
- * Acceptance-probability model.
+ * Acceptance-probability model (logistic regression).
  *
- * Logistic regression with hand-tuned coefficients calibrated against
- * the patterns in data/case-studies.json + public acceptance-rate data.
- * Inference is a pure dot product - runs anywhere, no Python runtime needed.
- *
- * Features are intentionally transparent (no demographic proxies):
- *   - GPA (0–4 normalized)
- *   - Standardized test percentile (0–100)
- *   - Strong extracurriculars count (0–10)
- *   - Research / publications signal (0–10)
- *   - University tier difficulty (1=elite, 2=top50, 3=top200, 4=regional)
+ * Starts from a university's published acceptance rate, then moves it up or
+ * down based on the student's academic profile. Academic inputs only - the
+ * model uses no demographic data.
  */
 
 import type { StudentProfile } from "@/lib/profile";
+import { deriveEngineGpa } from "@/lib/profile";
 
 export type ProbabilityInputs = {
-  gpa: number;
-  testPercentile: number;
-  ecCount: number;
-  research: number;
+  gpa: number;            // 0–4
+  testPercentile: number; // 0–100
+  ecCount: number;        // 0–10
+  research: number;       // 0–10
 };
 
 export type UniversityForModel = {
@@ -32,7 +26,6 @@ export type Factor = {
   name: string;
   weight: number;
   contribution: number;
-  hint: string;
 };
 
 export type ProbabilityResult = {
@@ -41,95 +34,102 @@ export type ProbabilityResult = {
   baseline: number;
 };
 
-// Coefficients (tuned by hand against case-studies + acceptance rates).
-// Normalizations are shifted so 50th-percentile inputs map to ~0 - preventing
-// weak profiles from getting an unearned boost.
-const W = {
-  gpa: 3.2,       // gpa: (gpa - 3.4) / 0.6, clamped to [-1, 1]
-  test: 2.4,      // test: (pct - 50) / 50, clamped to [-1, 1]
-  ec: 2.0,        // ec: (count - 3) / 7, clamped to [-1, 1]
-  research: 2.2,  // research: (val - 3) / 7, clamped to [-1, 1]
-};
+/** How much each factor can move the result. GPA matters most. */
+const WEIGHTS = { gpa: 0.9, test: 0.7, ec: 0.5, research: 0.5 };
 
-// Tier-specific intercept (more negative = harder)
-const TIER_INTERCEPT: Record<UniversityForModel["tier"], number> = {
-  elite: -3.0,
-  top10: -2.4,
-  top50: -1.0,
-  top100: -0.4,
-  top200: 0.1,
-  regional: 0.7,
-};
+const GPA_CENTER = 3.4; // GPA of a typical admitted student
+const GPA_FLOOR = 2.0;  // below this, an application isn't considered
 
-const FEATURE_HINTS = {
-  gpa: "Higher GPA correlates with admission. Tier-1 admits typically had ≥ 3.9 unweighted.",
-  test: "Standardized test percentile. SAT 1500+ ≈ 99th, 1400 ≈ 94th, 1300 ≈ 87th.",
-  ec: "Sustained, high-impact extracurriculars (not breadth). 5–7 strong ones outperform 10 shallow ones.",
-  research: "Original research, publications, or shipped products. Highest-leverage differentiator for elite tiers.",
-};
-
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const sigmoid = (z: number) => 1 / (1 + Math.exp(-z));
+const logit = (p: number) => Math.log(clamp(p, 0.001, 0.99) / (1 - clamp(p, 0.001, 0.99)));
 
-export function scoreProbability(
-  inputs: ProbabilityInputs,
-  uni: UniversityForModel
-): ProbabilityResult {
-  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-  // Center the features so mid-profiles ≈ 0, weak profiles negative, strong positive.
-  const gpaNorm = clamp((inputs.gpa - 3.4) / 0.6, -1, 1);
-  const testNorm = clamp((inputs.testPercentile - 50) / 50, -1, 1);
-  const ecNorm = clamp((inputs.ecCount - 3) / 7, -1, 1);
-  const resNorm = clamp((inputs.research - 3) / 7, -1, 1);
+const SAT_TABLE: [sat: number, percentile: number][] = [
+  [400, 0], [600, 1], [700, 4], [800, 11], [900, 25], [1000, 41], [1050, 50],
+  [1100, 58], [1200, 74], [1300, 87], [1400, 94], [1500, 98], [1550, 99], [1600, 100],
+];
 
-  const intercept = TIER_INTERCEPT[uni.tier];
-  const gpaC = W.gpa * gpaNorm;
-  const testC = W.test * testNorm;
-  const ecC = W.ec * ecNorm;
-  const resC = W.research * resNorm;
-
-  const z = intercept + gpaC + testC + ecC + resC;
-  let prob = sigmoid(z);
-
-  // Hard cap so an elite school never reads as a sure thing, but high-acceptance
-  // schools can still climb to 90%+ for a strong applicant.
-  const cap = Math.min(0.97, uni.acceptanceRate * 4 + 0.25);
-  prob = Math.min(prob, cap);
-
-  const factors: Factor[] = [
-    { name: "GPA", weight: W.gpa, contribution: gpaC, hint: FEATURE_HINTS.gpa },
-    { name: "Test percentile", weight: W.test, contribution: testC, hint: FEATURE_HINTS.test },
-    { name: "Extracurriculars", weight: W.ec, contribution: ecC, hint: FEATURE_HINTS.ec },
-    { name: "Research / shipped work", weight: W.research, contribution: resC, hint: FEATURE_HINTS.research },
-  ].sort((a, b) => b.contribution - a.contribution);
-
-  return {
-    probability: prob,
-    factors,
-    baseline: uni.acceptanceRate,
-  };
+/** Converts a raw SAT score into a percentile rank. */
+export function satToPercentile(sat: number): number {
+  if (sat <= 400) return 0;
+  if (sat >= 1600) return 100;
+  for (let i = 1; i < SAT_TABLE.length; i++) {
+    const [loSat, loPct] = SAT_TABLE[i - 1];
+    const [hiSat, hiPct] = SAT_TABLE[i];
+    if (sat <= hiSat) return loPct + ((sat - loSat) / (hiSat - loSat)) * (hiPct - loPct);
+  }
+  return 100;
 }
 
 /**
- * Derive default probability-engine inputs from a stored student profile.
- * Used to pre-fill the simulator sliders.
+ * Scores GPA against the typical admit. Above 3.4 earns up to +1; below it the
+ * penalty keeps growing down to 0.0 instead of bottoming out early.
  */
+function gpaScore(gpa: number): number {
+  return gpa >= GPA_CENTER
+    ? clamp((gpa - GPA_CENTER) / (4 - GPA_CENTER), 0, 1)
+    : clamp((gpa - GPA_CENTER) / GPA_CENTER, -1, 0);
+}
+
+/** Estimates a student's chance of admission at one university. */
+export function scoreProbability(
+  inputs: ProbabilityInputs,
+  uni: UniversityForModel,
+): ProbabilityResult {
+  const gpa = WEIGHTS.gpa * gpaScore(inputs.gpa);
+  const test = WEIGHTS.test * clamp((inputs.testPercentile - 50) / 50, -1, 1);
+  const ec = WEIGHTS.ec * clamp((inputs.ecCount - 3) / 7, -1, 1);
+  const research = WEIGHTS.research * clamp((inputs.research - 3) / 7, -1, 1);
+
+  // Start at the school's real admit rate, then apply the profile.
+  const score = logit(uni.acceptanceRate) + gpa + test + ec + research;
+  let probability = sigmoid(score);
+
+  // Universities don't consider applications below a minimum GPA, however
+  // strong the rest of the profile is.
+  if (inputs.gpa < GPA_FLOOR) {
+    probability *= Math.max(0, inputs.gpa / GPA_FLOOR) ** 3;
+  }
+
+  const factors: Factor[] = [
+    { name: "GPA", weight: WEIGHTS.gpa, contribution: gpa },
+    { name: "Test score", weight: WEIGHTS.test, contribution: test },
+    { name: "Extracurriculars", weight: WEIGHTS.ec, contribution: ec },
+    { name: "Research work", weight: WEIGHTS.research, contribution: research },
+  ].sort((a, b) => b.contribution - a.contribution);
+
+  return { probability, factors, baseline: uni.acceptanceRate };
+}
+
+/** Turns a saved student profile into the four numbers the model needs. */
 export function profileToInputs(profile: StudentProfile | null): ProbabilityInputs {
   if (!profile) {
-    return { gpa: 3.7, testPercentile: 85, ecCount: 4, research: 2 };
+    return { gpa: GPA_CENTER, testPercentile: 50, ecCount: 3, research: 3 };
   }
-  const ecCount = Math.min(10, profile.ecs.length * 1.6);
-  const research = profile.ecs.includes("Research") ? 6 : 2;
-  // Map intent → assumed test percentile if not measured yet
-  const testPct =
-    profile.targetTier === "elite"
-      ? 90
-      : profile.targetTier === "top50"
-      ? 80
-      : 70;
+
+  const ecs = profile.ecs ?? [];
+  const achievements = profile.achievements?.length ?? 0;
+  const scholarships = profile.scholarships?.length ?? 0;
+  const sat = profile.testScores?.SAT;
+
+  const ecCount = clamp(ecs.length * 1.2 + achievements * 0.8 + scholarships * 0.5, 0, 10);
+
+  // Starts at the neutral 3: curricula like HSC have no research component, so
+  // "nothing on file" means no information, not a weakness.
+  const research = clamp(
+    3 +
+      (ecs.includes("Research") ? 3 : 0) +
+      (ecs.includes("Olympiads") ? 1 : 0) +
+      (ecs.includes("Internships") ? 1 : 0) +
+      Math.min(achievements * 0.5, 2),
+    0,
+    10,
+  );
+
   return {
-    gpa: profile.gpa,
-    testPercentile: profile.testPercentile ?? testPct,
+    gpa: deriveEngineGpa(profile),
+    testPercentile: profile.testPercentile ?? (sat !== undefined ? satToPercentile(sat) : 50),
     ecCount: profile.ecCount ?? Math.round(ecCount),
-    research: profile.research ?? research,
+    research: profile.research ?? Math.round(research),
   };
 }

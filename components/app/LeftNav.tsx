@@ -134,6 +134,9 @@ function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string
     item.id === "strategist" ||
     item.id === "action-lab" ||
     item.id === "universities" ||
+    item.id === "community" ||
+    item.id === "consultants" ||
+    item.id === "bookings" ||
     item.id === "billing" ||
     item.id === "transactions"
   ) ? `/${item.id}` : "#";
