@@ -557,3 +557,64 @@ details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
 .chev { transition: transform .2s ease; }
 details[open] .chev { transform: rotate(90deg); }
+
+/* ─── Sign-language interpreter stage ─────────────────────────────────────
+   Keep the lesson first in the accessibility tree; desktop placement is only
+   a visual arrangement. On smaller screens the video and interpreter stack. */
+.interpreter-stage {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .interpreter-stage[data-layout="beside"][data-side="right"] {
+    grid-template-columns: minmax(0, 1fr) var(--interpreter-column, 21rem);
+  }
+  .interpreter-stage[data-layout="beside"][data-side="left"] {
+    grid-template-columns: var(--interpreter-column, 21rem) minmax(0, 1fr);
+  }
+  .interpreter-stage[data-layout="focus"][data-side="right"] {
+    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr);
+  }
+  .interpreter-stage[data-layout="focus"][data-side="left"] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.62fr);
+  }
+  .interpreter-stage[data-side="left"] > .interpreter-stage-media { order: 2; }
+  .interpreter-stage[data-side="left"] > .interpreter-stage-panel { order: 1; }
+}
+
+.interpreter-stage-overlay {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .interpreter-stage-overlay {
+    position: relative;
+    gap: 0;
+  }
+  .interpreter-stage-overlay > .interpreter-stage-float {
+    position: absolute;
+    top: 1rem;
+    z-index: 20;
+    width: 17rem;
+  }
+  .interpreter-stage-overlay[data-size="small"] > .interpreter-stage-float { width: 13.5rem; }
+  .interpreter-stage-overlay[data-size="large"] > .interpreter-stage-float { width: 21rem; }
+  .interpreter-stage-overlay[data-side="right"] > .interpreter-stage-float { right: 1rem; }
+  .interpreter-stage-overlay[data-side="left"] > .interpreter-stage-float { left: 1rem; }
+  .interpreter-stage-overlay > .interpreter-stage-float > * {
+    box-shadow: 0 24px 60px -20px rgba(139, 94, 60, 0.45), 0 0 0 1px rgba(139, 94, 60, 0.14);
+  }
+}
+
+.lesson-player-frame > iframe,
+.lesson-player-frame > div {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
