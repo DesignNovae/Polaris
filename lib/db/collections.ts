@@ -7,6 +7,17 @@ import type { StudentProfile } from "@/lib/profile";
 export type UserRole = "student" | "parent" | "partner" | "admin";
 export type Plan = "free" | "pro" | "elite";
 
+export type Subscription = {
+  status?: string;
+  planId?: Plan;
+  billingCycle?: "monthly" | "yearly";
+  startedAt?: string;
+  renewsAt?: string;
+  canceledAt?: string;
+  priceMinor?: number;
+  currency?: string;
+};
+
 export type LlmUsageRecord = {
   userId: string;
   providerId: string;
@@ -28,6 +39,7 @@ export type DbUser = {
   password: string;
   role: UserRole;
   plan: Plan;
+  subscription?: Subscription;
   createdAt: Date;
 };
 
@@ -39,6 +51,20 @@ export async function getUserById(id: string): Promise<DbUser | null> {
     .collection<DbUser>("users")
     .findOne({ _id: new ObjectId(id) });
   return user;
+}
+
+export async function setUserPlan(
+  userId: string,
+  plan: Plan,
+  subscription?: Subscription,
+): Promise<void> {
+  const db = await getDb();
+  const fields: Record<string, unknown> = { plan };
+  if (subscription) fields.subscription = subscription;
+  await db.collection<DbUser>("users").updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: fields },
+  );
 }
 
 export type DbProfile = StudentProfile & {
@@ -69,6 +95,78 @@ export async function recordUsage(record: LlmUsageRecord): Promise<void> {
     ...record,
     createdAt: new Date(),
   });
+}
+
+/* ─── Transactions (local sandbox payment ledger) ─── */
+
+export type PaymentMethod = "card" | "bkash" | "nagad" | "rocket";
+export type TransactionStatus = "pending" | "processing" | "succeeded" | "failed" | "refunded";
+
+export type DbTransaction = {
+  _id?: ObjectId;
+  userId: string;
+  reference: string;
+  method: PaymentMethod;
+  amount: number;
+  currency: string;
+  description: string;
+  status: TransactionStatus;
+  maskedAccount?: string;
+  cardBrand?: string;
+  failureReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function makeReference(): string {
+  const segment = () => Math.floor(Math.random() * 9000 + 1000).toString();
+  return `POL-${segment()}-${segment()}`;
+}
+
+export async function createTransaction(
+  row: Omit<DbTransaction, "_id" | "reference" | "status" | "createdAt" | "updatedAt">,
+): Promise<DbTransaction> {
+  const db = await getDb();
+  const now = new Date();
+  const doc: DbTransaction = {
+    ...row,
+    reference: makeReference(),
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const result = await db.collection<DbTransaction>("transactions").insertOne(doc);
+  return { ...doc, _id: result.insertedId };
+}
+
+export async function setTransactionStatus(
+  userId: string,
+  txId: string,
+  status: TransactionStatus,
+  failureReason?: string,
+): Promise<DbTransaction | null> {
+  if (!ObjectId.isValid(txId)) return null;
+  const db = await getDb();
+  const update: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (failureReason) update.failureReason = failureReason;
+  await db.collection<DbTransaction>("transactions").updateOne(
+    { _id: new ObjectId(txId), userId },
+    { $set: update },
+  );
+  return db.collection<DbTransaction>("transactions").findOne({ _id: new ObjectId(txId), userId });
+}
+
+export async function listTransactions(userId: string, limit = 100): Promise<DbTransaction[]> {
+  const db = await getDb();
+  return db.collection<DbTransaction>("transactions")
+    .find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
+}
+
+export async function getTransaction(userId: string, txId: string): Promise<DbTransaction | null> {
+  if (!ObjectId.isValid(txId)) return null;
+  const db = await getDb();
+  return db.collection<DbTransaction>("transactions")
+    .findOne({ _id: new ObjectId(txId), userId });
 }
 
 export type ChatRole = "user" | "assistant";
