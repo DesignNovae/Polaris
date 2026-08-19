@@ -14,6 +14,7 @@ import type { Plan } from "@/lib/db/collections";
 import type { NavItem } from "@/types/app";
 import { Pill, KBD } from "./ui";
 import { cn } from "@/lib/cn";
+import { StreakWidget } from "./StreakWidget";
 
 type Props = {
   plan: Plan;
@@ -96,6 +97,11 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
           {NAV_FOOTER.map(item => <Item key={item.id} item={item} activeId={activeId} plan={plan} small/>)}
         </Section>
       </nav>
+
+      {/* Streak widget */}
+      <div className="px-2.5">
+        <StreakWidget />
+      </div>
 
       {/* User */}
       <div className="border-t border-white/[0.06] px-3 py-3 flex items-center gap-2.5">

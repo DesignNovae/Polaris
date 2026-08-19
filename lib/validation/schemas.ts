@@ -62,6 +62,11 @@ export const registerSchema = z.object({
   role: z.enum(["student", "parent", "partner"]).optional(),
 });
 
+export const inviteSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["parent", "partner"]),
+});
+
 export const accountUpdateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   currentPassword: z.string().optional(),

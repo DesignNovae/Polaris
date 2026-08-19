@@ -21,6 +21,7 @@ const PROTECTED = [
   "/billing",
   "/transactions",
   "/family",
+  "/monitor",
   "/account",
   "/action-lab",
 ];
@@ -63,6 +64,7 @@ export const config = {
     "/billing/:path*",
     "/transactions/:path*",
     "/family/:path*",
+    "/monitor/:path*",
     "/account/:path*",
     "/action-lab/:path*",
   ],

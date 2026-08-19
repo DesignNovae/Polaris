@@ -50,6 +50,10 @@ async function ensureIndexes(db: Db): Promise<void> {
 
   await Promise.all([
     db.collection("users").createIndex({ email: 1 }, { unique: true }),
+    db.collection("monitorInvites").createIndex({ token: 1 }, { unique: true }),
+    db.collection("monitorInvites").createIndex({ studentId: 1 }),
+    db.collection("monitorInvites").createIndex({ viewerId: 1 }),
+    db.collection("monitorInvites").createIndex({ email: 1 }),
   ]).catch((err) => {
     console.error("[db] ensureIndexes failed:", err);
     ensured = false;
