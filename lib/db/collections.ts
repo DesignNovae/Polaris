@@ -336,3 +336,94 @@ export async function recordUsage(record: LlmUsageRecord): Promise<void> {
     createdAt: new Date(),
   });
 }
+
+/* ─── Mock Questions (AI-generated question bank) ─── */
+
+export type DbMockQuestion = {
+  _id?: ObjectId;
+  id: string;
+  fingerprint: string;
+  exam: "IELTS" | "SAT";
+  section: string;
+  skill: string;
+  passage?: string;
+  prompt: string;
+  options: string[];
+  answer: number;
+  explanation: string;
+  difficulty: "Foundation" | "Medium" | "Advanced";
+  source: "gemma4" | "deterministic-fallback" | "question-bank";
+  model: string;
+  qualityVersion: number;
+  servedCount: number;
+  status: "active" | "retired";
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function questionFingerprint(q: { prompt: string; options: string[] }): string {
+  const raw = q.prompt + q.options.join("");
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(16).padStart(8, "0");
+}
+
+export async function saveMockQuestions(
+  questions: Array<Omit<DbMockQuestion, "_id" | "fingerprint" | "servedCount" | "status" | "qualityVersion" | "createdAt" | "updatedAt">>,
+): Promise<DbMockQuestion[]> {
+  const db = await getDb();
+  const col = db.collection<DbMockQuestion>("mock_questions");
+  const now = new Date();
+  const docs: DbMockQuestion[] = questions.map((q) => ({
+    ...q,
+    fingerprint: questionFingerprint(q),
+    qualityVersion: 1,
+    servedCount: 0,
+    status: "active" as const,
+    createdAt: now,
+    updatedAt: now,
+  }));
+  // Skip duplicates by fingerprint
+  const existing = await col.find({
+    fingerprint: { $in: docs.map((d) => d.fingerprint) },
+  }).toArray();
+  const existingFps = new Set(existing.map((e) => e.fingerprint));
+  const newDocs = docs.filter((d) => !existingFps.has(d.fingerprint));
+  if (newDocs.length) await col.insertMany(newDocs);
+  return docs;
+}
+
+/* ─── Mock Attempts (user exam submissions) ─── */
+
+export type DbMockAttempt = {
+  _id?: ObjectId;
+  userId: string;
+  exam: "IELTS" | "SAT";
+  section: string;
+  difficulty: "Foundation" | "Medium" | "Advanced";
+  questionIds: string[];
+  answers: Record<string, number>;
+  score: number;
+  total: number;
+  feedback: string;
+  source: "gemma4" | "deterministic-fallback";
+  model: string;
+  createdAt: Date;
+};
+
+export async function saveMockAttempt(
+  attempt: Omit<DbMockAttempt, "_id" | "createdAt">,
+): Promise<DbMockAttempt> {
+  const db = await getDb();
+  const doc: DbMockAttempt = { ...attempt, createdAt: new Date() };
+  const result = await db.collection<DbMockAttempt>("mock_attempts").insertOne(doc);
+  return { ...doc, _id: result.insertedId };
+}
+
+export async function listMockAttempts(userId: string, limit = 50): Promise<DbMockAttempt[]> {
+  const db = await getDb();
+  return db.collection<DbMockAttempt>("mock_attempts")
+    .find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
+}

@@ -15,6 +15,8 @@ import {
   hasUniqueChoices,
   stabilizeGeneratedText,
 } from "@/lib/gemma/output-quality";
+import { saveMockQuestions, saveMockAttempt } from "@/lib/db/collections";
+import { requireSession } from "@/lib/authz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -445,10 +447,19 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const liveQuestions = flatQuestions(generated, body.exam, body.section, body.difficulty);
     const questions = liveQuestions.length === 3 ? liveQuestions : fallbackQuestions(body.exam, body.section, body.difficulty).slice(0, 3);
     const source = liveQuestions.length === 3 ? "gemma4" : "deterministic-fallback";
-    return Response.json({ questions, source, model: source === "gemma4" ? getGemmaModelId() : "none" });
+    const modelId = source === "gemma4" ? getGemmaModelId() : "none";
+    let questionsPersisted = true;
+    try {
+      await saveMockQuestions(questions.map((q) => ({ ...q, source, model: modelId })));
+    } catch (error) {
+      questionsPersisted = false;
+      console.warn("[gemma-studio] failed to save mock questions", error);
+    }
+    return Response.json({ questions, source, model: modelId, questionsPersisted });
   }
 
   if (body.kind === "exam-grade") {
+    const session = await requireSession();
     const score = body.questions.filter((item) => body.answers[item.id] === item.answer).length;
     const misses = body.questions
       .filter((item) => body.answers[item.id] !== item.answer)
@@ -468,7 +479,29 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const fallback = lang === "bn"
       ? `আপনার স্কোর ${score}/${body.questions.length}। ভুল প্রশ্নগুলোর skill ও distractor আবার দেখুন, নিজের ভাষায় সঠিক যুক্তি লিখুন, তারপর আগামীকাল একই skill-এর একটি ছোট timed set দিন।`
       : `You scored ${score}/${body.questions.length}. Revisit each missed skill and distractor, explain the correct reasoning in your own words, then repeat a short timed set tomorrow.`;
-    return Response.json({ score, feedback: finalizeGeneratedLanguage(generated || fallback, lang), source: generated ? "gemma4" : "deterministic-fallback", model: generated ? getGemmaModelId() : "none" });
+    const gradeSource = generated ? "gemma4" as const : "deterministic-fallback" as const;
+    const gradeModel = generated ? getGemmaModelId() : "none";
+    const feedbackText = finalizeGeneratedLanguage(generated || fallback, lang);
+    let attemptPersisted = true;
+    try {
+      await saveMockAttempt({
+        userId: session.id,
+        exam: body.exam,
+        section: body.questions[0]?.section ?? "unknown",
+        difficulty: body.questions[0]?.difficulty ?? "Foundation",
+        questionIds: body.questions.map((q) => q.id),
+        answers: body.answers,
+        score,
+        total: body.questions.length,
+        feedback: feedbackText,
+        source: gradeSource,
+        model: gradeModel,
+      });
+    } catch (error) {
+      attemptPersisted = false;
+      console.warn("[gemma-studio] failed to save mock attempt", error);
+    }
+    return Response.json({ score, feedback: feedbackText, source: gradeSource, model: gradeModel, attemptPersisted });
   }
 
   if (body.kind === "videos") {
