@@ -135,7 +135,17 @@ function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string
   const locked = !!item.minPlan && !planMeets(plan, item.minPlan);
 
   // Enable real pages instead of skeleton no-ops
-  const href = (["roadmap", "action-lab", "universities", "deadlines", "connections"] as string[]).includes(item.id) ? `/${item.id}` : "#";
+  const href = (
+    item.id === "roadmap" ||
+    item.id === "strategist" ||
+    item.id === "action-lab" ||
+    item.id === "universities" ||
+    item.id === "community" ||
+    item.id === "consultants" ||
+    item.id === "bookings" ||
+    item.id === "billing" ||
+    item.id === "transactions"
+  ) ? `/${item.id}` : "#";
 
   return (
     <li>

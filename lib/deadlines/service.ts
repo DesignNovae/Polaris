@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongodb";
 import { HttpError } from "@/lib/api/respond";
@@ -78,4 +79,23 @@ export async function deleteDeadline(userId: string, id: string) {
   const db = await getDb();
   const res = await db.collection<DbDeadline>(COLL).deleteOne({ _id: new ObjectId(id), userId });
   if (res.deletedCount === 0) throw new HttpError(404, "Deadline not found");
+=======
+import { getDb } from "@/lib/db/mongodb";
+
+/** Minimal read model used by consultant matching. The full deadline UI is
+ * not part of this project slice, but existing deadline rows can still make
+ * marketplace recommendations more relevant. */
+export type ConsultantDeadline = {
+  title?: string;
+  date?: string;
+  dueAt?: string;
+};
+
+export async function listDeadlines(userId: string): Promise<ConsultantDeadline[]> {
+  const db = await getDb();
+  return db.collection<ConsultantDeadline>("deadlines")
+    .find({ userId })
+    .sort({ date: 1, dueAt: 1 })
+    .toArray();
+>>>>>>> origin/main
 }

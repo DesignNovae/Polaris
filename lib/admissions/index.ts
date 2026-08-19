@@ -114,16 +114,14 @@ export type FitBand = "Reach" | "Competitive Reach" | "Target" | "Likely" | "Saf
 
 export type FitResult = {
   band: FitBand;
-  /** Engine probability 0–1 - surfaced ONLY as a labelled estimate. */
+  /** Engine probability 0–1 - always shown as an estimate, never a promise. */
   estimate: number;
-  /** Why - from the engine's real factor contributions. */
-  explanation: string;
-  topDriver?: string;
-  biggestGap?: string;
-  /** Per-factor weights + contributions, so the UI can show its working. */
+  /** Factors ranked strongest-first, so the UI can show what's driving it. */
   factors: Factor[];
-  /** The school's published admit rate, for context next to the estimate. */
+  /** The school's published admit rate. */
   baseline: number;
+  /** The weakest factor - used to prefill the Ask Strategist question. */
+  biggestGap?: string;
 };
 
 export function fitBandOf(p: number): FitBand {
@@ -147,25 +145,11 @@ export function computeFit(
   uni: { id: string; tier: UniversityForModel["tier"]; acceptanceRate: number },
 ): FitResult {
   const res = scoreProbability(inputs, uni);
-  const factors = res.factors;
-  const top = factors[0];
-  const gap = factors[factors.length - 1];
-  const band = fitBandOf(res.probability);
-
-  const explanation =
-    top && gap && top !== gap
-      ? `${top.name} is your strongest signal here; ${gap.name.toLowerCase()} is the biggest gap for this school's admit profile.`
-      : top
-        ? `${top.name} carries most of your fit for this school.`
-        : "Estimate derived from your academic profile against this school's selectivity.";
-
   return {
-    band,
+    band: fitBandOf(res.probability),
     estimate: res.probability,
-    explanation,
-    topDriver: top?.name,
-    biggestGap: gap?.name,
-    factors,
+    factors: res.factors,
     baseline: res.baseline,
+    biggestGap: res.factors[res.factors.length - 1]?.name,
   };
 }

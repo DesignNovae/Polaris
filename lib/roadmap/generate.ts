@@ -30,6 +30,7 @@ import { summarizeProfile, type StudentProfile } from "@/lib/profile";
 import type { Lang } from "@/lib/i18n/strings";
 import { generationLanguageInstruction } from "@/lib/i18n/server";
 import { stabilizeGeneratedText } from "@/lib/gemma/output-quality";
+import { generateScheduledRoadmap } from "./schedule";
 
 /* ─── helpers ─── */
 
@@ -151,7 +152,7 @@ function generationPrompt(
     ``,
     `RULES`,
     `1. Branches are categories (use only: Academics, SAT, IELTS, Olympiads, ECAs, Projects, Research, Leadership, Hackathons, Applications, Scholarships, Portfolio, Wellness, Foundations). Only include branches appropriate to the level + exams. NEVER give SAT/Applications branches to early-school or middle-school.`,
-    `2. 3–6 branches, 2–5 nodes each. Each node is one concrete mission completable within 1–2 phases.`,
+    `2. 3–6 branches, 1–5 nodes each; every branch must have at least one concrete mission. Prefer 2+ nodes when there are multiple distinct missions, but never invent filler. Each node is one concrete mission completable within 1–2 phases.`,
     `3. Every node must teach HOW to finish within the timeframe: "how" is concrete steps; tasks are 2–6 checkable actions; completionCriteria is objectively verifiable; estimatedHoursPerWeek is honest.`,
     `4. Spread nodes across phases 0..${phases - 1}: early = foundations/diagnostics, middle = build, late = consolidate/apply. Short plans (${config.durationDays} days) mean urgent essentials only - cut nice-to-haves.`,
     `5. topics: pick 1–4 tags ONLY from: ${KNOWN_TOPICS.join(", ")}.`,
@@ -159,7 +160,7 @@ function generationPrompt(
     `7. "impact" is a short profile-impact line like "+ Testing strength".`,
     ``,
     `OUTPUT - ONLY JSON, no prose:`,
-    `{ "title": "...", "branches": [ { "title": "...", "category": "...", "priority": "high|medium|low", "nodes": [ { "title","description","why","how","type":"study|practice|project|test|activity|application","priority","difficulty":1-5,"phase":0-${phases - 1},"estimatedHoursPerWeek":n,"tasks":["..."],"topics":["..."],"completionCriteria":"...","impact":"..." } ] } ] }`,
+    `{ "title": "...", "branches": [ { "title": "...", "category": "...", "priority": "high|medium|low", "nodes": [ { "title": "...", "description": "...", "why": "...", "how": "...", "type": "study|practice|project|test|activity|application", "priority": "high|medium|low", "difficulty": 3, "phase": 0, "estimatedHoursPerWeek": 5, "tasks": ["..."], "topics": ["..."], "completionCriteria": "...", "impact": "..." } ] } ] }`,
   ].join("\n");
 }
 
@@ -193,52 +194,7 @@ export async function generateRoadmap(
   config: RoadmapConfig,
   opts: { userId?: string; language?: Lang } = {},
 ): Promise<RoadmapDoc> {
-  const phases = phaseCount(config.durationDays, config.timelineMode);
-
-  let branches: RoadmapBranch[] | null = null;
-  let title = `${config.targetGoal} - ${config.durationDays}-day plan`;
-
-  const raw = await completeText({
-    task: "general",
-    userId: opts.userId,
-    feature: "roadmap-generate",
-    system: generationPrompt(profile, config, phases, opts.language),
-    messages: [{ role: "user", content: "Generate the roadmap tree now." }],
-    temperature: 0.5,
-    maxOutputTokens: 8192,
-  });
-  if (raw) {
-    const parsed = GenPlanSchema.safeParse(extractJson(raw));
-    if (parsed.success) {
-      branches = fromGenPlan(parsed.data, phases);
-      title = stabilizeGeneratedText(parsed.data.title);
-    }
-  }
-  if (!branches) branches = fromTemplates(config, phases);
-
-  // Seed initial scores from setup.
-  const scores: ScoreEntry[] = Object.entries(config.currentScores ?? {})
-    .filter(([k]) => k in SCORE_DEFS)
-    .map(([key, value]) => ({
-      key, value,
-      label: SCORE_DEFS[key].label,
-      max: SCORE_DEFS[key].max,
-      at: new Date(),
-    }));
-
-  const now = new Date();
-  const doc: RoadmapDoc = {
-    roadmapId: shortId(),
-    title,
-    config,
-    phases: Array.from({ length: phases }, (_, i) => phaseLabel(config.timelineMode, i)),
-    branches,
-    scores,
-    adaptations: [],
-    createdAt: now,
-    updatedAt: now,
-  };
-  return recomputeStatuses(doc);
+  return generateScheduledRoadmap(profile, config, opts);
 }
 
 /* ─── score adaptation (rule-based, instant) ─── */
@@ -335,12 +291,37 @@ export async function adaptRoadmap(
     messages: [{ role: "user", content: "Adapt the roadmap now." }],
     temperature: 0.5,
     maxOutputTokens: 8192,
+    thinkingLevel: "minimal",
   });
   if (!raw) return null;
   const parsed = GenPlanSchema.safeParse(extractJson(raw));
   if (!parsed.success) return null;
 
   const fresh = fromGenPlan(parsed.data, phases);
+
+  // A scheduled roadmap has task ids and month/week coordinates that the
+  // workspace depends on. Keep that source of truth stable while applying
+  // any matching LLM improvements to the mission copy; replacing the tree
+  // wholesale here would orphan the schedule's task references.
+  if (doc.schedule) {
+    const existing = new Map(doc.branches.flatMap((b) => b.nodes).map((n) => [n.title.trim().toLowerCase(), n]));
+    for (const branch of fresh) {
+      for (const candidate of branch.nodes) {
+        const current = existing.get(candidate.title.trim().toLowerCase());
+        if (!current) continue;
+        const { id, phase, tasks, status, progress, notes, completedAt } = current;
+        Object.assign(current, candidate, { id, phase, tasks, status, progress, notes, completedAt });
+      }
+    }
+    doc.title = parsed.data.title || doc.title;
+    doc.adaptations.push({
+      id: shortId(),
+      reason: reason ? `Replan: ${reason.slice(0, 140)}` : "Strategist refreshed scheduled mission guidance",
+      at: new Date(),
+    });
+    doc.updatedAt = new Date();
+    return recomputeStatuses(doc);
+  }
 
   // Preserve completed nodes: re-attach them to the matching category branch
   // (or keep their original branch if the category vanished).

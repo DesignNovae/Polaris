@@ -57,14 +57,27 @@ export function phaseLabel(mode: TimelineMode, index: number): string {
   }
 }
 
-/** How many phases a duration yields under a mode (clamped 2–12). */
+/** How many top-level schedule units a duration yields under a mode. */
 export function phaseCount(durationDays: number, mode: TimelineMode): number {
   const raw =
     mode === "daily" ? durationDays :
     mode === "weekly" ? Math.ceil(durationDays / 7) :
-    mode === "monthly" ? Math.ceil(durationDays / 30) :
+    // Use the average calendar month so 365 days is twelve months and 730
+    // days is twenty-four, instead of producing an artificial thirteenth or
+    // twenty-fifth month from a fixed 30-day divisor.
+    mode === "monthly" ? Math.ceil(durationDays / (365 / 12)) :
     Math.ceil(durationDays / 365);
-  return Math.max(2, Math.min(12, raw));
+  // The old implementation capped every mode at twelve. That made a 15-day
+  // sprint expose only twelve days and made a 90-day weekly plan lose its
+  // thirteenth week. Keep a guardrail for unusually large custom durations,
+  // but make the limits belong to the selected mode.
+  const maxByMode: Record<TimelineMode, number> = {
+    daily: 365,
+    weekly: 52,
+    monthly: 48,
+    yearly: 10,
+  };
+  return Math.max(1, Math.min(maxByMode[mode], raw));
 }
 
 /* ─── setup config ─── */
@@ -101,7 +114,18 @@ export type NodeResource = {
   note?: string;
 };
 
-export type NodeTask = { id: string; text: string; done: boolean };
+export type NodeTask = {
+  id: string;
+  text: string;
+  done: boolean;
+  /** Optional schedule coordinates. Flat legacy tasks simply omit these. */
+  missionId?: string;
+  unitIndex?: number;
+  yearIndex?: number;
+  monthIndex?: number;
+  weekIndex?: number;
+  dayIndex?: number;
+};
 
 export type ScoreInputDef = {
   /** Stable key, e.g. "sat-math", "ielts-writing", "mock-pct". */
@@ -154,6 +178,50 @@ export type RoadmapNode = {
   completedAt?: Date;
 };
 
+/* ─── duration-aware schedule ─── */
+
+export type ScheduleDetailState = "expanded" | "summary" | "deferred" | "legacy";
+
+export type RoadmapWeek = {
+  weekIndex: number;
+  title: string;
+  objective: string;
+  taskIds: string[];
+};
+
+export type RoadmapMonth = {
+  monthIndex: number;
+  title: string;
+  objective: string;
+  missionIds: string[];
+  weeks: RoadmapWeek[];
+};
+
+export type RoadmapScheduleUnit = {
+  unitIndex: number;
+  label: string;
+  title: string;
+  objective: string;
+  detailState: ScheduleDetailState;
+  /** Mission ids are populated for expanded units and summary/deferred units. */
+  missionIds: string[];
+  /** High-level mission briefs let deferred units expand without regenerating prior units. */
+  missionBriefs?: Array<{ id: string; title: string; objective: string }>;
+  /** Monthly mode: four fixed planning weeks. */
+  weeks?: RoadmapWeek[];
+  /** Yearly mode: months nested under an expanded year. */
+  months?: RoadmapMonth[];
+  yearIndex?: number;
+};
+
+export type RoadmapSchedule = {
+  version: 1;
+  mode: TimelineMode;
+  durationDays: number;
+  units: RoadmapScheduleUnit[];
+  generatedAt: Date;
+};
+
 export type BranchCategory =
   | "Academics" | "SAT" | "IELTS" | "Olympiads" | "ECAs" | "Projects"
   | "Research" | "Leadership" | "Hackathons" | "Applications"
@@ -176,6 +244,8 @@ export type RoadmapDoc = {
   /** Phase labels precomputed for the timeline header. */
   phases: string[];
   branches: RoadmapBranch[];
+  /** Optional for backwards compatibility; new documents always include it. */
+  schedule?: RoadmapSchedule;
   scores: ScoreEntry[];
   /** Log of adaptive changes ("Boosted SAT Math after low score"). */
   adaptations: Array<{ id: string; reason: string; at: Date }>;
@@ -193,7 +263,7 @@ export const GenNodeSchema = z.object({
   type: z.enum(["study", "practice", "project", "test", "activity", "application"]),
   priority: z.enum(["high", "medium", "low"]),
   difficulty: z.number().int().min(1).max(5),
-  phase: z.number().int().min(0).max(11),
+  phase: z.number().int().min(0).max(364),
   estimatedHoursPerWeek: z.number().min(0.5).max(40),
   tasks: z.array(z.string().min(1).max(240)).min(2).max(7),
   topics: z.array(z.string().min(1).max(40)).min(1).max(5),
@@ -205,7 +275,10 @@ export const GenBranchSchema = z.object({
   title: z.string().min(1).max(80),
   category: z.string().min(1).max(40),
   priority: z.enum(["high", "medium", "low"]),
-  nodes: z.array(GenNodeSchema).min(2).max(8),
+  // A focused branch may legitimately contain one mission, especially on
+  // long timelines where the model spreads work across monthly phases. Do
+  // not discard an otherwise valid AI roadmap and replace it with templates.
+  nodes: z.array(GenNodeSchema).min(1).max(8),
 });
 
 export const GenPlanSchema = z.object({
