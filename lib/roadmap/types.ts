@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import type { MissionEvidence, RoadmapPlanningState, StudentEvidence } from "./planning-types";
 
 /* ─── education levels (5) ─── */
 
@@ -82,6 +83,18 @@ export function phaseCount(durationDays: number, mode: TimelineMode): number {
 
 /* ─── setup config ─── */
 
+export const RoadmapTargetSchema = z.object({
+  query: z.string().min(1).max(160),
+  kind: z.enum(["university", "scholarship"]).default("university"),
+  institutionId: z.string().max(80).optional(),
+  scholarshipId: z.string().max(80).optional(),
+  country: z.string().max(80).optional(),
+  program: z.string().max(120).optional(),
+  degreeLevel: z.enum(["undergrad", "masters", "phd", "general"]).optional(),
+  deadline: z.string().max(40).optional(),
+  priority: z.enum(["primary", "secondary"]).default("secondary"),
+});
+
 export const RoadmapConfigSchema = z.object({
   educationLevel: z.enum(EDUCATION_LEVELS),
   /** Free-text class/year, e.g. "Class 9", "A2", "Gap year". */
@@ -99,6 +112,8 @@ export const RoadmapConfigSchema = z.object({
   academicTarget: z.string().max(120).optional(),
   /** Current scores at setup time, e.g. { "SAT": 1180, "IELTS": 6.5 }. */
   currentScores: z.record(z.string(), z.number()).optional(),
+  /** Optional target portfolio entries; unresolved entries are matched against local content. */
+  targets: RoadmapTargetSchema.array().max(12).optional(),
 });
 export type RoadmapConfig = z.infer<typeof RoadmapConfigSchema>;
 
@@ -125,6 +140,8 @@ export type NodeTask = {
   monthIndex?: number;
   weekIndex?: number;
   dayIndex?: number;
+  /** Task-specific resources selected from the task text and mission topics. */
+  resources?: NodeResource[];
 };
 
 export type ScoreInputDef = {
@@ -175,6 +192,14 @@ export type RoadmapNode = {
   status: NodeStatus;
   progress: number; // 0–100, derived from tasks unless set directly
   notes: Array<{ id: string; text: string; at: Date }>;
+  /** Structured causal links used by the Why this? explanation UI. */
+  gapIds?: string[];
+  targetIds?: string[];
+  strategicReason?: string;
+  expectedEvidence?: Array<Pick<StudentEvidence, "type" | "claim">>;
+  evidence?: MissionEvidence[];
+  valueScore?: number;
+  strategyDerived?: boolean;
   completedAt?: Date;
 };
 
@@ -203,10 +228,25 @@ export type RoadmapScheduleUnit = {
   title: string;
   objective: string;
   detailState: ScheduleDetailState;
+  /** Human-readable state for summary-first progressive generation. */
+  summary?: string;
+  priority?: "high" | "medium" | "low";
+  gapIds?: string[];
+  targetIds?: string[];
+  expectedOutcomes?: string[];
+  detailError?: string;
   /** Mission ids are populated for expanded units and summary/deferred units. */
   missionIds: string[];
   /** High-level mission briefs let deferred units expand without regenerating prior units. */
-  missionBriefs?: Array<{ id: string; title: string; objective: string }>;
+  missionBriefs?: Array<{
+    id: string;
+    title: string;
+    objective: string;
+    priority?: "high" | "medium" | "low";
+    gapIds?: string[];
+    targetIds?: string[];
+    expectedEvidence?: string[];
+  }>;
   /** Monthly mode: four fixed planning weeks. */
   weeks?: RoadmapWeek[];
   /** Yearly mode: months nested under an expanded year. */
@@ -246,6 +286,8 @@ export type RoadmapDoc = {
   branches: RoadmapBranch[];
   /** Optional for backwards compatibility; new documents always include it. */
   schedule?: RoadmapSchedule;
+  /** Additive V3 planning state; absent on readable legacy documents. */
+  planning?: RoadmapPlanningState;
   scores: ScoreEntry[];
   /** Log of adaptive changes ("Boosted SAT Math after low score"). */
   adaptations: Array<{ id: string; reason: string; at: Date }>;

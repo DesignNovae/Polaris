@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
-import { isYouTubeId } from "@/lib/roadmap/resources";
+import { isYouTubeId, resourcesForTask } from "@/lib/roadmap/resources";
 import { roadmapStore } from "@/lib/roadmap/store";
 import {
   nodeProgressFromTasks,
@@ -21,11 +21,12 @@ type WeekRow = { node: RoadmapNode; task: NodeTask; branchTitle: string };
  * resources that belong to this branch/week.
  */
 export function RoadmapWeekModal({
-  doc, unitIndex, weekIndex, branchId, apiBase, demo, onClose, onDocUpdated, onOpenNode,
+  doc, unitIndex, weekIndex, monthIndex, branchId, apiBase, demo, onClose, onDocUpdated, onOpenNode,
 }: {
   doc: RoadmapDoc;
   unitIndex: number;
   weekIndex: number;
+  monthIndex?: number;
   branchId?: string;
   apiBase: string;
   demo: boolean;
@@ -39,15 +40,21 @@ export function RoadmapWeekModal({
   const [scoreVal, setScoreVal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const unit = doc.schedule?.units[unitIndex];
-  const week = unit?.weeks?.find((item) => item.weekIndex === weekIndex);
+  const month = monthIndex === undefined ? undefined : unit?.months?.find((item) => item.monthIndex === monthIndex);
+  const week = month?.weeks.find((item) => item.weekIndex === weekIndex) ?? unit?.weeks?.find((item) => item.weekIndex === weekIndex);
+  const activePeriod = month ?? week ?? (unit ? { title: unit.title, objective: unit.objective } : undefined);
 
   const rows = useMemo<WeekRow[]>(() => {
     if (!unit) return [];
     const branches = branchId ? doc.branches.filter((branch) => branch.id === branchId) : doc.branches;
     return branches.flatMap((branch) => branch.nodes.flatMap((node) => node.tasks
-      .filter((task) => task.unitIndex === unitIndex && task.weekIndex === weekIndex)
+      .filter((task) => monthIndex !== undefined
+        ? task.yearIndex === unit?.yearIndex && task.monthIndex === monthIndex
+        : unit?.weeks?.length
+          ? task.unitIndex === unitIndex && task.weekIndex === weekIndex
+          : task.unitIndex === unitIndex)
       .map((task) => ({ node, task, branchTitle: branch.title }))));
-  }, [doc, unit, unitIndex, weekIndex, branchId]);
+  }, [doc, unit, unitIndex, weekIndex, monthIndex, branchId]);
 
   const missionNodes = useMemo(() => {
     const seen = new Set<string>();
@@ -58,9 +65,9 @@ export function RoadmapWeekModal({
     });
   }, [rows]);
 
-  if (!unit || !week) return null;
+  if (!unit || !activePeriod) return null;
   const activeUnit = unit;
-  const activeWeek = week;
+  const activeWeek = activePeriod;
 
   const primary = missionNodes[0];
   const doneCount = rows.filter((row) => row.task.done).length;
@@ -69,7 +76,8 @@ export function RoadmapWeekModal({
   const hours = Math.round(missionNodes.reduce((sum, node) => sum + node.estimatedHoursPerWeek, 0) * 2) / 2;
   const difficulty = missionNodes.length ? Math.max(...missionNodes.map((node) => node.difficulty)) : 1;
   const impact = missionNodes.map((node) => node.impact).find(Boolean) ?? "+ Consistent weekly progress";
-  const resources = [...new Map(missionNodes.flatMap((node) => node.resources).map((resource) => [resource.ref, resource])).values()].slice(0, 8);
+  const resources = [...new Map(rows.flatMap((row) => row.task.resources ?? resourcesForTask(row.task.text, row.node.topics)).map((resource) => [resource.ref, resource])).values()].slice(0, 8);
+  const periodLabel = monthIndex !== undefined ? "Month" : activeUnit.label.startsWith("Day") ? "Day" : "Week";
   const scoreInputs = [...new Map(missionNodes.flatMap((node) => node.scoreInputs).map((score) => [score.key, score])).values()];
   const notes = missionNodes.flatMap((node) => node.notes.map((note) => ({ ...note, nodeTitle: node.title }))).slice(-6);
 
@@ -102,10 +110,10 @@ export function RoadmapWeekModal({
         body: JSON.stringify({ toggleTask: row.task.id }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.doc) throw new Error(data?.error ?? "Could not update weekly task");
+      if (!response.ok || !data.doc) throw new Error(data?.error ?? `Could not update ${periodLabel.toLowerCase()} task`);
       onDocUpdated(data.doc as RoadmapDoc, data.adaptation ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update weekly task");
+      setError(err instanceof Error ? err.message : `Could not update ${periodLabel.toLowerCase()} task`);
     } finally {
       setBusy(null);
     }
@@ -137,12 +145,12 @@ export function RoadmapWeekModal({
           body: JSON.stringify({ toggleTask: row.task.id }),
         });
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.doc) throw new Error(data?.error ?? "Could not complete week");
+        if (!response.ok || !data.doc) throw new Error(data?.error ?? `Could not complete ${periodLabel.toLowerCase()}`);
         latest = data.doc as RoadmapDoc;
       }
       onDocUpdated(latest);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not complete week");
+      setError(err instanceof Error ? err.message : `Could not complete ${periodLabel.toLowerCase()}`);
     } finally {
       setBusy(null);
     }
@@ -210,7 +218,7 @@ export function RoadmapWeekModal({
 
   function askStrategist() {
     if (!primary) return;
-    const draft = `Help me with ${activeUnit.label}, ${activeWeek.title}: ${activeWeek.objective} The weekly progress is ${progress}%.`;
+    const draft = `Help me with ${activeUnit.label}, ${activeWeek.title}: ${activeWeek.objective} The ${periodLabel.toLowerCase()} progress is ${progress}%.`;
     roadmapStore.selectNode(primary.id, { silent: true });
     window.dispatchEvent(new CustomEvent("polaris:openAgentRail", { detail: { draft } }));
     onClose();
@@ -232,12 +240,12 @@ export function RoadmapWeekModal({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                 {branchId && <Chip>{rows[0]?.branchTitle ?? "Roadmap"}</Chip>}
-                <Chip>Week</Chip>
+                <Chip>{periodLabel}</Chip>
                 <Chip>{unit.label}</Chip>
                 <Chip tone={priority === "high" ? "rose" : "ink"}>{priority} priority</Chip>
                 <span className="text-[10.5px] font-mono text-ink-muted">{"●".repeat(difficulty)}{"○".repeat(5 - difficulty)}</span>
               </div>
-              <h2 className="font-serif text-[23px] leading-tight font-bold tracking-tight text-ink">{week.title}</h2>
+              <h2 className="font-serif text-[23px] leading-tight font-bold tracking-tight text-ink">{activeWeek.title}</h2>
               <div className="mt-1 flex items-center gap-3 text-[11px] font-mono text-ink-muted">
                 <span>~{hours || 0}h/week</span><span>·</span><span>{unit.label}</span><span>·</span><span>{progress}% done</span>
               </div>
@@ -252,26 +260,26 @@ export function RoadmapWeekModal({
 
           <section>
             <Label>Mission brief</Label>
-            <p className="text-[13.5px] text-ink leading-relaxed">{week.objective}</p>
+            <p className="text-[13.5px] text-ink leading-relaxed">{activeWeek.objective}</p>
             <div className="mt-3 grid sm:grid-cols-2 gap-3">
-              <div className="rounded-xl bg-paper-soft p-3.5"><div className="text-[10px] uppercase tracking-wider font-bold text-nova-600 dark:text-nova-200 mb-1">Why it matters</div><p className="text-[12.5px] text-ink leading-relaxed">{missionNodes.slice(0, 2).map((node) => node.why).join(" ") || "This week turns the roadmap objective into measurable evidence."}</p></div>
-              <div className="rounded-xl bg-paper-soft p-3.5"><div className="text-[10px] uppercase tracking-wider font-bold text-polaris-600 dark:text-polaris-300 mb-1">How to do it</div><p className="text-[12.5px] text-ink leading-relaxed">{missionNodes[0]?.how || "Complete the checklist in order and capture evidence before the week closes."}</p></div>
+              <div className="rounded-xl bg-paper-soft p-3.5"><div className="text-[10px] uppercase tracking-wider font-bold text-nova-600 dark:text-nova-200 mb-1">Why it matters</div><p className="text-[12.5px] text-ink leading-relaxed">{missionNodes.slice(0, 2).map((node) => node.why).join(" ") || `This ${periodLabel.toLowerCase()} turns the roadmap objective into measurable evidence.`}</p></div>
+              <div className="rounded-xl bg-paper-soft p-3.5"><div className="text-[10px] uppercase tracking-wider font-bold text-polaris-600 dark:text-polaris-300 mb-1">How to do it</div><p className="text-[12.5px] text-ink leading-relaxed">{missionNodes[0]?.how || `Complete the checklist in order and capture evidence before the ${periodLabel.toLowerCase()} closes.`}</p></div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px]"><span className="inline-flex items-center gap-1.5 rounded-full bg-aurora-100 dark:bg-aurora-400/15 text-aurora-700 dark:text-aurora-100 ring-1 ring-inset ring-aurora-400/40 px-2.5 py-1 font-medium">✓ Done when: all weekly tasks are complete</span><span className="inline-flex items-center rounded-full bg-paper-soft px-2.5 py-1 font-medium text-ink-dim ring-1 ring-inset ring-polaris-500/10 dark:ring-white/10">{impact}</span></div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11.5px]"><span className="inline-flex items-center gap-1.5 rounded-full bg-aurora-100 dark:bg-aurora-400/15 text-aurora-700 dark:text-aurora-100 ring-1 ring-inset ring-aurora-400/40 px-2.5 py-1 font-medium">✓ Done when: all {periodLabel.toLowerCase()} tasks are complete</span><span className="inline-flex items-center rounded-full bg-paper-soft px-2.5 py-1 font-medium text-ink-dim ring-1 ring-inset ring-polaris-500/10 dark:ring-white/10">{impact}</span></div>
           </section>
 
-          <section className="relative rounded-xl p-[1.5px] overflow-hidden"><div className="absolute inset-0 bg-gradient-to-r from-polaris-400/60 via-nova-400/50 to-aurora-400/60" /><div className="relative rounded-[10.5px] bg-paper-card px-4 py-3"><div className="flex items-center gap-2 mb-1"><span className="h-5 w-5 rounded-full bg-gradient-to-br from-polaris-500 to-nova-500 text-white inline-flex items-center justify-center text-[9px]">✦</span><span className="text-[10.5px] uppercase tracking-wider font-bold text-polaris-600 dark:text-polaris-300">Strategist tip</span></div><p className="text-[12.5px] text-ink leading-relaxed">{primary ? `Prioritize “${primary.title}” first, then keep the evidence from each task in one place before the week ends.` : "Finish the checklist in order and keep one concrete piece of evidence."}</p></div></section>
+          <section className="relative rounded-xl p-[1.5px] overflow-hidden"><div className="absolute inset-0 bg-gradient-to-r from-polaris-400/60 via-nova-400/50 to-aurora-400/60" /><div className="relative rounded-[10.5px] bg-paper-card px-4 py-3"><div className="flex items-center gap-2 mb-1"><span className="h-5 w-5 rounded-full bg-gradient-to-br from-polaris-500 to-nova-500 text-white inline-flex items-center justify-center text-[9px]">✦</span><span className="text-[10.5px] uppercase tracking-wider font-bold text-polaris-600 dark:text-polaris-300">Strategist tip</span></div><p className="text-[12.5px] text-ink leading-relaxed">{primary ? `Prioritize “${primary.title}” first, then keep the evidence from each task in one place before the ${periodLabel.toLowerCase()} ends.` : "Finish the checklist in order and keep one concrete piece of evidence."}</p></div></section>
 
-          <section><Label>Task checklist</Label><ul className="space-y-1.5">{rows.map((row) => <li key={row.task.id}><button onClick={() => void toggle(row)} disabled={busy !== null} className={cn("w-full flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ring-1 ring-inset", row.task.done ? "bg-aurora-100/50 dark:bg-aurora-400/10 ring-aurora-400/30" : "bg-paper-card ring-polaris-500/10 dark:ring-white/10 hover:ring-polaris-400/40")}><span className={cn("mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md ring-1 ring-inset flex items-center justify-center", row.task.done ? "bg-aurora-500 ring-aurora-500 text-white" : "ring-ink-faint bg-paper-card")}>{busy === row.task.id ? <span className="h-2 w-2 rounded-full border border-current border-t-transparent animate-spin" /> : row.task.done ? "✓" : null}</span><span className="flex-1"><span className={cn("block text-[13px] leading-snug", row.task.done ? "text-ink-muted line-through" : "text-ink")}>{row.task.text}</span><span className="block mt-1 text-[10.5px] text-ink-muted">{row.node.title}</span></span></button></li>)}</ul></section>
+          <section><Label>{periodLabel} task checklist</Label><ul className="space-y-1.5">{rows.map((row) => <li key={row.task.id}><button onClick={() => void toggle(row)} disabled={busy !== null} className={cn("w-full flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ring-1 ring-inset", row.task.done ? "bg-aurora-100/50 dark:bg-aurora-400/10 ring-aurora-400/30" : "bg-paper-card ring-polaris-500/10 dark:ring-white/10 hover:ring-polaris-400/40")}><span className={cn("mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md ring-1 ring-inset flex items-center justify-center", row.task.done ? "bg-aurora-500 ring-aurora-500 text-white" : "ring-ink-faint bg-paper-card")}>{busy === row.task.id ? <span className="h-2 w-2 rounded-full border border-current border-t-transparent animate-spin" /> : row.task.done ? "✓" : null}</span><span className="flex-1"><span className={cn("block text-[13px] leading-snug", row.task.done ? "text-ink-muted line-through" : "text-ink")}>{row.task.text}</span><span className="block mt-1 text-[10.5px] text-ink-muted">{row.node.title}</span></span></button></li>)}</ul></section>
 
-          {resources.length > 0 && <section><Label>Resource pack</Label><div className="space-y-2">{resources.map((resource) => <ResourceRow key={resource.ref} resource={resource} />)}</div></section>}
+          {resources.length > 0 && <section><Label>Resources for these tasks</Label><div className="space-y-2">{resources.map((resource) => <ResourceRow key={resource.ref} resource={resource} />)}</div></section>}
 
-          {scoreInputs.length > 0 && <section><Label>Log a score</Label><p className="text-[11.5px] text-ink-muted mb-2">Log a test or benchmark connected to this week’s missions.</p><div className="flex flex-wrap items-end gap-2"><div className="flex flex-wrap gap-1.5">{scoreInputs.map((score) => <button key={score.key} onClick={() => setScoreKey(scoreKey === score.key ? null : score.key)} className={cn("rounded-full px-3 py-1.5 text-[12px] font-medium ring-1 ring-inset transition-colors", scoreKey === score.key ? "bg-ink text-paper ring-ink" : "bg-paper-card text-ink-dim ring-polaris-200 dark:ring-white/[0.15]")}>{score.label}</button>)}</div>{scoreKey && <div className="flex items-center gap-2"><input type="number" value={scoreVal} onChange={(event) => setScoreVal(event.target.value)} placeholder={`${scoreInputs.find((score) => score.key === scoreKey)?.min ?? ""}–${scoreInputs.find((score) => score.key === scoreKey)?.max ?? ""}`} step={scoreInputs.find((score) => score.key === scoreKey)?.step ?? 1} className="w-28 rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-sm text-ink focus:border-polaris-400 focus:outline-none dark:border-white/[0.14] dark:bg-paper-deep" /><button onClick={() => void saveScore()} disabled={busy !== null || !scoreVal} className="rounded-xl bg-ink text-paper px-3.5 py-2 text-[12px] font-semibold disabled:opacity-40">{busy === "score" ? "…" : "Save"}</button></div>}</div></section>}
+          {scoreInputs.length > 0 && <section><Label>Log a score</Label><p className="text-[11.5px] text-ink-muted mb-2">Log a test or benchmark connected to this {periodLabel.toLowerCase()}&apos;s missions.</p><div className="flex flex-wrap items-end gap-2"><div className="flex flex-wrap gap-1.5">{scoreInputs.map((score) => <button key={score.key} onClick={() => setScoreKey(scoreKey === score.key ? null : score.key)} className={cn("rounded-full px-3 py-1.5 text-[12px] font-medium ring-1 ring-inset transition-colors", scoreKey === score.key ? "bg-ink text-paper ring-ink" : "bg-paper-card text-ink-dim ring-polaris-200 dark:ring-white/[0.15]")}>{score.label}</button>)}</div>{scoreKey && <div className="flex items-center gap-2"><input type="number" value={scoreVal} onChange={(event) => setScoreVal(event.target.value)} placeholder={`${scoreInputs.find((score) => score.key === scoreKey)?.min ?? ""}–${scoreInputs.find((score) => score.key === scoreKey)?.max ?? ""}`} step={scoreInputs.find((score) => score.key === scoreKey)?.step ?? 1} className="w-28 rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-sm text-ink focus:border-polaris-400 focus:outline-none dark:border-white/[0.14] dark:bg-paper-deep" /><button onClick={() => void saveScore()} disabled={busy !== null || !scoreVal} className="rounded-xl bg-ink text-paper px-3.5 py-2 text-[12px] font-semibold disabled:opacity-40">{busy === "score" ? "…" : "Save"}</button></div>}</div></section>}
 
           <section><Label>Notes</Label>{notes.length > 0 && <ul className="space-y-1.5 mb-2">{notes.map((note) => <li key={note.id} className="rounded-xl bg-paper-soft px-3 py-2 text-[12.5px] text-ink leading-relaxed"><span className="block text-[10px] font-mono text-ink-muted mb-0.5">{note.nodeTitle} · {new Date(note.at).toLocaleString()}</span>{note.text}</li>)}</ul>}<div className="flex items-end gap-2"><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} rows={2} maxLength={2000} placeholder="Log progress, blockers, results…" className="flex-1 rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-[12.5px] text-ink placeholder:text-ink-muted/60 focus:border-polaris-400 focus:outline-none resize-none dark:border-white/[0.14] dark:bg-paper-deep" /><button onClick={() => void saveNote()} disabled={busy !== null || !noteDraft.trim()} className="rounded-xl bg-ink text-paper h-9 px-3.5 text-[12px] font-semibold disabled:opacity-40">{busy === "note" ? "…" : "Add"}</button></div></section>
         </div>
 
-        <div className="sticky bottom-0 bg-paper-card/90 backdrop-blur-md px-6 py-4 border-t border-polaris-500/10 dark:border-white/[0.08] flex items-center gap-2"><button onClick={() => void completeWeek()} disabled={busy !== null || progress === 100 || !rows.length} className="inline-flex items-center gap-1.5 rounded-full bg-aurora-600 text-white px-4 py-2 text-[12.5px] font-semibold hover:bg-aurora-700 transition-colors disabled:opacity-40">{progress === 100 ? "✓ Week complete" : busy === "complete-week" ? "Completing…" : "✓ Mark week done"}</button><button onClick={askStrategist} className="text-[12.5px] text-polaris-600 dark:text-polaris-300 hover:underline font-medium">Ask Strategist →</button>{primary && <button onClick={() => { onClose(); onOpenNode(primary.id); }} className="ml-auto text-[11px] text-ink-muted hover:text-ink truncate max-w-[180px]">Open mission details</button>}</div>
+        <div className="sticky bottom-0 bg-paper-card/90 backdrop-blur-md px-6 py-4 border-t border-polaris-500/10 dark:border-white/[0.08] flex items-center gap-2"><button onClick={() => void completeWeek()} disabled={busy !== null || progress === 100 || !rows.length} className="inline-flex items-center gap-1.5 rounded-full bg-aurora-600 text-white px-4 py-2 text-[12.5px] font-semibold hover:bg-aurora-700 transition-colors disabled:opacity-40">{progress === 100 ? `✓ ${periodLabel} complete` : busy === "complete-week" ? "Completing…" : `✓ Mark ${periodLabel.toLowerCase()} done`}</button><button onClick={askStrategist} className="text-[12.5px] text-polaris-600 dark:text-polaris-300 hover:underline font-medium">Ask Strategist →</button>{primary && <button onClick={() => { onClose(); onOpenNode(primary.id); }} className="ml-auto text-[11px] text-ink-muted hover:text-ink truncate max-w-[180px]">Open mission details</button>}</div>
       </motion.div>
     </motion.div>
   );

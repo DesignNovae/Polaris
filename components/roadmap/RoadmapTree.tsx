@@ -33,6 +33,8 @@ export type RoadmapWeekLeaf = {
   branchId: string;
   unitIndex: number;
   weekIndex: number;
+  monthIndex?: number;
+  kind: "day" | "week" | "month";
   title: string;
   objective: string;
   taskCount: number;
@@ -58,7 +60,7 @@ export function RoadmapTree({
     const bp = Math.min(...b.nodes.map((n) => n.phase), 99);
     return ap - bp || pri[a.priority] - pri[b.priority];
   });
-  const weeklyUnit = doc.config.timelineMode === "monthly" && activePhase !== null
+  const activeScheduleUnit = activePhase !== null
     ? doc.schedule?.units[activePhase]
     : undefined;
 
@@ -101,7 +103,7 @@ export function RoadmapTree({
         {branches
           .filter(b => activePhase === null || b.nodes.some(n => n.phase === activePhase))
           .map((b, i) => (
-            <BranchRow key={b.id} branch={b} side={i % 2 === 0 ? "left" : "right"} phases={doc.phases} onOpenNode={onOpenNode} onOpenWeek={onOpenWeek} weekUnit={weeklyUnit} index={i} selectedNodeId={selectedNodeId} activePhase={activePhase} />
+            <BranchRow key={b.id} branch={b} side={i % 2 === 0 ? "left" : "right"} phases={doc.phases} onOpenNode={onOpenNode} onOpenWeek={onOpenWeek} scheduleUnit={activeScheduleUnit} mode={doc.config.timelineMode} index={i} selectedNodeId={selectedNodeId} activePhase={activePhase} />
         ))}
       </div>
     </div>
@@ -139,14 +141,15 @@ function CrownRing({ pct }: { pct: number }) {
 }
 
 function BranchRow({
-  branch, side, phases, onOpenNode, onOpenWeek, weekUnit, index, selectedNodeId, activePhase,
+  branch, side, phases, onOpenNode, onOpenWeek, scheduleUnit, mode, index, selectedNodeId, activePhase,
 }: {
   branch: RoadmapBranch;
   side: "left" | "right";
   phases: string[];
   onOpenNode: (id: string) => void;
   onOpenWeek?: (week: RoadmapWeekLeaf) => void;
-  weekUnit?: RoadmapScheduleUnit;
+  scheduleUnit?: RoadmapScheduleUnit;
+  mode: RoadmapDoc["config"]["timelineMode"];
   index: number;
   selectedNodeId?: string | null;
   activePhase?: number | null;
@@ -155,24 +158,37 @@ function BranchRow({
   const pct = branchProgress(branch);
   const nodes = [...branch.nodes].sort((a, b) => a.phase - b.phase);
   const displayNodes = activePhase === null ? nodes : nodes.filter(n => n.phase === activePhase);
-  const weekLeaves: RoadmapWeekLeaf[] = weekUnit?.weeks?.map((week) => {
+  const makeLeaf = (title: string, objective: string, kind: RoadmapWeekLeaf["kind"], weekIndex: number, monthIndex?: number): RoadmapWeekLeaf => {
     const rows = displayNodes.flatMap((node) => node.tasks
-      .filter((task) => task.unitIndex === weekUnit.unitIndex && task.weekIndex === week.weekIndex)
+      .filter((task) => {
+        if (kind === "month") return task.yearIndex === scheduleUnit?.yearIndex && task.monthIndex === monthIndex;
+        if (mode === "monthly") return task.unitIndex === scheduleUnit?.unitIndex && task.weekIndex === weekIndex;
+        return task.unitIndex === scheduleUnit?.unitIndex;
+      })
       .map((task) => ({ nodeId: node.id, taskId: task.id, done: task.done })));
     const doneCount = rows.filter((row) => row.done).length;
     return {
-      id: `${branch.id}-week-${weekUnit.unitIndex}-${week.weekIndex}`,
+      id: `${branch.id}-${kind}-${scheduleUnit?.unitIndex ?? 0}-${monthIndex ?? weekIndex}`,
       branchId: branch.id,
-      unitIndex: weekUnit.unitIndex,
-      weekIndex: week.weekIndex,
-      title: week.title || `Week ${week.weekIndex + 1}`,
-      objective: week.objective,
+      unitIndex: scheduleUnit?.unitIndex ?? 0,
+      weekIndex,
+      ...(monthIndex !== undefined ? { monthIndex } : {}),
+      kind,
+      title,
+      objective,
       taskCount: rows.length,
       doneCount,
       progress: rows.length ? Math.round((doneCount / rows.length) * 100) : 0,
       taskRefs: rows.map(({ nodeId, taskId }) => ({ nodeId, taskId })),
     };
-  }) ?? [];
+  };
+  const scheduleLeaves: RoadmapWeekLeaf[] = scheduleUnit
+    ? mode === "monthly"
+      ? (scheduleUnit.weeks ?? []).map((week) => makeLeaf(week.title || `Week ${week.weekIndex + 1}`, week.objective, "week", week.weekIndex))
+      : mode === "yearly"
+        ? (scheduleUnit.months ?? []).map((month) => makeLeaf(month.title, month.objective, "month", 0, month.monthIndex))
+        : [makeLeaf(scheduleUnit.title, scheduleUnit.objective, mode === "daily" ? "day" : "week", 0)]
+    : [];
 
   return (
     <motion.div
@@ -239,8 +255,8 @@ function BranchRow({
 
           {/* Leaves */}
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-6 justify-start">
-            {weekUnit
-              ? weekLeaves.map((week, wi) => (
+            {scheduleUnit
+              ? scheduleLeaves.map((week, wi) => (
                 <WeekLeaf key={week.id} week={week} tone={branch.tone} onOpen={() => onOpenWeek?.(week)} delay={wi * 0.05} />
               ))
               : displayNodes.map((n, ni) => (
@@ -370,7 +386,7 @@ function WeekLeaf({ week, tone, onOpen, delay }: {
           "absolute inset-[7px] rounded-full flex items-center justify-center text-[14px] font-serif font-bold transition-all bg-paper-card text-ink shadow-card group-hover/leaf:shadow-pop",
           done && "bg-aurora-500 text-white shadow-[0_4px_14px_-4px_rgba(91,140,109,0.6)]",
         )}>
-          {done ? "✓" : ["I", "II", "III", "IV"][week.weekIndex] ?? String(week.weekIndex + 1)}
+          {done ? "✓" : String((week.monthIndex ?? week.weekIndex) + 1).padStart(2, "0")}
         </span>
       </span>
       <span className={cn("mt-2 text-[10.5px] leading-tight font-medium line-clamp-2", done ? "text-ink-muted" : "text-ink")}>{week.title}</span>
