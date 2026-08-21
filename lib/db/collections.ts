@@ -19,6 +19,7 @@ export type Subscription = {
 };
 
 export type LlmUsageRecord = {
+  createdAt?: Date;
   userId: string;
   providerId: string;
   modelId: string;
@@ -77,14 +78,6 @@ export type DbLlmUsage = {
   errorCode?: string;
   createdAt: Date;
 };
-
-export async function recordUsage(usage: Omit<DbLlmUsage, "createdAt">) {
-  const db = await getDb();
-  await db.collection<DbLlmUsage>("llm_usage").insertOne({
-    ...usage,
-    createdAt: new Date(),
-  });
-}
 
 /* ─── Queries ─── */
 
@@ -450,10 +443,15 @@ export async function getMessages(userId: string, threadId: string, limit = 200)
     .toArray();
 }
 
-export async function recordUsage(record: LlmUsageRecord): Promise<void> {
-  const db = await getDb();
-  await db.collection<LlmUsageRecord & { createdAt: Date }>("llm_usage").insertOne({
-    ...record,
-    createdAt: new Date(),
-  });
+/* ─── LLM telemetry ─── */
+export async function recordUsage(opts: LlmUsageRecord & { createdAt?: Date }): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.collection<LlmUsageRecord & { createdAt: Date }>("llm_usage").insertOne({
+      ...opts,
+      createdAt: opts.createdAt ?? new Date(),
+    });
+  } catch {
+    // Usage logging is best-effort and must never break a user request.
+  }
 }

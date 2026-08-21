@@ -19,7 +19,17 @@ export function flattenAllDocs(): RagDoc[] {
       `Differentiators: ${u.requirements.differentiators}.`,
       `Summary: ${u.summary}`,
     ].join(" "),
-    metadata: { universityId: u.id, country: u.country, tier: u.tier, tags: u.tags },
+    metadata: {
+      universityId: u.id,
+      country: u.country,
+      tier: u.tier,
+      tags: u.tags,
+      programs: u.topPrograms,
+      // The bundled university records do not distinguish undergraduate,
+      // graduate, and doctoral requirements. Keep that uncertainty explicit.
+      degreeLevels: ["general"],
+      verificationStatus: "unverified",
+    },
   }));
 
   const schDocs: RagDoc[] = (scholarships as any[]).map((s) => ({
@@ -33,7 +43,13 @@ export function flattenAllDocs(): RagDoc[] {
       `Tags: ${s.tags.join(", ")}.`,
       `Summary: ${s.summary}`,
     ].join(" "),
-    metadata: { scholarshipId: s.id, level: s.level, tags: s.tags },
+    metadata: {
+      scholarshipId: s.id,
+      level: s.level,
+      tags: s.tags,
+      degreeLevels: [s.level],
+      verificationStatus: "unverified",
+    },
   }));
 
   const csDocs: RagDoc[] = (caseStudies as any[]).map((c) => ({
@@ -48,7 +64,13 @@ export function flattenAllDocs(): RagDoc[] {
       `Tier: ${c.profile.tier}.`,
       `What worked: ${c.whatWorked}`,
     ].join(" "),
-    metadata: { caseId: c.id, country: c.profile.country, tier: c.profile.tier, tags: c.tags },
+    metadata: {
+      caseId: c.id,
+      country: c.profile.country,
+      tier: c.profile.tier,
+      tags: c.tags,
+      verificationStatus: "unverified",
+    },
   }));
 
   return [...uniDocs, ...schDocs, ...csDocs];

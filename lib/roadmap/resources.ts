@@ -62,6 +62,11 @@ const LIB: Record<string, NodeResource[]> = {
     { kind: "youtube", title: "freeCodeCamp - JavaScript (full course)", ref: "PkZNo7MFNFg" },
     { kind: "practice", title: "freeCodeCamp - interactive curriculum", ref: "https://www.freecodecamp.org/learn" },
   ],
+  "project-building": [
+    { kind: "practice", title: "GitHub Skills - build and ship with guided projects", ref: "https://skills.github.com/", note: "Short, practical repositories with feedback" },
+    { kind: "link", title: "GitHub Pages - publish a project portfolio", ref: "https://pages.github.com/", note: "Turn finished work into a public artifact" },
+    { kind: "practice", title: "freeCodeCamp - project-based curriculum", ref: "https://www.freecodecamp.org/learn", note: "Buildable exercises with clear deliverables" },
+  ],
   "reading-habit": [
     { kind: "link", title: "Project Gutenberg - free classic books", ref: "https://www.gutenberg.org/", note: "Readable in-browser" },
     { kind: "link", title: "CommonLit - leveled reading passages", ref: "https://www.commonlit.org/", note: "Free, with comprehension questions" },
@@ -120,6 +125,32 @@ export function resourcesForTopics(topics: string[], cap = 5): NodeResource[] {
     }
   }
   return out;
+}
+
+const TASK_TOPIC_HINTS: Array<[string, RegExp]> = [
+  ["sat-math", /digital sat|sat math|bluebook|sat diagnostic|sat score|sat practice/i],
+  ["sat-reading", /sat.*reading|sat.*passage|college board|question bank/i],
+  ["sat-writing", /sat.*writing|sat grammar/i],
+  ["ielts-listening", /ielts.*listen|ielts listening|ielts.*audio/i],
+  ["ielts-reading", /ielts.*read|ielts reading|reading.*band|ielts.*passage/i],
+  ["ielts-writing", /ielts.*writ|ielts writing|band 9|ielts.*task 2/i],
+  ["ielts-speaking", /ielts.*speak|ielts speaking|speaking band|mock interview/i],
+  ["research", /research|paper|publication|lab|literature|scholar/i],
+  ["coding", /code|coding|program|software|repository|github|debug/i],
+  ["project-building", /project|prototype|ship|build|portfolio/i],
+  ["essay", /essay|personal statement|supplement|draft/i],
+  ["leadership", /leadership|club|volunteer|service|impact|organize/i],
+  ["study-skills", /study|focus|pomodoro|review|schedule|practice/i],
+  ["math-foundation", /math|calculus|algebra|geometry|problem/i],
+  ["english-vocab", /vocabulary|word|reading|language/i],
+  ["board-prep", /\bboard\b|\bhsc\b|a[- ]?level|o[- ]?level|board syllabus|board exam/i],
+  ["scholarships", /scholarship|eligibility|financial aid/i],
+];
+
+/** Select resources for the actual task text, falling back to node topics. */
+export function resourcesForTask(taskText: string, fallbackTopics: string[] = [], cap = 4): NodeResource[] {
+  const matched = TASK_TOPIC_HINTS.filter(([, pattern]) => pattern.test(taskText)).map(([topic]) => topic);
+  return resourcesForTopics([...new Set([...matched, ...fallbackTopics])], cap);
 }
 
 /** All known topic tags (for prompt guidance). */

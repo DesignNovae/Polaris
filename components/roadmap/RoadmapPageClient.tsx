@@ -9,7 +9,7 @@
  * construction.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
 import type { RoadmapDoc, RoadmapConfig, EducationLevel } from "@/lib/roadmap/types";
@@ -20,6 +20,7 @@ import { RoadmapTree, type RoadmapWeekLeaf } from "./RoadmapTree";
 import { RoadmapNodeModal } from "./RoadmapNodeModal";
 import { RoadmapScheduleWorkspace } from "./RoadmapScheduleWorkspace";
 import { RoadmapWeekModal } from "./RoadmapWeekModal";
+import { TargetPortfolioEditor } from "./TargetPortfolioEditor";
 
 export function RoadmapPageClient({
   defaultLevel, initialProfile = null, initialDoc, apiBase = "/api/roadmap/v2", demo = false,
@@ -36,10 +37,12 @@ export function RoadmapPageClient({
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
   const [adaptOpen, setAdaptOpen] = useState(false);
+  const [targetsOpen, setTargetsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // New plans open on their first schedule unit by default.
   const [activePhase, setActivePhase] = useState<number | null>(0);
   const [openWeek, setOpenWeek] = useState<RoadmapWeekLeaf | null>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialDoc) {
@@ -106,7 +109,7 @@ export function RoadmapPageClient({
     if (adaptation) setToast(adaptation);
   }, []);
 
-  const buildSchedule = useCallback(async (request: { upgradeLegacy?: boolean; yearIndex?: number }) => {
+  const buildSchedule = useCallback(async (request: { upgradeLegacy?: boolean; yearIndex?: number; unitIndex?: number }) => {
     if (demo) {
       setToast("Schedule generation is available from a saved roadmap.");
       return;
@@ -126,9 +129,11 @@ export function RoadmapPageClient({
       const next = data.doc as RoadmapDoc;
       setDoc(next);
       roadmapStore.setDoc(next);
-      setActivePhase(request.yearIndex === undefined
-        ? 0
-        : next.schedule?.mode === "monthly" ? request.yearIndex * 12 : request.yearIndex);
+      setActivePhase(request.unitIndex !== undefined
+        ? request.unitIndex
+        : request.yearIndex === undefined
+          ? 0
+          : next.schedule?.mode === "monthly" ? request.yearIndex * 12 : request.yearIndex);
       setToast(request.upgradeLegacy ? "Weekly schedule built." : "Deferred schedule generated.");
     } finally {
       setScheduleBusy(false);
@@ -168,6 +173,11 @@ export function RoadmapPageClient({
   const doneCount = nodes.filter((n) => n.status === "done").length;
   const currentNode = nodes.find((n) => n.status === "current");
   const lastAdaptation = doc.adaptations.slice(-1)[0];
+  const activeUnit = activePhase === null ? undefined : doc.schedule?.units[activePhase];
+  // Expanded schedule units are represented directly by tree leaves. The
+  // workspace remains only for summaries/legacy units, where it provides the
+  // generate action and the high-level explanation before tasks exist.
+  const showScheduleWorkspace = !doc.schedule || activeUnit?.detailState !== "expanded";
 
   return (
     <div className="px-5 lg:px-10 py-7 max-w-[1160px] mx-auto">
@@ -195,6 +205,12 @@ export function RoadmapPageClient({
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setTargetsOpen(true)}
+              className="rounded-full hairline bg-paper-card px-3.5 py-2 text-[12px] font-medium text-ink-dim hover:text-ink transition-colors"
+            >
+              Targets
+            </button>
+            <button
               onClick={() => setAdaptOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full bg-ink text-paper px-4 py-2 text-[12.5px] font-semibold hover:bg-polaris-700 transition-colors"
             >
@@ -215,7 +231,9 @@ export function RoadmapPageClient({
         </div>
 
         {/* Phase timeline */}
-        <div className="mt-4 flex items-center gap-1.5 overflow-x-auto py-2 pb-3">
+        <div className="relative mt-4">
+          <button type="button" onClick={() => timelineRef.current?.scrollBy({ left: -260, behavior: "smooth" })} className="absolute left-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-paper-card/95 px-2 py-1 text-ink-muted shadow-card ring-1 ring-inset ring-polaris-500/15 sm:block" aria-label="Scroll timeline left">‹</button>
+          <div ref={timelineRef} className="flex items-center gap-1.5 overflow-x-auto py-2 pb-3 sm:px-7 [scrollbar-width:thin]">
           {doc.phases.map((p, i) => {
             const phaseNodes = nodes.filter((n) => n.phase === i);
             const phaseUnit = doc.schedule?.units[i];
@@ -226,7 +244,7 @@ export function RoadmapPageClient({
               ? phaseTasks.every((t) => t.done)
               : phaseNodes.length > 0 && phaseNodes.every((n) => n.status === "done");
             const phaseActive = phaseNodes.some((n) => n.status === "current");
-            const phaseHasContent = phaseTasks.length > 0 || phaseNodes.length > 0;
+            const phaseHasContent = phaseTasks.length > 0 || phaseNodes.length > 0 || phaseUnit?.detailState === "summary" || phaseUnit?.detailState === "deferred";
             const isSelected = activePhase === i;
             return (
               <button
@@ -246,8 +264,10 @@ export function RoadmapPageClient({
                 )}
               >
                 {phaseDone && "✓ "}{p}
-                {phaseUnit?.detailState === "deferred"
-                  ? <span className="opacity-60 font-mono"> · later</span>
+                {phaseUnit?.detailState === "summary"
+                  ? <span className="opacity-80 font-mono"> · prepared</span>
+                  : phaseUnit?.detailState === "deferred"
+                    ? <span className="opacity-60 font-mono"> · later</span>
                   : phaseTasks.length > 0
                     ? <span className="opacity-60 font-mono"> · {phaseTasks.filter((t) => t.done).length}/{phaseTasks.length}</span>
                     : phaseNodes.length > 0 && <span className="opacity-60 font-mono"> · {phaseNodes.filter((n) => n.status === "done").length}/{phaseNodes.length}</span>}
@@ -255,6 +275,8 @@ export function RoadmapPageClient({
             );
           })}
           <span className="shrink-0 ml-2 font-mono text-[11px] text-ink-muted tabular-nums">{overall}% grown</span>
+          </div>
+          <button type="button" onClick={() => timelineRef.current?.scrollBy({ left: 260, behavior: "smooth" })} className="absolute right-0 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-paper-card/95 px-2 py-1 text-ink-muted shadow-card ring-1 ring-inset ring-polaris-500/15 sm:block" aria-label="Scroll timeline right">›</button>
         </div>
 
         {lastAdaptation && (
@@ -264,9 +286,9 @@ export function RoadmapPageClient({
         )}
       </motion.div>
 
-      {/* Monthly weekly tasks are represented by tree leaves. Keep the
-          workspace for legacy, daily, weekly, and yearly views. */}
-      {(!doc.schedule || doc.config.timelineMode !== "monthly") && (
+      {/* Expanded schedule periods are represented by leaves in the tree.
+          Summary and legacy periods use the workspace for preparation/actions. */}
+      {showScheduleWorkspace && (
         <RoadmapScheduleWorkspace
           doc={doc}
           activePhase={activePhase}
@@ -296,16 +318,26 @@ export function RoadmapPageClient({
         )}
         {openWeek && (
           <RoadmapWeekModal
-            key={`${openWeek.branchId}-week-${openWeek.unitIndex}-${openWeek.weekIndex}`}
+            key={`${openWeek.branchId}-${openWeek.kind}-${openWeek.unitIndex}-${openWeek.monthIndex ?? openWeek.weekIndex}`}
             doc={doc}
             unitIndex={openWeek.unitIndex}
             weekIndex={openWeek.weekIndex}
+            monthIndex={openWeek.monthIndex}
             branchId={openWeek.branchId}
             apiBase={apiBase}
             demo={demo}
             onClose={() => setOpenWeek(null)}
             onDocUpdated={onDocUpdated}
             onOpenNode={openNode}
+          />
+        )}
+        {targetsOpen && (
+          <TargetPortfolioEditor
+            doc={doc}
+            apiBase={apiBase}
+            demo={demo}
+            onClose={() => setTargetsOpen(false)}
+            onDocUpdated={onDocUpdated}
           />
         )}
         {adaptOpen && (
@@ -331,9 +363,11 @@ export function RoadmapPageClient({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-full bg-ink text-paper px-5 py-2.5 text-[12.5px] font-medium shadow-pop max-w-[90vw] truncate"
+            className="pointer-events-none fixed inset-x-0 bottom-6 z-[60] flex justify-center px-4"
           >
-            ✦ {toast}
+            <div className="max-w-[min(92vw,560px)] rounded-full bg-ink px-5 py-2.5 text-center text-[12.5px] font-medium text-paper shadow-pop">
+              ✦ {toast}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

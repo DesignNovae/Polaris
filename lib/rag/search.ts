@@ -29,12 +29,34 @@ export type SearchHit = {
   metadata: Record<string, unknown>;
 };
 
+export type SearchConstraints = {
+  source?: RagDoc["source"];
+  country?: string;
+  degreeLevel?: "undergrad" | "masters" | "phd" | "general";
+  program?: string;
+};
+
 export async function searchDocs(
   queryText: string,
   _queryVector: number[] | null = null,
   topK = 6,
+  constraints: SearchConstraints = {},
 ): Promise<SearchHit[]> {
-  const docs = flattenAllDocs();
+  const docs = flattenAllDocs().filter((doc) => {
+    if (constraints.source && doc.source !== constraints.source) return false;
+    const metadata = doc.metadata;
+    if (constraints.country && typeof metadata.country === "string" && metadata.country.toLowerCase() !== constraints.country.toLowerCase()) return false;
+    if (constraints.degreeLevel) {
+      const levels = Array.isArray(metadata.degreeLevels) ? metadata.degreeLevels.map(String).map((value) => value.toLowerCase()) : [];
+      if (levels.length && !levels.includes(constraints.degreeLevel.toLowerCase()) && !levels.includes("general")) return false;
+    }
+    if (constraints.program) {
+      const programs = Array.isArray(metadata.programs) ? metadata.programs.map(String).join(" ").toLowerCase() : "";
+      const query = constraints.program.toLowerCase();
+      if (programs && !query.split(/\W+/).filter((word) => word.length > 2).some((word) => programs.includes(word))) return false;
+    }
+    return true;
+  });
   const queryTerms = [...new Set(tokenize(queryText))];
   if (queryTerms.length === 0) return [];
 
