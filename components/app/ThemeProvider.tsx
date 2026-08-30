@@ -15,7 +15,7 @@ const STORAGE_KEY = "polaris.theme";
 const PREFERENCE_KEY = "polaris.theme.preference";
 
 const APP_PREFIX_RE =
-  /^\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab)(\/|$)/;
+  /^\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab|exams)(\/|$)/;
 
 const ThemeCtx = createContext<{
   theme: Theme;
@@ -112,7 +112,7 @@ export const THEME_PREFLIGHT_SCRIPT = `
 (function(){
   try {
     var p = location.pathname || '/';
-    var isApp = /^\\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab)(\\/|$)/.test(p);
+    var isApp = /^\\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab|exams)(\\/|$)/.test(p);
     var t = 'light';
     if (isApp) {
       var pref = localStorage.getItem('${PREFERENCE_KEY}');

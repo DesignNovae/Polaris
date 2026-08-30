@@ -112,7 +112,7 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
           <div className="text-[13px] font-semibold text-paper truncate">{studentName}</div>
           <div className="text-[11px] text-paper/55 truncate">{studentGrade}</div>
         </div>
-        <Link href="/settings" className="text-paper/55 hover:text-paper p-1.5 transition-colors" aria-label="Settings">
+        <Link href="/account" className="text-paper/55 hover:text-paper p-1.5 transition-colors" aria-label="Settings">
           <Cog/>
         </Link>
       </div>

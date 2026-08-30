@@ -1,29 +1,32 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { Btn, Card, Icon, Pill, Progress, RingMini, Tag } from "@/components/app/ui";
+import { Btn, Card, Icon, Pill, Tag } from "@/components/app/ui";
 import { useLang } from "@/lib/i18n/LangProvider";
-import { DEFAULT_ROUTINE, LEARNING_VIDEOS, PRACTICE_QUESTIONS } from "@/lib/action-lab/data";
+import { DEFAULT_ROUTINE, LEARNING_VIDEOS } from "@/lib/action-lab/data";
 import type {
   ActionLabTab,
   DecisionResult,
   EvidenceResult,
   LearningVideo,
-  PracticeQuestion,
   RoutineBlock,
   RoutineCategory,
   RoutineSuggestion,
 } from "@/lib/action-lab/types";
 import { cn } from "@/lib/cn";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
-import {
-  GemmaEssayStudio,
-  GemmaExamStudio,
-  GemmaKeyCard,
-  GemmaNotesStudio,
-  GemmaVideoLearning,
-} from "@/components/app/GemmaStudioPanels";
+import { GemmaKeyCard } from "@/components/app/GemmaKeyCard";
+
+const ActionLabExamStudio = dynamic(() => import("@/components/app/ActionLabExamStudio").then((module) => module.ActionLabExamStudio), { loading: PanelLoading });
+const GemmaEssayStudio = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaEssayStudio), { loading: PanelLoading });
+const GemmaNotesStudio = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaNotesStudio), { loading: PanelLoading });
+const GemmaVideoLearning = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaVideoLearning), { loading: PanelLoading });
+
+function PanelLoading() {
+  return <div className="grid min-h-64 place-items-center rounded-2xl border border-ink-faint/15 bg-paper-card/60 text-[11px] text-ink-muted">Opening workspace…</div>;
+}
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
@@ -44,7 +47,7 @@ const COPY = {
     tabs: {
       decision: ["Decision Twin", "Stress-test the roadmap"],
       evidence: ["Evidence Graph", "Turn claims into proof"],
-      exam: ["Mock Exams", "IELTS and SAT practice"],
+      exam: ["Exam Lab", "Mocks and AI practice"],
       routine: ["Smart Routine", "Gemma + manual planning"],
       learn: ["Video Learning", "Curated official lessons"],
       notes: ["Knowledge Notes", "Feedback becomes memory"],
@@ -115,11 +118,17 @@ export function ActionLabClient() {
   const copy = COPY[lang];
   const [tab, setTab] = useState<ActionLabTab>("decision");
   useEffect(() => {
+    const hashTab = window.location.hash.replace("#", "") as ActionLabTab;
+    if (hashTab && Object.prototype.hasOwnProperty.call(copy.tabs, hashTab)) {
+      setTab(hashTab);
+      return;
+    }
     const saved = window.sessionStorage.getItem("polaris.actionLab.tab") as ActionLabTab | null;
     if (saved && Object.prototype.hasOwnProperty.call(copy.tabs, saved)) setTab(saved);
   }, [copy.tabs]);
   const chooseTab = (id: ActionLabTab) => {
     setTab(id);
+    window.history.replaceState(null, "", `#${id}`);
     try { window.sessionStorage.setItem("polaris.actionLab.tab", id); } catch {}
   };
 
@@ -230,7 +239,7 @@ export function ActionLabClient() {
           >
             {tab === "decision" && <DecisionTwin lang={lang} />}
             {tab === "evidence" && <EvidenceGraph lang={lang} />}
-            {tab === "exam" && <GemmaExamStudio lang={lang} />}
+            {tab === "exam" && <ActionLabExamStudio lang={lang} />}
             {tab === "routine" && <RoutineStudio lang={lang} />}
             {tab === "learn" && <GemmaVideoLearning lang={lang} />}
             {tab === "notes" && <GemmaNotesStudio lang={lang} />}
@@ -510,157 +519,6 @@ function EvidenceGraph({ lang }: { lang: "en" | "bn" }) {
           </div>
         </div>
       </Card>
-    </div>
-  );
-}
-
-function ExamStudio() {
-  const [exam, setExam] = useState<"IELTS" | "SAT">("IELTS");
-  const questions = useMemo(() => PRACTICE_QUESTIONS.filter((item) => item.exam === exam), [exam]);
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [finished, setFinished] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [busy, setBusy] = useState(false);
-  const question = questions[index];
-  const score = questions.filter((item) => answers[item.id] === item.answer).length;
-
-  const reset = (nextExam = exam) => {
-    setExam(nextExam);
-    setIndex(0);
-    setAnswers({});
-    setFinished(false);
-    setFeedback("");
-  };
-
-  const finish = async () => {
-    setFinished(true);
-    setBusy(true);
-    const weakSkills = questions.filter((item) => answers[item.id] !== item.answer).map((item) => item.skill);
-    try {
-      const response = await postAction<{ feedback: string }>({ kind: "exam-review", exam, score, total: questions.length, weakSkills });
-      setFeedback(response.feedback);
-    } catch {
-      setFeedback("Review each missed skill, explain why every distractor was wrong, and repeat a short timed set tomorrow.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-      <Card className="overflow-hidden border border-ink-faint/15">
-        <div className="flex flex-col gap-4 border-b border-ink-faint/15 bg-gradient-to-r from-paper-card to-paper-deep/45 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">English-only practice studio</div>
-            <h2 className="mt-1 font-serif text-[23px] font-bold text-ink">{exam} Mini Mock</h2>
-          </div>
-          <div className="flex rounded-xl border border-ink-faint/20 bg-bg p-1">
-            {(["IELTS", "SAT"] as const).map((name) => (
-              <button key={name} onClick={() => reset(name)} className={cn("rounded-lg px-4 py-2 text-[12px] font-semibold transition", exam === name ? "bg-ink text-paper shadow-sm" : "text-ink-dim")}>{name}</button>
-            ))}
-          </div>
-        </div>
-
-        {!finished ? (
-          <div className="p-5 sm:p-7">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Pill tone="polaris">{question.section}</Pill>
-                <Tag tone="ink">{question.difficulty}</Tag>
-              </div>
-              <span className="font-mono text-[11px] text-ink-muted">{index + 1} / {questions.length}</span>
-            </div>
-            <Progress value={((index + 1) / questions.length) * 100} tone="polaris" height="h-1 mt-4" />
-            {question.passage && (
-              <div className="mt-6 rounded-2xl border border-nova-500/20 bg-nova-500/[0.06] p-4 text-[13px] leading-[1.75] text-ink-dim">
-                {question.passage}
-              </div>
-            )}
-            <h3 className="mt-6 text-[17px] font-semibold leading-relaxed text-ink">{question.prompt}</h3>
-            <div className="mt-4 grid gap-2.5">
-              {question.options.map((option, optionIndex) => {
-                const selected = answers[question.id] === optionIndex;
-                return (
-                  <button
-                    key={option}
-                    onClick={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))}
-                    className={cn(
-                      "group flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition",
-                      selected ? "border-polaris-500 bg-polaris-500/[0.09]" : "border-ink-faint/20 bg-bg/40 hover:border-polaris-500/40",
-                    )}
-                  >
-                    <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold", selected ? "border-polaris-500 bg-polaris-500 text-white" : "border-ink-faint/30 text-ink-muted group-hover:text-ink")}>{String.fromCharCode(65 + optionIndex)}</span>
-                    <span className="pt-0.5 text-[12.5px] leading-relaxed text-ink">{option}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <Btn variant="ghost" disabled={index === 0} onClick={() => setIndex((value) => value - 1)}>Previous</Btn>
-              {index < questions.length - 1 ? (
-                <Btn variant="accent" disabled={answers[question.id] === undefined} onClick={() => setIndex((value) => value + 1)}>Next question <Icon.arrow size={13} /></Btn>
-              ) : (
-                <Btn variant="accent" disabled={answers[question.id] === undefined} onClick={() => void finish()}>Finish mock <Icon.check size={13} /></Btn>
-              )}
-            </div>
-          </div>
-        ) : (
-          <ExamResult questions={questions} answers={answers} score={score} feedback={feedback} busy={busy} onReset={() => reset()} />
-        )}
-      </Card>
-
-      <div className="space-y-4">
-        <Card className="border border-ink-faint/15 p-5">
-          <Pill tone="aurora"><Icon.check size={11} /> Original practice set</Pill>
-          <h3 className="mt-3 font-serif text-[19px] font-bold text-ink">A diagnostic, not an official score</h3>
-          <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">Questions are original Polaris practice items inspired by the skills tested in IELTS and the digital SAT. They are not copied official questions and do not predict an official band or score.</p>
-        </Card>
-        <Card className="border border-ink-faint/15 p-5">
-          <div className="flex items-center gap-3">
-            <RingMini value={Math.round((Object.keys(answers).length / questions.length) * 100)} size={46} tone="nova" />
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-ink-muted">Attempt progress</div>
-              <div className="mt-1 text-[13px] font-semibold text-ink">{Object.keys(answers).length} of {questions.length} answered</div>
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {[...new Set(questions.map((item) => item.section))].map((section) => (
-              <div key={section} className="flex items-center justify-between rounded-lg bg-paper-deep/50 px-3 py-2 text-[11.5px]">
-                <span className="text-ink-dim">{section}</span>
-                <span className="font-mono text-ink">{questions.filter((item) => item.section === section).length} Q</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function ExamResult({ questions, answers, score, feedback, busy, onReset }: { questions: PracticeQuestion[]; answers: Record<string, number>; score: number; feedback: string; busy: boolean; onReset: () => void }) {
-  return (
-    <div className="p-5 sm:p-7">
-      <div className="flex flex-col items-center rounded-2xl border border-aurora-500/20 bg-aurora-500/[0.06] p-6 text-center">
-        <RingMini value={Math.round((score / questions.length) * 100)} size={86} stroke={7} tone="aurora" label={<span className="text-[16px] font-bold">{score}/{questions.length}</span>} />
-        <h3 className="mt-4 font-serif text-[24px] font-bold text-ink">Practice complete</h3>
-        <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-ink-dim">{busy ? "Gemma is reviewing your skill pattern…" : feedback}</p>
-        <Btn className="mt-4" variant="outline" onClick={onReset}>Try another set</Btn>
-      </div>
-      <div className="mt-5 space-y-3">
-        {questions.map((question, index) => {
-          const correct = answers[question.id] === question.answer;
-          return (
-            <details key={question.id} className="rounded-xl border border-ink-faint/15 bg-bg/40 p-3.5">
-              <summary className="cursor-pointer list-none text-[12.5px] font-semibold text-ink">
-                <span className={cn("mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-white", correct ? "bg-aurora-500" : "bg-signal-rose")}>{correct ? "✓" : "×"}</span>
-                Question {index + 1}: {question.skill}
-              </summary>
-              <p className="mt-3 pl-7 text-[11.5px] leading-relaxed text-ink-dim">{question.explanation}</p>
-            </details>
-          );
-        })}
-      </div>
     </div>
   );
 }
