@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "benchmark:roadmap": "node scripts/roadmap-v3-benchmark.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.15.0",

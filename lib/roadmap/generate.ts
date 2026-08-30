@@ -1,9 +1,12 @@
 /**
  * Roadmap v2 generator - dynamic, education-level aware, duration aware.
+ * New roadmap creation now runs target retrieval, deterministic gap/value
+ * analysis, guarded strategy reasoning, then the compatible schedule engine.
  *
  *   generateRoadmap(profile, config)
- *     → LLM plan (level guidance + duration + hours budget + weak areas +
- *       current scores baked into the prompt), Zod-validated;
+ *     → target context + requirements + evidence + deterministic gaps;
+ *     → guarded requirements/strategy stages;
+ *     → progressive master roadmap and active-unit expansion;
  *     → deterministic template fallback so the tree is never empty;
  *     → resources attached topic-wise from the curated library;
  *     → score inputs attached from topic/score-key inference;
@@ -15,7 +18,8 @@
  *       the same doc, so its advice follows automatically.
  *
  *   adaptRoadmap(profile, doc, reason)
- *     → LLM rewrite of all not-done nodes, preserving completed work.
+ *     → refreshes planning state first, then replans remaining work while
+ *       preserving completed work and evidence.
  */
 
 import {
@@ -23,7 +27,7 @@ import {
   type ScoreEntry, type GenPlan, GenPlanSchema, type BranchCategory,
   phaseCount, phaseLabel, recomputeStatuses, shortId,
 } from "./types";
-import { resourcesForTopics, KNOWN_TOPICS } from "./resources";
+import { resourcesForTask, resourcesForTopics, KNOWN_TOPICS } from "./resources";
 import { templateFor, LEVEL_GUIDANCE, SCORE_DEFS, type TplBranch } from "./templates";
 import { completeText, extractJson } from "@/lib/llm/complete";
 import { summarizeProfile, type StudentProfile } from "@/lib/profile";
@@ -31,6 +35,8 @@ import type { Lang } from "@/lib/i18n/strings";
 import { generationLanguageInstruction } from "@/lib/i18n/server";
 import { stabilizeGeneratedText } from "@/lib/gemma/output-quality";
 import { generateScheduledRoadmap } from "./schedule";
+import { buildPlanningContext } from "./planning";
+import type { StudentEvidence } from "./planning-types";
 
 /* ─── helpers ─── */
 
@@ -86,7 +92,10 @@ function buildNode(partial: {
     difficulty: Math.max(1, Math.min(5, Math.round(partial.difficulty))) as RoadmapNode["difficulty"],
     phase: partial.phase,
     estimatedHoursPerWeek: Math.round(partial.hours * 2) / 2,
-    tasks: partial.tasks.map((t) => ({ id: shortId(), text: stabilizeGeneratedText(t), done: false })),
+    tasks: partial.tasks.map((t) => {
+      const text = stabilizeGeneratedText(t);
+      return { id: shortId(), text, done: false, resources: resourcesForTask(text, safeTopics) };
+    }),
     topics: safeTopics,
     resources: resourcesForTopics(safeTopics),
     scoreInputs: explicitScores.length ? explicitScores : scoreInputsForTopics(safeTopics),
@@ -194,7 +203,15 @@ export async function generateRoadmap(
   config: RoadmapConfig,
   opts: { userId?: string; language?: Lang } = {},
 ): Promise<RoadmapDoc> {
-  return generateScheduledRoadmap(profile, config, opts);
+  const startedAt = Date.now();
+  const planningContext = await buildPlanningContext(profile, config, { ...opts, fastInitial: true });
+  console.info(`[roadmap:v3] deterministic planning ready in ${Date.now() - startedAt}ms; initial AI stages deferred`);
+  return generateScheduledRoadmap(profile, config, {
+    ...opts,
+    planningContext,
+    progressive: true,
+    fastInitial: true,
+  });
 }
 
 /* ─── score adaptation (rule-based, instant) ─── */
@@ -264,6 +281,17 @@ export async function adaptRoadmap(
   reason?: string,
   opts: { userId?: string; language?: Lang } = {},
 ): Promise<RoadmapDoc | null> {
+  const existingEvidence: StudentEvidence[] = doc.branches.flatMap((branch) => branch.nodes.flatMap((node) => (node.evidence ?? []).map((item) => ({
+    id: "mission-evidence-" + item.id,
+    claim: item.label,
+    type: item.kind,
+    value: item.ref,
+    strength: item.verified ? 1 : 0.7,
+    verified: item.verified,
+    source: "user" as const,
+    sourceRef: item.ref,
+  }))));
+  const planningContext = await buildPlanningContext(profile, doc.config, { ...opts, existingEvidence });
   const phases = doc.phases.length;
   const done = doc.branches.flatMap((b) => b.nodes.filter((n) => n.status === "done"));
   const scoreLines = doc.scores.slice(-8).map((s) => `${s.label}: ${s.value}/${s.max}`).join(", ") || "(none)";
@@ -273,6 +301,9 @@ export async function adaptRoadmap(
 
   const system = [
     generationPrompt(profile, doc.config, phases, opts.language),
+    "APPROVED PLANNING CONTEXT",
+    planningContext.compact,
+    "Recalculate the remaining strategy from the structured context. Preserve facts, completed work, and valid evidence.",
     ``,
     `THIS IS AN ADAPTIVE REPLAN of an existing roadmap, not a fresh start.`,
     `COMPLETED (do not repeat these - build on them):`,
@@ -314,6 +345,7 @@ export async function adaptRoadmap(
       }
     }
     doc.title = parsed.data.title || doc.title;
+    doc.planning = planningContext.state;
     doc.adaptations.push({
       id: shortId(),
       reason: reason ? `Replan: ${reason.slice(0, 140)}` : "Strategist refreshed scheduled mission guidance",
@@ -335,6 +367,7 @@ export async function adaptRoadmap(
 
   doc.branches = fresh;
   doc.title = parsed.data.title || doc.title;
+  doc.planning = planningContext.state;
   doc.adaptations.push({
     id: shortId(),
     reason: reason ? `Replan: ${reason.slice(0, 140)}` : "Strategist adaptive replan",

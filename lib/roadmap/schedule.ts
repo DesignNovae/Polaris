@@ -29,8 +29,11 @@ import { summarizeProfile, type StudentProfile } from "@/lib/profile";
 import { generationLanguageInstruction } from "@/lib/i18n/server";
 import type { Lang } from "@/lib/i18n/strings";
 import { LEVEL_GUIDANCE, SCORE_DEFS } from "./templates";
-import { KNOWN_TOPICS, resourcesForTopics } from "./resources";
+import { KNOWN_TOPICS, resourcesForTask, resourcesForTopics } from "./resources";
 import { stabilizeGeneratedText } from "@/lib/gemma/output-quality";
+import { buildPlanningContext, planningContextForUnit, planningContextFromState } from "./planning";
+import type { PlanningContext } from "./planning-types";
+import { recordRoadmapStage } from "./telemetry";
 
 const TONES: Record<string, RoadmapBranch["tone"]> = {
   Academics: "polaris", SAT: "nova", IELTS: "aurora", Olympiads: "nova",
@@ -62,6 +65,14 @@ const MissionSchema = z.object({
   topics: z.array(z.string().min(1).max(40)).min(1).max(5),
   completionCriteria: z.string().min(1).max(300),
   impact: z.string().min(1).max(160),
+  gapIds: z.array(z.string().min(1).max(80)).max(8).optional(),
+  targetIds: z.array(z.string().min(1).max(80)).max(12).optional(),
+  strategicReason: z.string().max(500).optional(),
+  expectedEvidence: z.array(z.object({
+    type: z.enum(["academic", "test", "project", "research", "activity", "award", "document", "integration"]),
+    claim: z.string().min(1).max(180),
+  })).max(6).optional(),
+  valueScore: z.number().min(0).max(100).optional(),
 });
 type MissionBrief = z.infer<typeof MissionSchema> & { key: string };
 
@@ -120,8 +131,15 @@ type MissionRecord = {
   monthIndex?: number;
 };
 
-type ScheduleCallState = { providerUnavailable: boolean };
-type ScheduleOpts = { userId?: string; language?: Lang; state?: ScheduleCallState };
+type ScheduleCallState = { providerUnavailable: boolean; generationId?: string };
+type ScheduleOpts = {
+  userId?: string;
+  language?: Lang;
+  state?: ScheduleCallState;
+  planningContext?: PlanningContext;
+  progressive?: boolean;
+  fastInitial?: boolean;
+};
 
 function category(raw: string): RoadmapBranch["category"] {
   const found = CATEGORIES.find((x) => x.toLowerCase() === raw.toLowerCase());
@@ -192,6 +210,23 @@ function missionNode(brief: MissionBrief, phase: number): RoadmapNode {
   };
 }
 
+function attachPlanningLinks(node: RoadmapNode, brief: MissionBrief, planningContext?: PlanningContext): void {
+  if (!planningContext) return;
+  const gaps = planningContext.state.gaps;
+  const explicit = (brief.gapIds ?? []).filter((id) => gaps.some((gap) => gap.id === id));
+  const gapIds = [...new Set(explicit)];
+  const targetIds = [...new Set(gapIds.flatMap((id) => gaps.find((gap) => gap.id === id)?.targetIds ?? []))];
+  const priority = planningContext.state.priorities.find((item) => gapIds.includes(item.gapId));
+  const strategy = planningContext.state.strategy.decisions.find((item) => item.gapIds.some((id) => gapIds.includes(id)));
+  node.gapIds = gapIds;
+  node.targetIds = (brief.targetIds ?? []).filter((id) => planningContext.state.targets.some((target) => target.id === id));
+  node.targetIds = [...new Set([...node.targetIds, ...targetIds])];
+  node.strategyDerived = gapIds.length > 0 || node.targetIds.length > 0;
+  node.strategicReason = brief.strategicReason ?? (node.strategyDerived ? priority?.rationale ?? strategy?.rationale : node.why);
+  node.expectedEvidence = brief.expectedEvidence ?? (strategy?.evidenceToProduce ?? []).map((claim) => ({ type: "document" as const, claim }));
+  node.valueScore = brief.valueScore ?? priority?.score;
+}
+
 function fallbackMission(config: RoadmapConfig, unitIndex: number, monthIndex?: number): MissionBrief {
   const focus = FALLBACK_FOCUSES[(unitIndex + (monthIndex ?? 0)) % FALLBACK_FOCUSES.length];
   const examTopic = config.exams.includes("SAT") ? "sat-math" : focus.topic;
@@ -235,10 +270,10 @@ function fallbackMaster(profile: StudentProfile, config: RoadmapConfig, count: n
   return { title: `${config.targetGoal} - ${config.durationDays}-day plan`, units };
 }
 
-function masterPrompt(profile: StudentProfile, config: RoadmapConfig, count: number, language?: Lang): string {
+function masterPrompt(profile: StudentProfile, config: RoadmapConfig, count: number, language?: Lang, planningContext?: PlanningContext): string {
   const yearly = config.timelineMode === "yearly";
   const scoreLines = Object.entries(config.currentScores ?? {}).map(([k, v]) => `${k}: ${v}`).join(", ") || "(none reported)";
-  return [
+  const lines = [
     "You are Polaris, an elite admissions strategist. Return a duration-aware schedule master plan.",
     generationLanguageInstruction(language ?? "en"),
     language === "bn" ? "Translate human-readable values into Bengali. Keep JSON keys and enum values in English." : "",
@@ -260,8 +295,12 @@ function masterPrompt(profile: StudentProfile, config: RoadmapConfig, count: num
     yearly
       ? '{"title":"...","units":[{"index":0,"title":"Year 1","objective":"...","missions":[{mission fields}],"months":[{"index":0,"title":"Month 1","objective":"...","missions":[{mission fields}]}]}]}'
       : '{"title":"...","units":[{"index":0,"title":"...","objective":"...","missions":[{mission fields}]}]}',
-    'Mission fields: {"key":"unique-key","title":"...","description":"...","why":"...","how":"...","category":"Academics","type":"study|practice|project|test|activity|application","priority":"high|medium|low","difficulty":3,"estimatedHoursPerWeek":4,"topics":["valid-topic"],"completionCriteria":"...","impact":"..."}',
-  ].filter(Boolean).join("\n");
+    'Mission fields: {"key":"unique-key","title":"...","description":"...","why":"...","how":"...","category":"Academics","type":"study|practice|project|test|activity|application","priority":"high|medium|low","difficulty":3,"estimatedHoursPerWeek":4,"topics":["valid-topic"],"completionCriteria":"...","impact":"...","gapIds":["approved-gap-id"],"targetIds":["approved-target-id"],"strategicReason":"...","expectedEvidence":[{"type":"document","claim":"..."}],"valueScore":70}',
+  ];
+  if (planningContext) {
+    lines.splice(4, 0, "APPROVED PLANNING CONTEXT", planningContext.compact, "Do not redefine supplied requirements, gap severity, target IDs, or numeric facts. Turn the highest-value open gaps into missions.");
+  }
+  return lines.filter(Boolean).join("\n");
 }
 
 async function callJson<T>(
@@ -272,6 +311,10 @@ async function callJson<T>(
   opts: { userId?: string; maxOutputTokens?: number; state?: ScheduleCallState } = {},
 ): Promise<T | null> {
   if (opts.state?.providerUnavailable) return null;
+  const generationId = opts.state?.generationId ?? "schedule-" + shortId();
+  const stage = label === "master" ? "master" as const : "expansion" as const;
+  const startedAt = new Date();
+  void recordRoadmapStage({ generationId, userId: opts.userId, stage, state: "running", startedAt, model: "gemma" });
   for (let attempt = 0; attempt < 2; attempt++) {
     let raw: string | null = null;
     try {
@@ -292,14 +335,19 @@ async function callJson<T>(
       console.warn(`Roadmap schedule ${label} provider unavailable: ${error instanceof Error ? error.message : String(error)}`);
     }
     const parsed = raw ? schema.safeParse(extractJson(raw)) : null;
-    if (parsed?.success) return parsed.data;
+    if (parsed?.success) {
+      void recordRoadmapStage({ generationId, userId: opts.userId, stage, state: "complete", startedAt, completedAt: new Date(), latencyMs: Date.now() - startedAt.getTime(), retryCount: attempt, model: "gemma", validation: "valid" });
+      return parsed.data;
+    }
     if (!raw && opts.state) {
       opts.state.providerUnavailable = true;
       console.warn(`Roadmap schedule ${label}: using deterministic fallback.`);
+      void recordRoadmapStage({ generationId, userId: opts.userId, stage, state: "failed", startedAt, completedAt: new Date(), latencyMs: Date.now() - startedAt.getTime(), retryCount: attempt, model: "gemma", validation: "fallback" });
       return null;
     }
     console.warn(`Roadmap schedule ${label} response invalid on attempt ${attempt + 1}`);
   }
+  void recordRoadmapStage({ generationId, userId: opts.userId, stage, state: "failed", startedAt, completedAt: new Date(), latencyMs: Date.now() - startedAt.getTime(), retryCount: 1, model: "gemma", validation: "invalid" });
   return null;
 }
 
@@ -329,7 +377,8 @@ function emptyWeeks(): RoadmapWeek[] {
 }
 
 function addTask(node: RoadmapNode, text: string, coords: Omit<NodeTask, "id" | "text" | "done" | "missionId">): string {
-  const task: NodeTask = { id: shortId(), text: stabilizeGeneratedText(text), done: false, missionId: node.id, ...coords };
+  const safeText = stabilizeGeneratedText(text);
+  const task: NodeTask = { id: shortId(), text: safeText, done: false, missionId: node.id, resources: resourcesForTask(safeText, node.topics), ...coords };
   node.tasks.push(task);
   return task.id;
 }
@@ -339,13 +388,19 @@ function missionLine(m: MissionRecord): string {
 }
 
 function fallbackMonthExpansion(unitIndex: number, missions: MissionRecord[]): z.infer<typeof MonthExpansionSchema> {
+  const actions = [
+    "Set a baseline and prepare the materials.",
+    "Complete the focused practice described in the mission plan.",
+    "Produce the mission artifact or measurable result.",
+    "Review the result against the completion criteria and record the next adjustment.",
+  ];
   return {
     unitIndex,
     weeks: Array.from({ length: 4 }, (_, weekIndex) => ({
       weekIndex,
       title: `Week ${weekIndex + 1}: ${weekIndex === 0 ? "start" : weekIndex === 3 ? "review" : "build"}`,
       objective: weekIndex === 3 ? "Review evidence and close the loop." : "Complete the scheduled practice and record evidence.",
-      tasks: missions.map((m) => ({ missionKey: m.key, text: `${m.brief.title}: complete the Week ${weekIndex + 1} action and record the result.` })),
+      tasks: missions.map((m) => ({ missionKey: m.key, text: `${m.brief.title}: ${weekIndex === 1 ? m.brief.how : weekIndex === 3 ? m.brief.completionCriteria : actions[weekIndex]}` })),
     })),
   };
 }
@@ -354,14 +409,18 @@ function fallbackWeekExpansion(unitIndex: number, missions: MissionRecord[]): z.
   return {
     unitIndex,
     objective: "Complete the highest-leverage actions and capture evidence.",
-    tasks: missions.map((m) => ({ missionKey: m.key, text: `${m.brief.title}: complete one measurable action and log the result.` })),
+    tasks: missions.flatMap((m) => [
+      { missionKey: m.key, text: `${m.brief.title}: start with the baseline or preparation described in the mission.` },
+      { missionKey: m.key, text: `${m.brief.title}: ${m.brief.how}` },
+      { missionKey: m.key, text: `${m.brief.title}: finish by recording ${m.brief.completionCriteria.toLowerCase()}.` },
+    ]),
   };
 }
 
 function fallbackDayBatch(days: number[], missionsByDay: Map<number, MissionRecord[]>): z.infer<typeof DayExpansionSchema> {
   return { days: days.map((dayIndex) => ({
     dayIndex,
-    tasks: (missionsByDay.get(dayIndex) ?? []).map((m) => ({ missionKey: m.key, text: `${m.brief.title}: complete today's focused action and note what changed.` })),
+    tasks: (missionsByDay.get(dayIndex) ?? []).map((m) => ({ missionKey: m.key, text: `${m.brief.title}: ${m.brief.how} Then record the result.` })),
   })) };
 }
 
@@ -379,7 +438,7 @@ async function expandMonthlyUnit(
     "Return exactly four weeks with at least one checkable task in every week.",
     "Every task missionKey must exactly match one of the supplied mission keys.",
     "Tasks must be specific actions, not vague advice. Keep the total workload realistic.",
-    `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}; hours/week: ${config.availableHoursPerWeek}.`,
+    opts.planningContext ? "Planning context:\n" + planningContextForUnit(opts.planningContext, unit.unitIndex) : `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}; hours/week: ${config.availableHoursPerWeek}.`,
     `MISSIONS\n${missions.map(missionLine).join("\n")}`,
     'OUTPUT ONLY JSON: {"unitIndex":0,"weeks":[{"weekIndex":0,"title":"...","objective":"...","tasks":[{"missionKey":"...","text":"..."}]}]}',
   ].join("\n");
@@ -404,7 +463,7 @@ async function expandWeeklyUnit(
     generationLanguageInstruction(opts.language ?? "en"),
     `Week index ${unit.unitIndex}, title ${unit.title}, objective ${unit.objective}.`,
     "Return at least one task and use only the supplied mission keys.",
-    `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}; hours/week: ${config.availableHoursPerWeek}.`,
+    opts.planningContext ? "Planning context:\n" + planningContextForUnit(opts.planningContext, unit.unitIndex) : `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}; hours/week: ${config.availableHoursPerWeek}.`,
     `MISSIONS\n${missions.map(missionLine).join("\n")}`,
     'OUTPUT ONLY JSON: {"unitIndex":0,"objective":"...","tasks":[{"missionKey":"...","text":"..."}]}',
   ].join("\n");
@@ -427,7 +486,7 @@ async function expandDailyBatch(
     generationLanguageInstruction(opts.language ?? "en"),
     `Return exactly one day object for each requested day: ${days.join(", ")}.`,
     "Every day must have at least one specific task. Use only the supplied mission keys.",
-    `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}.`,
+    opts.planningContext ? "Planning context:\n" + planningContextForUnit(opts.planningContext, days[0] ?? 0) : `Student context: ${summarizeProfile(profile)}; goal: ${config.targetGoal}.`,
     `MISSIONS\n${missionText}`,
     'OUTPUT ONLY JSON: {"days":[{"dayIndex":0,"tasks":[{"missionKey":"...","text":"..."}]}]}',
   ].join("\n");
@@ -487,8 +546,25 @@ export function repairRoadmapCategories(doc: RoadmapDoc): { doc: RoadmapDoc; cha
   return { doc: recomputeStatuses(doc), changed: true };
 }
 
-function missionBriefSummary(records: MissionRecord[]): Array<{ id: string; title: string; objective: string }> {
-  return records.map((r) => ({ id: r.key, title: r.brief.title, objective: r.brief.description }));
+function missionBriefSummary(records: MissionRecord[]): Array<NonNullable<RoadmapScheduleUnit["missionBriefs"]>[number]> {
+  return records.map((r) => ({
+    id: r.key,
+    title: r.brief.title,
+    objective: r.brief.description,
+    priority: r.brief.priority,
+    gapIds: r.brief.gapIds,
+    targetIds: r.brief.targetIds,
+    expectedEvidence: r.brief.expectedEvidence?.map((item) => item.claim),
+  }));
+}
+
+function summaryMetadata(records: MissionRecord[]) {
+  return {
+    priority: records.some((record) => record.brief.priority === "high") ? "high" as const : records.some((record) => record.brief.priority === "medium") ? "medium" as const : "low" as const,
+    gapIds: [...new Set(records.flatMap((record) => record.brief.gapIds ?? []))],
+    targetIds: [...new Set(records.flatMap((record) => record.brief.targetIds ?? []))],
+    expectedOutcomes: [...new Set(records.map((record) => record.brief.impact).filter(Boolean))].slice(0, 6),
+  };
 }
 
 function createScoreEntries(config: RoadmapConfig): ScoreEntry[] {
@@ -503,7 +579,7 @@ function indexMasterMission(brief: z.infer<typeof MissionSchema>, unitIndex: num
 
 type Materialized = { records: MissionRecord[]; schedule: RoadmapSchedule; branches: RoadmapBranch[] };
 
-function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimit: number): Materialized {
+function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimit: number, planningContext?: PlanningContext): Materialized {
   const records: MissionRecord[] = [];
   const units: RoadmapScheduleUnit[] = [];
   const yearly = config.timelineMode === "yearly";
@@ -517,8 +593,10 @@ function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimi
         label: phaseLabel(config.timelineMode, masterUnit.index),
         title: stabilizeGeneratedText(masterUnit.title),
         objective: stabilizeGeneratedText(masterUnit.objective),
-        detailState: expanded ? "expanded" : "deferred",
+        detailState: expanded ? "expanded" : "summary",
         missionIds: [],
+        ...summaryMetadata(briefRecords),
+        summary: expanded ? undefined : stabilizeGeneratedText(masterUnit.objective),
         ...(expanded ? {} : { missionBriefs: missionBriefSummary(briefRecords) }),
         ...(config.timelineMode === "monthly" && expanded ? { weeks: emptyWeeks() } : {}),
         ...(config.timelineMode === "monthly" && !expanded ? { yearIndex: Math.floor(masterUnit.index / 12) } : {}),
@@ -527,6 +605,7 @@ function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimi
         for (const record of briefRecords) {
           record.node = missionNode(record.brief, masterUnit.index);
           record.node.phase = masterUnit.index;
+          attachPlanningLinks(record.node, record.brief, planningContext);
           records.push(record);
           unit.missionIds.push(record.node.id);
         }
@@ -543,9 +622,12 @@ function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimi
       label: phaseLabel("yearly", masterUnit.index),
       title: stabilizeGeneratedText(masterUnit.title),
       objective: stabilizeGeneratedText(masterUnit.objective),
-      detailState: expandedYear ? "expanded" : "deferred",
+      detailState: expandedYear ? "expanded" : "summary",
       missionIds: [],
-      ...(!expandedYear ? { missionBriefs: missionBriefSummary(masterUnit.missions.map((m, j) => ({ key: m.key ?? `year-${masterUnit.index}-${j}`, brief: indexMasterMission(m, masterUnit.index, j), unitIndex: masterUnit.index }))) } : {}),
+      ...(expandedYear ? {} : (() => {
+        const yearRecords = masterUnit.missions.map((m, j) => ({ key: m.key ?? `year-${masterUnit.index}-${j}`, brief: indexMasterMission(m, masterUnit.index, j), unitIndex: masterUnit.index }));
+        return { ...summaryMetadata(yearRecords), summary: stabilizeGeneratedText(masterUnit.objective), missionBriefs: missionBriefSummary(yearRecords) };
+      })()),
     };
     if (expandedYear) {
       unit.months = months.map((month) => {
@@ -559,6 +641,7 @@ function materializeMaster(master: MasterPlan, config: RoadmapConfig, detailLimi
         const meta: RoadmapMonth = { monthIndex: month.index, title: stabilizeGeneratedText(month.title), objective: stabilizeGeneratedText(month.objective), missionIds: [], weeks: emptyWeeks() };
         for (const record of monthRecords) {
           record.node = missionNode(record.brief, masterUnit.index);
+          attachPlanningLinks(record.node, record.brief, planningContext);
           records.push(record);
           meta.missionIds.push(record.node.id);
           unit.missionIds.push(record.node.id);
@@ -671,11 +754,28 @@ function buildDoc(
   config: RoadmapConfig,
   master: MasterPlan,
   materialized: Materialized,
-  opts: { language?: Lang },
+  opts: { language?: Lang; planningContext?: PlanningContext; fastInitial?: boolean },
 ): RoadmapDoc {
   void profile;
   void opts;
   const now = new Date();
+  const planning = opts.planningContext ? structuredClone(opts.planningContext.state) : undefined;
+  if (planning) {
+    const expandedUnitIndexes = materialized.schedule.units.filter((unit) => unit.detailState === "expanded").map((unit) => unit.unitIndex);
+    const deferredUnitIndexes = materialized.schedule.units.filter((unit) => unit.detailState !== "expanded").map((unit) => unit.unitIndex);
+    planning.generation.state = expandedUnitIndexes.length ? "active-detail-ready" : "degraded";
+    planning.generation.expandedUnitIndexes = expandedUnitIndexes;
+    planning.generation.deferredUnitIndexes = deferredUnitIndexes;
+    planning.generation.updatedAt = new Date();
+    planning.generation.stages.push({ stage: "master", state: "complete", model: "gemma", validation: "valid", completedAt: new Date() });
+    planning.generation.stages.push({
+      stage: "expansion",
+      state: expandedUnitIndexes.length ? "complete" : "failed",
+      model: opts.fastInitial ? "deterministic" : "gemma",
+      validation: opts.fastInitial ? "fallback" : expandedUnitIndexes.length ? "valid" : "fallback",
+      completedAt: new Date(),
+    });
+  }
   const doc: RoadmapDoc = {
     roadmapId: shortId(),
     title: stabilizeGeneratedText(master.title),
@@ -683,6 +783,7 @@ function buildDoc(
     phases: Array.from({ length: phaseCount(config.durationDays, config.timelineMode) }, (_, i) => phaseLabel(config.timelineMode, i)),
     branches: materialized.branches,
     schedule: materialized.schedule,
+    ...(planning ? { planning } : {}),
     scores: createScoreEntries(config),
     adaptations: [],
     createdAt: now,
@@ -694,25 +795,36 @@ function buildDoc(
 export async function generateScheduledRoadmap(
   profile: StudentProfile,
   config: RoadmapConfig,
-  opts: { userId?: string; language?: Lang } = {},
+  opts: { userId?: string; language?: Lang; planningContext?: PlanningContext; progressive?: boolean; fastInitial?: boolean } = {},
 ): Promise<RoadmapDoc> {
+  const startedAt = Date.now();
   const count = phaseCount(config.durationDays, config.timelineMode);
   // Two-year plans are intentionally front-loaded: only Year 1 or the first
   // twelve monthly units spend expansion tokens during initial generation.
   const detailLimit = config.timelineMode === "yearly" && count > 1
     ? 1
-    : config.durationDays > 365 ? 12 : count;
-  const state: ScheduleCallState = { providerUnavailable: false };
+    : config.durationDays > 365 && config.timelineMode === "monthly"
+      ? Math.min(12, count)
+      : opts.progressive
+        ? 1
+        : config.durationDays > 365 ? 12 : count;
+  const state: ScheduleCallState = { providerUnavailable: false, generationId: opts.planningContext?.state.generation.id };
   const scheduleOpts: ScheduleOpts = { ...opts, state };
-  const rawMaster = await callJson("master", MasterSchema, masterPrompt(profile, config, count, opts.language), "Generate the complete schedule master now.", { userId: opts.userId, maxOutputTokens: 8192, state });
+  const rawMaster = await callJson("master", MasterSchema, masterPrompt(profile, config, count, opts.language, opts.planningContext), "Generate the complete schedule master now.", { userId: opts.userId, maxOutputTokens: 8192, state });
+  console.info(`[roadmap:v3] master schedule finished in ${Date.now() - startedAt}ms; ${count} ${config.timelineMode} units`);
   const master = (rawMaster && normalizeMaster(rawMaster, config, count)) ?? fallbackMaster(profile, config, count);
-  const materialized = materializeMaster(master, config, detailLimit);
+  const materialized = materializeMaster(master, config, detailLimit, opts.planningContext);
   const schedule = materialized.schedule;
   const records = materialized.records;
 
   if (config.timelineMode === "monthly") {
     const jobs = schedule.units.filter((u) => u.detailState === "expanded");
-    await mapBounded(jobs, 3, async (unit) => {
+    if (scheduleOpts.fastInitial) {
+      for (const unit of jobs) {
+        const unitRecords = records.filter((r) => r.unitIndex === unit.unitIndex);
+        applyMonthlyExpansion(fallbackMonthExpansion(unit.unitIndex, unitRecords), unit, unitRecords);
+      }
+    } else await mapBounded(jobs, 3, async (unit) => {
       const unitRecords = records.filter((r) => r.unitIndex === unit.unitIndex);
       const expansion = await expandMonthlyUnit(profile, config, unit, unitRecords, scheduleOpts);
       applyMonthlyExpansion(expansion, unit, unitRecords);
@@ -720,7 +832,12 @@ export async function generateScheduledRoadmap(
     });
   } else if (config.timelineMode === "weekly") {
     const jobs = schedule.units.filter((u) => u.detailState === "expanded");
-    await mapBounded(jobs, 3, async (unit) => {
+    if (scheduleOpts.fastInitial) {
+      for (const unit of jobs) {
+        const unitRecords = records.filter((r) => r.unitIndex === unit.unitIndex);
+        applyWeeklyExpansion(fallbackWeekExpansion(unit.unitIndex, unitRecords), unit, unitRecords);
+      }
+    } else await mapBounded(jobs, 3, async (unit) => {
       const unitRecords = records.filter((r) => r.unitIndex === unit.unitIndex);
       const expansion = await expandWeeklyUnit(profile, config, unit, unitRecords, scheduleOpts);
       applyWeeklyExpansion(expansion, unit, unitRecords);
@@ -729,7 +846,10 @@ export async function generateScheduledRoadmap(
   } else if (config.timelineMode === "daily") {
     const days = schedule.units.filter((u) => u.detailState === "expanded").map((u) => u.unitIndex);
     const batches = Array.from({ length: Math.ceil(days.length / 5) }, (_, i) => days.slice(i * 5, i * 5 + 5));
-    await mapBounded(batches, 3, async (batch) => {
+    if (scheduleOpts.fastInitial) {
+      const byDay = new Map(days.map((day) => [day, records.filter((r) => r.unitIndex === day)]));
+      applyDailyExpansion(fallbackDayBatch(days, byDay), schedule.units, records);
+    } else await mapBounded(batches, 3, async (batch) => {
       const byDay = new Map(batch.map((day) => [day, records.filter((r) => r.unitIndex === day)]));
       const expansion = await expandDailyBatch(profile, config, batch, byDay, scheduleOpts);
       applyDailyExpansion(expansion, schedule.units, records);
@@ -739,23 +859,25 @@ export async function generateScheduledRoadmap(
     // Yearly plans expand the active year's twelve months through the same
     // month pipeline. Year 2 remains a summary/deferred unit.
     const jobs = schedule.units[0]?.months ?? [];
-    await mapBounded(jobs, 3, async (month) => {
+    const expandYearMonth = async (month: RoadmapMonth) => {
       const unit = schedule.units[0];
       const monthRecords = records.filter((r) => r.yearIndex === 0 && r.monthIndex === month.monthIndex);
       const expansionUnit: RoadmapScheduleUnit = { ...unit, unitIndex: month.monthIndex, title: month.title, objective: month.objective, yearIndex: 0 };
-      const expansion = await expandMonthlyUnit(profile, config, expansionUnit, monthRecords, scheduleOpts);
+      const expansion = scheduleOpts.fastInitial ? fallbackMonthExpansion(month.monthIndex, monthRecords) : await expandMonthlyUnit(profile, config, expansionUnit, monthRecords, scheduleOpts);
       month.weeks = emptyWeeks();
       applyMonthlyExpansion(expansion, expansionUnit, monthRecords);
       month.weeks = expansionUnit.weeks ?? month.weeks;
       return true;
-    });
+    };
+    await mapBounded(jobs, scheduleOpts.fastInitial ? 1 : 3, expandYearMonth);
   }
 
   checkComplete(schedule, records, config);
+  console.info(`[roadmap:v3] schedule generation finished in ${Date.now() - startedAt}ms; expanded=${schedule.units.filter((unit) => unit.detailState === "expanded").length}`);
   return buildDoc(profile, config, master, materialized, opts);
 }
 
-function summaryToMission(summary: { id: string; title: string; objective: string }, config: RoadmapConfig, unitIndex: number, monthIndex?: number): MissionBrief {
+function summaryToMission(summary: NonNullable<RoadmapScheduleUnit["missionBriefs"]>[number], config: RoadmapConfig, unitIndex: number, monthIndex?: number): MissionBrief {
   return {
     key: summary.id || `deferred-${unitIndex}-${monthIndex ?? 0}`,
     title: summary.title,
@@ -770,6 +892,9 @@ function summaryToMission(summary: { id: string; title: string; objective: strin
     topics: ["study-skills"],
     completionCriteria: "Complete the weekly actions and record a concrete result.",
     impact: "+ Sustained profile growth",
+    gapIds: summary.gapIds,
+    targetIds: summary.targetIds,
+    expectedEvidence: summary.expectedEvidence?.map((claim) => ({ type: "document" as const, claim })),
   };
 }
 
@@ -806,13 +931,75 @@ function mergeProgress(next: RoadmapDoc, previous: RoadmapDoc): RoadmapDoc {
   return recomputeStatuses(next);
 }
 
+/** Expand exactly one deferred day/week/month without regenerating any other unit. */
+export async function generateDeferredUnit(
+  profile: StudentProfile,
+  previous: RoadmapDoc,
+  requestedUnitIndex: number,
+  opts: { userId?: string; language?: Lang } = {},
+): Promise<RoadmapDoc> {
+  if (!previous.schedule) throw new Error("This roadmap needs the explicit legacy schedule build first.");
+  const source = structuredClone(previous) as RoadmapDoc;
+  const schedule = source.schedule!;
+  const unit = schedule.units[requestedUnitIndex];
+  if (!unit || unit.detailState === "expanded") return previous;
+  const state: ScheduleCallState = { providerUnavailable: false, generationId: source.planning?.generation.id };
+  const scheduleOpts: ScheduleOpts = { ...opts, state, planningContext: source.planning ? planningContextFromState(source.planning) : undefined };
+  const summaries = unit.missionBriefs?.length ? unit.missionBriefs : [{ id: "unit-" + requestedUnitIndex, title: unit.title, objective: unit.objective }];
+  const records: MissionRecord[] = summaries.map((summary, index) => {
+    const brief = summaryToMission({ ...summary, id: summary.id + "-" + index }, source.config, requestedUnitIndex, source.config.timelineMode === "monthly" ? requestedUnitIndex : undefined);
+    const node = missionNode(brief, requestedUnitIndex);
+    attachPlanningLinks(node, brief, scheduleOpts.planningContext);
+    return {
+      key: brief.key,
+      brief,
+      unitIndex: requestedUnitIndex,
+      monthIndex: source.config.timelineMode === "monthly" ? requestedUnitIndex : undefined,
+      node,
+    };
+  });
+
+  if (source.config.timelineMode === "monthly") {
+    const expansion = await expandMonthlyUnit(profile, source.config, unit, records, scheduleOpts);
+    applyMonthlyExpansion(expansion, unit, records);
+  } else if (source.config.timelineMode === "weekly") {
+    const expansion = await expandWeeklyUnit(profile, source.config, unit, records, scheduleOpts);
+    applyWeeklyExpansion(expansion, unit, records);
+  } else {
+    const byDay = new Map([[requestedUnitIndex, records]]);
+    const expansion = await expandDailyBatch(profile, source.config, [requestedUnitIndex], byDay, scheduleOpts);
+    applyDailyExpansion(expansion, schedule.units, records);
+  }
+
+  if (state.providerUnavailable) {
+    throw new Error("Detailed generation is temporarily unavailable; the prepared summary was preserved. Please retry.");
+  }
+
+  for (const branch of makeBranches(records)) {
+    const existing = source.branches.find((item) => item.category === branch.category);
+    if (existing) existing.nodes.push(...branch.nodes);
+    else source.branches.push(branch);
+  }
+  unit.missionIds = records.map((record) => record.node!.id);
+  unit.detailState = "expanded";
+  if (source.planning) {
+    source.planning.generation.expandedUnitIndexes = [...new Set([...source.planning.generation.expandedUnitIndexes, requestedUnitIndex])].sort((a, b) => a - b);
+    source.planning.generation.deferredUnitIndexes = source.planning.generation.deferredUnitIndexes.filter((index) => index !== requestedUnitIndex);
+    source.planning.generation.state = "active-detail-ready";
+    source.planning.generation.updatedAt = new Date();
+  }
+  source.updatedAt = new Date();
+  return recomputeStatuses(source);
+}
+
 /** Explicit, non-destructive upgrade for a legacy flat roadmap. */
 export async function buildLegacySchedule(
   profile: StudentProfile,
   previous: RoadmapDoc,
   opts: { userId?: string; language?: Lang } = {},
 ): Promise<RoadmapDoc> {
-  const next = await generateScheduledRoadmap(profile, previous.config, opts);
+  const planningContext = await buildPlanningContext(profile, previous.config, opts);
+  const next = await generateScheduledRoadmap(profile, previous.config, { ...opts, planningContext, progressive: true });
   next.roadmapId = previous.roadmapId;
   next.createdAt = previous.createdAt;
   next.adaptations = previous.adaptations;
@@ -828,10 +1015,10 @@ export async function generateDeferredSchedule(
 ): Promise<RoadmapDoc> {
   if (!previous.schedule) throw new Error("This roadmap needs the explicit legacy schedule build first.");
   const source = structuredClone(previous) as RoadmapDoc;
-  const schedule = source.schedule;
+  const schedule = source.schedule!;
   if (!schedule) throw new Error("This roadmap needs the explicit legacy schedule build first.");
-  const state: ScheduleCallState = { providerUnavailable: false };
-  const scheduleOpts: ScheduleOpts = { ...opts, state };
+  const state: ScheduleCallState = { providerUnavailable: false, generationId: source.planning?.generation.id };
+  const scheduleOpts: ScheduleOpts = { ...opts, state, planningContext: source.planning ? planningContextFromState(source.planning) : undefined };
   if (schedule.mode === "yearly") {
     const year = schedule.units[requestedYearIndex];
     if (!year || year.detailState === "expanded") return previous;
@@ -840,7 +1027,9 @@ export async function generateDeferredSchedule(
     year.months = Array.from({ length: 12 }, (_, monthIndex) => {
       const summary = summaries[monthIndex % summaries.length];
       const brief = summaryToMission({ ...summary, id: `${summary.id}-m${monthIndex}` }, source.config, requestedYearIndex, monthIndex);
-      const record: MissionRecord = { key: brief.key, brief, unitIndex: requestedYearIndex, yearIndex: requestedYearIndex, monthIndex, node: missionNode(brief, requestedYearIndex) };
+      const node = missionNode(brief, requestedYearIndex);
+      attachPlanningLinks(node, brief, scheduleOpts.planningContext);
+      const record: MissionRecord = { key: brief.key, brief, unitIndex: requestedYearIndex, yearIndex: requestedYearIndex, monthIndex, node };
       monthRecords.push(record);
       return { monthIndex, title: `Month ${monthIndex + 1}`, objective: summary.objective, missionIds: [record.node!.id], weeks: emptyWeeks() };
     });
@@ -849,6 +1038,7 @@ export async function generateDeferredSchedule(
       const month = year.months.find((m) => m.monthIndex === monthIndex)!;
       const expansionUnit: RoadmapScheduleUnit = { ...year, unitIndex: monthIndex, title: month.title, objective: month.objective, yearIndex: requestedYearIndex };
       const expansion = await expandMonthlyUnit(profile, source.config, expansionUnit, [record], scheduleOpts);
+      if (state.providerUnavailable) throw new Error("Detailed generation is temporarily unavailable; the prepared summary was preserved. Please retry.");
       applyMonthlyExpansion(expansion, expansionUnit, [record]);
       month.weeks = expansionUnit.weeks ?? month.weeks;
     }
@@ -872,9 +1062,12 @@ export async function generateDeferredSchedule(
     const summaries = unit.missionBriefs?.length ? unit.missionBriefs : [{ id: `month-${unit.unitIndex}`, title: unit.title, objective: unit.objective }];
     const records = summaries.map((summary, j) => {
       const brief = summaryToMission({ ...summary, id: `${summary.id}-${j}` }, source.config, unit.unitIndex, monthIndex);
-      return { key: brief.key, brief, unitIndex: unit.unitIndex, yearIndex: Math.floor(unit.unitIndex / 12), monthIndex, node: missionNode(brief, unit.unitIndex) } as MissionRecord;
+      const node = missionNode(brief, unit.unitIndex);
+      attachPlanningLinks(node, brief, scheduleOpts.planningContext);
+      return { key: brief.key, brief, unitIndex: unit.unitIndex, yearIndex: Math.floor(unit.unitIndex / 12), monthIndex, node } as MissionRecord;
     });
     const expansion = await expandMonthlyUnit(profile, source.config, unit, records, scheduleOpts);
+    if (state.providerUnavailable) throw new Error("Detailed generation is temporarily unavailable; the prepared summaries were preserved. Please retry.");
     applyMonthlyExpansion(expansion, unit, records);
     unit.weeks = unit.weeks ?? emptyWeeks();
     unit.missionIds = records.map((r) => r.node!.id);
