@@ -13,7 +13,8 @@
     "rag:eval": "tsx scripts/rag-eval.ts",
     "rag:faith": "tsx scripts/rag-faithfulness.ts",
     "rag:test": "tsx scripts/rag-selftest.ts",
-    "rag:calibrate": "tsx scripts/rag-calibrate.ts"
+    "rag:calibrate": "tsx scripts/rag-calibrate.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.15.0",
