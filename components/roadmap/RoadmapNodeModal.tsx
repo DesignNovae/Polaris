@@ -51,17 +51,10 @@ export function RoadmapNodeModal({
   const [busy, setBusy] = useState<string | null>(null);
   const [adaptMsg, setAdaptMsg] = useState<string | null>(null);
 
-  if (!found) return null;
-  const { branch, node } = found;
-  const locked = node.status === "locked";
-  const phase = doc.phases[node.phase] ?? `Phase ${node.phase + 1}`;
-  const tip = nodeTip(doc, node);
-  const gapLabel = (id: string) => doc.planning?.gaps.find((gap) => gap.id === id)?.label ?? id;
-  const targetLabel = (id: string) => doc.planning?.targets.find((target) => target.id === id)?.title ?? id;
-  const taskResources = [...new Map(node.tasks.flatMap((task) => task.resources ?? resourcesForTask(task.text, node.topics)).map((resource) => [resource.ref, resource])).values()].slice(0, 8);
-
   /* Curated Video Learning - backend. Which of these videos have I already
-   * opened? Loaded once when the modal mounts. */
+   * opened? Loaded once when the modal mounts.
+   * NOTE: must stay above the `if (!found) return null` below - React
+   * requires every hook to run in the same order on every render. */
   const [watched, setWatched] = useState<string[]>([]);
   useEffect(() => {
     fetch("/api/resources/watched")
@@ -78,6 +71,15 @@ export function RoadmapNodeModal({
       body: JSON.stringify({ ref, title }),
     }).catch(() => {});
   }
+
+  if (!found) return null;
+  const { branch, node } = found;
+  const locked = node.status === "locked";
+  const phase = doc.phases[node.phase] ?? `Phase ${node.phase + 1}`;
+  const tip = nodeTip(doc, node);
+  const gapLabel = (id: string) => doc.planning?.gaps.find((gap) => gap.id === id)?.label ?? id;
+  const targetLabel = (id: string) => doc.planning?.targets.find((target) => target.id === id)?.title ?? id;
+  const taskResources = [...new Map(node.tasks.flatMap((task) => task.resources ?? resourcesForTask(task.text, node.topics)).map((resource) => [resource.ref, resource])).values()].slice(0, 8);
 
   // Next unlock = first non-done node after this one in the branch.
   const ordered = [...branch.nodes].sort((a, b) => a.phase - b.phase);
