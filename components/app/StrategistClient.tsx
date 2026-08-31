@@ -479,6 +479,10 @@ export function StrategistClient({
     // Ensure a thread exists + persist the user turn (fire-and-forget).
     const tid = await ensureThread(text);
     if (tid) void persistMessage(tid, "user", text, { mode });
+    // Keep a local copy of the streamed reply so persistence does not depend
+    // on a state update completing inside the async stream/finally path.
+    let assistantText = "";
+    const assistantSources: WebSource[] = [];
 
     try {
       if (demo) {
@@ -492,6 +496,7 @@ export function StrategistClient({
         if (!response.ok) throw new Error(data?.error || "The Strategist is temporarily unavailable.");
         const sources: WebSource[] = (data.sources || []).map((source: { title?: string }) => ({ label: source.title || "Polaris knowledge base", uri: "#", kind: "kb" as const }));
         setMessages((items) => patchLast(items, (message) => ({ ...message, text: data.text, sources })));
+        if (tid) void persistMessage(tid, "assistant", data.text, { sources, mode });
         setRouteInfo({ provider: "Polaris AI", model: "Polaris AI", reason: "Competition demo route" });
         return;
       }
@@ -571,17 +576,18 @@ export function StrategistClient({
         if (chunk.kind === "verification") {
           // Deterministic numeric guard fired: the answer quotes a figure that
           // is in none of its sources. Say so where the student will see it.
+          assistantText += `\n\n> **Verify before relying on this.** ${chunk.message}`;
           setMessages((m) =>
             patchLast(m, (message) => ({
               ...message,
-              text: `${message.text}
-
-> **Verify before relying on this.** ${chunk.message}`,
+              text: assistantText,
             })),
           );
           return;
         }
         if (chunk.kind === "done") setThinking(null);
+        if (chunk.kind === "text") assistantText += chunk.delta;
+        if (chunk.kind === "source") assistantSources.push({ label: chunk.label, uri: chunk.uri, kind: chunk.source });
         setMessages((m) => {
           const last = m[m.length - 1];
           if (!last || last.role !== "agent") return m;
@@ -599,27 +605,19 @@ export function StrategistClient({
           return m;
         });
       });
+      if (tid && assistantText.trim()) {
+        void persistMessage(tid, "assistant", assistantText, {
+          sources: assistantSources,
+          mode,
+          providerId: routeInfo?.provider,
+          modelId: routeInfo?.model,
+        });
+      }
     } catch {
       setMessages((m) => patchLast(m, (msg) => ({ ...msg, text: "The Strategist disconnected. Try a suggestion to retry." })));
     } finally {
       setStreaming(false);
       setThinking(null);
-      // Persist the assistant turn on completion (fire-and-forget).
-      if (tid) {
-        // Read the latest assistant message using a flushSync-free state read.
-        setMessages((m) => {
-          const last = m[m.length - 1];
-          if (last && last.role === "agent" && last.text.length > 0) {
-            void persistMessage(tid, "assistant", last.text, {
-              sources: last.sources,
-              mode,
-              providerId: routeInfo?.provider,
-              modelId: routeInfo?.model,
-            });
-          }
-          return m;
-        });
-      }
     }
   }, [input, streaming, mode, model, routeMode, offline, allowPaid, routeInfo, ensureThread, persistMessage, demo]);
 
@@ -699,7 +697,7 @@ export function StrategistClient({
             slim strip once the user starts chatting so messages get the room. */}
         <div className={cn(
           "px-4 sm:px-6 lg:px-8 border-b border-polaris-500/10 bg-gradient-to-b from-paper-soft/55 to-paper",
-          hasConversation ? "py-2" : "pt-4 lg:pt-5 pb-3",
+          hasConversation ? "py-2" : "pt-3 lg:pt-3 pb-2",
         )}>
           <div className={cn(
             "flex items-center gap-2",
@@ -763,7 +761,7 @@ export function StrategistClient({
               <h1 className="font-serif text-[21px] sm:text-[24px] lg:text-[27px] leading-tight font-bold tracking-tight text-ink">
                 Your <span className="grad-text">long-horizon</span> AI academic strategist.
               </h1>
-              <p className="hidden sm:block text-[12px] text-ink-dim mt-1.5 max-w-3xl leading-relaxed">
+              <p className="hidden sm:block text-[12px] text-ink-dim mt-1 max-w-3xl leading-relaxed">
                 Grounded in global admit patterns, your profile, your notes, your saved memories, and the live web.
                 Every answer cites its sources and proposes the next concrete action.
               </p>
@@ -772,7 +770,7 @@ export function StrategistClient({
 
           {/* Mode + model picker row */}
           {!hasConversation && (
-          <div className="mt-3 flex max-w-4xl flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="mt-2 flex max-w-none flex-col gap-1.5 sm:flex-row sm:items-center">
             <div className="flex items-center gap-1.5">
               {MODES.map((m) => (
                 <button
@@ -792,7 +790,7 @@ export function StrategistClient({
                 </button>
               ))}
             </div>
-            <div className="sm:ml-auto sm:w-[292px]">
+            <div className="sm:ml-auto sm:w-[270px]">
               <CompactModelPicker
                 theme="light"
                 model={model}
