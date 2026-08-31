@@ -220,7 +220,7 @@ export function TopBar() {
                   {/* Links */}
                   <ul className="py-1.5">
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<UserGlyph />}>Account</MenuLink>
-                    <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CogGlyph />}>Settings</MenuLink>
+                    <MenuLink href="/account" onClick={() => setProfileOpen(false)} icon={<CogGlyph />}>Settings</MenuLink>
                     <MenuLink href="#" onClick={() => setProfileOpen(false)} icon={<CardGlyph />}>Billing &amp; plan</MenuLink>
                     <MenuLink href="/monitor" onClick={() => setProfileOpen(false)} icon={<MonitorGlyph />}>
                       Monitor dashboard

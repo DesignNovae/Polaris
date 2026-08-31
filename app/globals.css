@@ -492,6 +492,18 @@ html { overflow-x: hidden; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fadeUp { animation: fadeUp 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Exam question/task changes should feel connected without slowing timed work. */
+@keyframes exam-content-enter {
+  from { opacity: 0; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.exam-content-enter {
+  animation: exam-content-enter 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .exam-content-enter { animation: none; }
+}
+
 /* Markdown body - fine-tuned typographic rhythm + smooth streaming feel. */
 .markdown-body > * + * { margin-top: 0.7rem; }
 .markdown-body > h2 + *,

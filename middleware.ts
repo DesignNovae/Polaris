@@ -24,6 +24,7 @@ const PROTECTED = [
   "/monitor",
   "/account",
   "/action-lab",
+  "/exams",
 ];
 
 export async function middleware(req: NextRequest) {
@@ -67,5 +68,6 @@ export const config = {
     "/monitor/:path*",
     "/account/:path*",
     "/action-lab/:path*",
+    "/exams/:path*",
   ],
 };

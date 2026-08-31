@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "benchmark:roadmap": "node scripts/roadmap-v3-benchmark.mjs"
+    "benchmark:roadmap": "node scripts/roadmap-v3-benchmark.mjs",
+    "test": "node --import ./tests/register.mjs --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@google/genai": "^2.15.0",

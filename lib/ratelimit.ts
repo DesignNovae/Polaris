@@ -69,8 +69,14 @@ async function upstashCheck(key: string, budget: number): Promise<Result | null>
   }
 }
 
-export async function rateLimit(userId: string, plan: Plan, scope = "default"): Promise<Result> {
-  const budget = BUDGETS[plan];
+/**
+ * `budgetOverride` exists for scopes whose unit of work is much smaller than a
+ * normal request - a full-length AI practice set is deliberately split into
+ * many small batches, and charging each one against the plan budget would make
+ * a valid set impossible to finish.
+ */
+export async function rateLimit(userId: string, plan: Plan, scope = "default", budgetOverride?: number): Promise<Result> {
+  const budget = budgetOverride ?? BUDGETS[plan];
   const key = `${scope}:${userId}`;
   return (await upstashCheck(key, budget)) ?? memoryCheck(key, budget);
 }

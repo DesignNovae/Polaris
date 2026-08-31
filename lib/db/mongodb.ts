@@ -54,6 +54,18 @@ async function ensureIndexes(db: Db): Promise<void> {
     db.collection("monitorInvites").createIndex({ studentId: 1 }),
     db.collection("monitorInvites").createIndex({ viewerId: 1 }),
     db.collection("monitorInvites").createIndex({ email: 1 }),
+    db.collection("exam_items").createIndex({ id: 1, version: 1 }, { unique: true }),
+    db.collection("exam_items").createIndex({ exam: 1, section: 1, status: 1, domain: 1, difficulty: 1 }),
+    db.collection("exam_items").createIndex({ eligibleStageIds: 1, status: 1, stimulusGroupId: 1 }),
+    db.collection("exam_stimuli").createIndex({ id: 1, version: 1 }, { unique: true }),
+    db.collection("exam_blueprints").createIndex({ id: 1, version: 1 }, { unique: true }),
+    db.collection("exam_sessions").createIndex({ userId: 1, createdAt: -1 }),
+    db.collection("exam_sessions").createIndex({ userId: 1, status: 1, expiresAt: 1 }),
+    db.collection("exam_responses").createIndex({ sessionId: 1, userId: 1, itemId: 1 }, { unique: true }),
+    db.collection("exam_results").createIndex({ sessionId: 1, userId: 1 }, { unique: true }),
+    db.collection("exam_session_events").createIndex({ sessionId: 1, createdAt: 1 }),
+    db.collection("exam_exposures").createIndex({ userId: 1, questionId: 1 }, { unique: true }),
+    db.collection("exam_exposures").createIndex({ userId: 1, lastSeenAt: -1 }),
   ]).catch((err) => {
     console.error("[db] ensureIndexes failed:", err);
     ensured = false;
