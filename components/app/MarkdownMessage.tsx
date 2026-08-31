@@ -299,7 +299,13 @@ function CitationChip({
 }
 
 function kindFromUri(uri: string): CitationSource["kind"] {
-  if (uri.startsWith("kb://")) return "kb";
+  // The model sometimes drops the slashes ("kb:cost:germany"). Accept both,
+  // or a valid internal citation renders as an external web link.
+  if (/^kb:(\/\/)?/.test(uri)) return "kb";
+  // me: is a passage retrieved from the student's own material - the id
+  // prefix says which surface it came from.
+  if (/^me:(\/\/)?(rm|ms):/.test(uri)) return "roadmap";
+  if (/^me:(\/\/)?/.test(uri)) return "profile";
   if (uri.startsWith("case://")) return "case";
   if (uri.startsWith("profile://")) return "profile";
   if (uri.startsWith("roadmap://")) return "roadmap";
@@ -307,6 +313,9 @@ function kindFromUri(uri: string): CitationSource["kind"] {
 }
 
 function labelFromUri(uri: string): string {
+  if (/^me:(\/\/)?(rm|ms):/.test(uri)) return "Your roadmap";
+  if (/^me:(\/\/)?mem:/.test(uri)) return "What Polaris remembers";
+  if (/^me:(\/\/)?chat:/.test(uri)) return "Your earlier chat";
   if (uri.startsWith("roadmap://")) return `Milestone ${uri.slice(10)}`;
   if (uri.startsWith("profile://")) return "Your profile";
   if (uri.includes("://") && !uri.startsWith("http")) {

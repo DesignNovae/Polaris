@@ -6,13 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "benchmark:roadmap": "node scripts/roadmap-v3-benchmark.mjs",
+    "test": "node --import ./tests/register.mjs --test \"tests/**/*.test.ts\"",
+    "rag:ingest": "tsx scripts/rag-ingest.ts",
+    "rag:eval": "tsx scripts/rag-eval.ts",
+    "rag:faith": "tsx scripts/rag-faithfulness.ts",
+    "rag:test": "tsx scripts/rag-selftest.ts",
+    "rag:calibrate": "tsx scripts/rag-calibrate.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.15.0",
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
+    "gsap": "^3.15.0",
+    "katex": "^0.18.1",
+    "lenis": "^1.3.23",
     "mongodb": "^7.2.0",
     "next": "^15.1.0",
     "next-auth": "^4.24.14",
@@ -35,6 +47,7 @@
     "eslint-config-next": "^15.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
 }

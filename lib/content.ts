@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongodb";
+import { invalidateRagCaches } from "@/lib/rag/cache";
 import universitiesJson from "@/data/universities.json";
 import scholarshipsJson from "@/data/scholarships.json";
 import caseStudiesJson from "@/data/case-studies.json";
@@ -11,8 +12,10 @@ import caseStudiesJson from "@/data/case-studies.json";
  * get the DB data (so admin edits go live); if the DB is unavailable we fall
  * back to the JSON so the site never breaks.
  *
- * RAG embeddings (lib/rag) intentionally still read the JSON - they're built
- * offline, so admin content edits won't change retrieval until re-embedded.
+ * Retrieval (lib/rag) reads these same collections, so an admin edit reaches
+ * the lexical index as soon as the cache generation below is bumped. Vectors
+ * for changed text are refreshed by POST /api/admin/rag (incremental - only
+ * chunks whose hash moved are re-embedded).
  */
 
 export type ContentType = "universities" | "scholarships" | "case-studies";
@@ -74,6 +77,7 @@ export async function createContentItem(type: ContentType, item: Item) {
   const { _id, ...clean } = item;
   void _id;
   const res = await db.collection(COLLECTION[type]).insertOne(clean);
+  invalidateRagCaches();
   return res.insertedId.toString();
 }
 
@@ -85,10 +89,12 @@ export async function updateContentItem(type: ContentType, id: string, item: Ite
   await db
     .collection(COLLECTION[type])
     .replaceOne({ _id: new ObjectId(id) }, clean);
+  invalidateRagCaches();
 }
 
 export async function deleteContentItem(type: ContentType, id: string) {
   if (!ObjectId.isValid(id)) return;
   const db = await getDb();
   await db.collection(COLLECTION[type]).deleteOne({ _id: new ObjectId(id) });
+  invalidateRagCaches();
 }

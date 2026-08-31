@@ -17,10 +17,12 @@
 import { z } from "zod";
 import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
-import { getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
+import { getProfile, getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
 import { nodeProgressFromTasks, recomputeStatuses, shortId, type ScoreEntry } from "@/lib/roadmap/types";
 import { applyScoreAdaptation } from "@/lib/roadmap/generate";
 import { SCORE_DEFS } from "@/lib/roadmap/templates";
+import type { MissionEvidence, StudentEvidence } from "@/lib/roadmap/planning-types";
+import { refreshPlanningAfterStateChange } from "@/lib/roadmap/planning";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,8 +35,15 @@ const patchSchema = z.object({
     key: z.string().max(40),
     value: z.number(),
   }).optional(),
+  evidence: z.object({
+    label: z.string().min(1).max(180),
+    kind: z.enum(["academic", "test", "project", "research", "activity", "award", "document", "integration"]),
+    ref: z.string().max(500).optional(),
+    note: z.string().max(500).optional(),
+    verified: z.boolean().optional(),
+  }).optional(),
 }).refine(
-  (v) => v.toggleTask || v.note || v.markDone || v.score,
+  (v) => v.toggleTask || v.note || v.markDone || v.score || v.evidence,
   { message: "At least one mutation must be provided" },
 );
 
@@ -50,6 +59,7 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
   if (!node) return fail(404, "Node not found");
 
   let adaptation: string | null = null;
+  let planningAdditions: StudentEvidence[] = [];
 
   if (body.toggleTask) {
     const task = node.tasks.find((t) => t.id === body.toggleTask);
@@ -67,6 +77,19 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
 
   if (body.note) {
     node.notes.push({ id: shortId(), text: body.note, at: new Date() });
+  }
+
+  if (body.evidence) {
+    const evidence: MissionEvidence = {
+      id: shortId(),
+      label: body.evidence.label,
+      kind: body.evidence.kind,
+      ...(body.evidence.ref ? { ref: body.evidence.ref } : {}),
+      ...(body.evidence.note ? { note: body.evidence.note } : {}),
+      verified: body.evidence.verified ?? false,
+      at: new Date(),
+    };
+    node.evidence = [...(node.evidence ?? []), evidence];
   }
 
   if (body.markDone) {
@@ -90,10 +113,41 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
     };
     doc.scores.push(entry);
     adaptation = applyScoreAdaptation(doc, entry);
+    planningAdditions.push({
+      id: "score-evidence-" + shortId(),
+      claim: `${def.label}: ${value}`,
+      type: def.label.toLowerCase().includes("gpa") ? "academic" : "test",
+      value,
+      strength: 0.9,
+      verified: true,
+      source: "user",
+      sourceRef: body.score.key,
+    });
+  }
+
+  if (body.evidence) {
+    planningAdditions.push({
+      id: "mission-evidence-" + shortId(),
+      claim: body.evidence.label,
+      type: body.evidence.kind,
+      value: body.evidence.ref,
+      strength: body.evidence.verified ? 1 : 0.7,
+      verified: body.evidence.verified ?? false,
+      source: "user",
+      sourceRef: body.evidence.ref,
+    });
   }
 
   doc.updatedAt = new Date();
+  if (doc.planning && planningAdditions.length) {
+    const profile = await getProfile(session.id);
+    if (profile) {
+      const refreshed = await refreshPlanningAfterStateChange(doc.planning, profile, doc.config, planningAdditions, { userId: session.id });
+      doc.planning = refreshed.state;
+      if (refreshed.strategyChanged) adaptation = adaptation ?? "The planning strategy was refreshed from your new evidence.";
+    }
+  }
   recomputeStatuses(doc);
   await saveRoadmapV2(session.id, doc);
-  return ok({ doc, adaptation });
+  return ok({ doc, adaptation, meaningfulEvent: Boolean(body.evidence || body.score || body.markDone) });
 });

@@ -6,7 +6,7 @@
  * Produces a RoadmapConfig and hands it to onGenerate.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
 import {
@@ -70,6 +70,7 @@ export function RoadmapSetup({
   const [degree, setDegree] = useState<Degree>(initialProfile?.degree ?? "undergrad");
   const [tier, setTier] = useState<Tier>(initialProfile?.targetTier ?? "top200");
   const [targetGoal, setTargetGoal] = useState("");
+  const [targetPortfolio, setTargetPortfolio] = useState("");
   const [academicTarget, setAcademicTarget] = useState("");
   const [exams, setExams] = useState<Array<(typeof EXAMS)[number]>>([]);
   const [durationDays, setDurationDays] = useState(90);
@@ -78,8 +79,18 @@ export function RoadmapSetup({
   const [weakAreas, setWeakAreas] = useState("");
   const [satScore, setSatScore] = useState("");
   const [ieltsScore, setIeltsScore] = useState("");
+  const [generationStep, setGenerationStep] = useState(0);
 
   const resolvedMode: TimelineMode = timelineMode === "auto" ? suggestTimelineMode(durationDays) : timelineMode;
+
+  useEffect(() => {
+    if (!busy) {
+      setGenerationStep(0);
+      return;
+    }
+    const timer = window.setInterval(() => setGenerationStep((step) => Math.min(2, step + 1)), 6000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   const canNext = useMemo(() => {
     if (step === 0) return true;
@@ -97,6 +108,12 @@ export function RoadmapSetup({
     if (Number.isFinite(sat) && sat >= 400) currentScores["sat-total"] = sat;
     const ielts = parseFloat(ieltsScore);
     if (Number.isFinite(ielts) && ielts >= 1) currentScores["ielts-overall"] = ielts;
+    const targets = targetPortfolio
+      .split(/[\n,]/)
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 12)
+      .map((query, index) => ({ query, kind: "university" as const, priority: index === 0 ? "primary" as const : "secondary" as const }));
 
     onGenerate(
       {
@@ -109,6 +126,7 @@ export function RoadmapSetup({
         availableHoursPerWeek: hours,
         weakAreas: weakAreas.trim() || undefined,
         academicTarget: academicTarget.trim() || undefined,
+        ...(targets.length ? { targets } : {}),
         ...(Object.keys(currentScores).length ? { currentScores } : {}),
       },
       { country, degree, targetTier: tier },
@@ -116,6 +134,41 @@ export function RoadmapSetup({
   }
 
   const steps = ["Your level", "The mission", "Time & reality"];
+
+  if (busy) {
+    const generationSteps = [
+      { title: "Preparing your target context", detail: "Resolving targets and grounding the plan in the available evidence." },
+      { title: "Building the roadmap spine", detail: "Creating the full timeline while keeping future periods ready to expand." },
+      { title: "Opening your first period", detail: "Turning the first unit into concrete tasks you can start today." },
+    ];
+    return (
+      <div className="min-h-[68vh] flex items-center justify-center px-6 py-16">
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[560px] rounded-3xl bg-paper-card p-7 shadow-pop ring-1 ring-inset ring-polaris-500/15">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-ink text-paper">
+              <span className="absolute inset-0 rounded-full border-2 border-polaris-400/30 border-t-polaris-400 animate-spin" />
+              <span className="font-serif text-lg">✦</span>
+            </span>
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-ink-muted">Polaris is working</div>
+              <h1 className="mt-1 font-serif text-[25px] font-bold text-ink">Growing your roadmap…</h1>
+            </div>
+          </div>
+          <p className="mt-4 text-[13px] leading-relaxed text-ink-dim">Your roadmap is being generated progressively. You will start on the first period; later periods are already outlined and will expand when you open them.</p>
+          <div className="mt-6 space-y-3">
+            {generationSteps.map((item, index) => (
+              <div key={item.title} className={cn("flex items-start gap-3 rounded-2xl px-3.5 py-3 transition-colors", index <= generationStep ? "bg-polaris-100/60 dark:bg-polaris-400/10" : "bg-paper-soft/60")}>
+                <span className={cn("mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-1 ring-inset", index < generationStep ? "bg-aurora-500 text-white ring-aurora-500" : index === generationStep ? "bg-ink text-paper ring-ink" : "text-ink-muted ring-polaris-500/15")}>{index < generationStep ? "✓" : index + 1}</span>
+                <div><div className="text-[12.5px] font-semibold text-ink">{item.title}</div><div className="mt-0.5 text-[11px] text-ink-muted">{item.detail}</div></div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-paper-deep"><motion.div className="h-full rounded-full bg-gradient-to-r from-polaris-400 via-nova-400 to-aurora-400" animate={{ width: `${Math.min(92, 24 + generationStep * 30)}%` }} transition={{ duration: 0.5 }} /></div>
+          <div className="mt-2 text-[10.5px] text-ink-muted">This can take a little longer when the AI provider is busy. Your setup is safe while it works.</div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[680px] mx-auto px-6 py-10">
@@ -215,6 +268,9 @@ export function RoadmapSetup({
               <div className="space-y-5">
                 <Field label="Main goal" hint="What is this roadmap FOR?">
                   <input value={targetGoal} onChange={(e) => setTargetGoal(e.target.value)} placeholder="e.g. Get into a top US university for CS" maxLength={300} className={inputCls} />
+                </Field>
+                <Field label="Target universities or scholarships (optional)" hint="Separate multiple targets with commas or new lines. Polaris will match them against its verified local records.">
+                  <textarea value={targetPortfolio} onChange={(e) => setTargetPortfolio(e.target.value)} placeholder="University, program, or scholarship name" maxLength={1600} rows={3} className={inputCls + " resize-y"} />
                 </Field>
                 <Field label="Academic target (optional)">
                   <input value={academicTarget} onChange={(e) => setAcademicTarget(e.target.value)} placeholder="e.g. GPA 5.0, 4 A*s" maxLength={120} className={inputCls} />

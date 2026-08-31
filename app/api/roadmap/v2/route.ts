@@ -63,6 +63,7 @@ function seedTestScores(config: RoadmapConfig): Record<string, number> | undefin
 }
 
 export const POST = withErrorHandling(async (req) => {
+  const startedAt = Date.now();
   const language = requestLanguage(req);
   const session = await requireSession();
 
@@ -106,6 +107,7 @@ export const POST = withErrorHandling(async (req) => {
 
   const doc = await generateRoadmap(profile, config, { userId: session.id, language });
   await saveRoadmapV2(session.id, doc);
+  console.info(`[roadmap:v3] POST generation completed in ${Date.now() - startedAt}ms (${config.durationDays}d/${config.timelineMode})`);
   return ok({ doc });
 });
 

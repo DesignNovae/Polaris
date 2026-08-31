@@ -46,6 +46,12 @@ export const ChunkSchema = z.discriminatedUnion("kind", [
     tokensIn: z.number().nonnegative(),
     tokensOut: z.number().nonnegative(),
   }),
+  z.object({
+    kind: z.literal("verification"),
+    /** Figures in the answer that appear nowhere in what the model was given. */
+    figures: z.array(z.string()),
+    message: z.string(),
+  }),
   z.object({ kind: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);
 

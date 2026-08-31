@@ -12,6 +12,7 @@ import { getProfile } from "@/lib/db/collections";
 import type { EducationLevel } from "@/lib/roadmap/types";
 import { RoadmapPageClient } from "@/components/roadmap/RoadmapPageClient";
 
+export const metadata = { title: "Roadmap" };
 export const dynamic = "force-dynamic";
 
 const GRADE_TO_LEVEL: Record<string, EducationLevel> = {

@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * Left navigation rail - dark-glass chrome.
- * All nav items are present but only /roadmap has a real page behind it.
+ * Left navigation rail - dark-glass chrome to match the landing nav pill.
+ * Reads the active route via usePathname and renders NAV / NAV_FOOTER
+ * entries from `lib/nav.ts`. Plan-gated items render disabled with an
+ * upgrade hint for users below the required tier.
  */
 
 import Link from "next/link";
@@ -11,24 +13,34 @@ import { useEffect, useState } from "react";
 import { NAV, NAV_FOOTER } from "@/lib/nav";
 import { planMeets } from "@/lib/features";
 import type { Plan } from "@/lib/db/collections";
-import type { NavItem } from "@/types/app";
+import type { NavItem, PathSummary } from "@/types/app";
 import { Pill, KBD } from "./ui";
+import { PathSwitcher } from "./PathSwitcher";
+import { StreakWidget } from "./StreakWidget";
 import { cn } from "@/lib/cn";
+import { CompassLogo } from "@/components/Nav";
 
 type Props = {
   plan: Plan;
   studentName: string;
   studentInitials: string;
   studentGrade: string;
+  paths: PathSummary[];
+  activePathId: string;
+  basePath?: string;
+  demo?: boolean;
 };
 
-export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Props) {
+export function LeftNav({
+  plan, studentName, studentInitials, studentGrade, paths, activePathId,
+  basePath = "", demo = false,
+}: Props) {
   const pathname = usePathname();
-  const activeId = pathname.split("/")[1] || "roadmap";
+  const activeId = basePath ? (pathname.split("/")[2] || "roadmap") : pathname.split("/")[1];
 
-  // Mobile drawer
+  // Mobile drawer state - below lg the nav slides over the content.
   const [mobileOpen, setMobileOpen] = useState(false);
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]); // close on navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") setMobileOpen(false); }
     document.addEventListener("keydown", onKey);
@@ -63,6 +75,7 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
     <aside
       className={cn(
         "app-glass-dark w-[252px] shrink-0 border-r border-white/[0.06] flex flex-col min-h-0 overflow-y-auto text-paper",
+        // Desktop: static column. Mobile: fixed slide-over drawer.
         "fixed inset-y-0 left-0 z-50 h-full transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
         "lg:static lg:translate-x-0 lg:transition-none lg:z-auto",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -71,30 +84,28 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
       {/* Logo */}
       <div className="px-4 pt-5 pb-3 flex items-center gap-2.5">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Polaris home">
-          <div className="h-7 w-7 rounded-full bg-paper text-ink flex items-center justify-center">
-            <PolarisStar/>
-          </div>
+          <CompassLogo className="h-7 w-7" onDark />
           <span className="font-serif text-[17px] font-bold tracking-tight text-paper">Polaris</span>
         </Link>
         <PlanBadge plan={plan} />
       </div>
 
-      {/* Path indicator */}
+      {/* Path switcher - inline, so the nav sections below flow naturally. */}
       <div className="px-3 pb-3">
-        <div className="rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.08] px-3 py-2">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-paper/45 mb-0.5">Active strategy</div>
-          <div className="text-[13px] font-semibold text-paper truncate">Academic roadmap</div>
-        </div>
+        <PathSwitcher paths={paths} activePathId={activePathId} basePath={basePath} />
       </div>
 
       {/* Main nav */}
       <nav className="flex-1 px-2.5 overflow-y-auto">
         <Section title="Workspace">
-          {NAV.map(item => <Item key={item.id} item={item} activeId={activeId} plan={plan}/>)}
+          {NAV.map(item => <Item key={item.id} item={item} activeId={activeId} plan={plan} basePath={basePath}/>)}
         </Section>
         <Section title="Account" topMargin>
-          {NAV_FOOTER.map(item => <Item key={item.id} item={item} activeId={activeId} plan={plan} small/>)}
+          {NAV_FOOTER.map(item => <Item key={item.id} item={item} activeId={activeId} plan={plan} basePath={basePath} small/>)}
         </Section>
+
+        {/* Streak card - real data via /api/streak, earned by meaningful work */}
+        <StreakWidget demo={demo} />
       </nav>
 
       {/* User */}
@@ -106,7 +117,7 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
           <div className="text-[13px] font-semibold text-paper truncate">{studentName}</div>
           <div className="text-[11px] text-paper/55 truncate">{studentGrade}</div>
         </div>
-        <Link href="/settings" className="text-paper/55 hover:text-paper p-1.5 transition-colors" aria-label="Settings">
+        <Link href={`${basePath}/settings`} className="text-paper/55 hover:text-paper p-1.5 transition-colors" aria-label="Settings">
           <Cog/>
         </Link>
       </div>
@@ -114,7 +125,6 @@ export function LeftNav({ plan, studentName, studentInitials, studentGrade }: Pr
     </>
   );
 }
-
 function Section({ title, children, topMargin }: { title: string; children: React.ReactNode; topMargin?: boolean }) {
   return (
     <div className={topMargin ? "pt-5" : ""}>
@@ -124,19 +134,15 @@ function Section({ title, children, topMargin }: { title: string; children: Reac
   );
 }
 
-function Item({ item, activeId, plan, small }: { item: NavItem; activeId: string; plan: Plan; small?: boolean }) {
+function Item({ item, activeId, plan, basePath, small }: { item: NavItem; activeId: string; plan: Plan; basePath: string; small?: boolean }) {
   const active = activeId === item.id;
   const locked = !!item.minPlan && !planMeets(plan, item.minPlan);
-
-  // Enable pages 
-  const href = (item.id === "roadmap" || item.id === "strategist" || item.id === "action-lab" || item.id === "universities" || item.id === "community") ? `/${item.id}` : "#";
-
   return (
     <li>
       <Link
-        href={href}
+        href={item.id === "roadmap" && basePath ? basePath : `${basePath}/${item.id}`}
         aria-disabled={locked}
-        onClick={e => { if (locked || href === "#") e.preventDefault(); }}
+        onClick={e => locked && e.preventDefault()}
         className={cn(
           "group w-full flex items-center gap-2.5 rounded-lg pl-2.5 pr-2 py-1.5 transition-colors text-left",
           active
@@ -182,6 +188,12 @@ function NavGlyph({ id }: { id: NavItem["id"] }) {
   );
 }
 
+/**
+ * PlanBadge - designed specifically for the LeftNav's dark-glass surface.
+ * The generic Pill component's contrast values don't pop against the dark
+ * glass background, so we ship a tuned variant here: solid gradient fill
+ * for paid tiers + subtle dark-glass overlay for free.
+ */
 function PlanBadge({ plan }: { plan: Plan }) {
   if (plan === "elite") {
     return (
@@ -210,19 +222,11 @@ function PlanBadge({ plan }: { plan: Plan }) {
   );
 }
 
-function PolarisStar() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 14.39 8.26 21 9 16 13.74 17.18 20.5 12 17.27 6.82 20.5 8 13.74 3 9 9.61 8.26 12 2"/>
-    </svg>
-  );
-}
-
 function Cog() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2v.2a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.8-1.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.3-2.8h-.2a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.3-2.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.8-1.3v-.2a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.3 2.8z"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2v.2a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-2.8-1.3l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.3-2.8h-.2a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.3-2.8l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.8-1.3v-.2a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.3 2.8h.2a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.3 2.8z"/>
     </svg>
   );
 }

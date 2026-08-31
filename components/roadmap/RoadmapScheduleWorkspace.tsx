@@ -12,7 +12,7 @@ import {
   type RoadmapScheduleUnit,
 } from "@/lib/roadmap/types";
 
-type ScheduleRequest = { upgradeLegacy?: boolean; yearIndex?: number };
+type ScheduleRequest = { upgradeLegacy?: boolean; yearIndex?: number; unitIndex?: number };
 
 export function RoadmapScheduleWorkspace({
   doc,
@@ -102,16 +102,25 @@ export function RoadmapScheduleWorkspace({
   if (selected.detailState === "deferred" || selected.detailState === "summary") {
     const yearIndex = selected.yearIndex ?? (selectedIndex >= 12 ? Math.floor(selectedIndex / 12) : selectedIndex);
     const deferredYear = selected.yearIndex !== undefined && selected.yearIndex > 0;
+    const missionCount = selected.missionBriefs?.length ?? selected.missionIds.length;
+    const outcomeCount = selected.expectedOutcomes?.length ?? 0;
     return (
       <section className="mb-8 rounded-2xl bg-paper-card p-5 ring-1 ring-inset ring-polaris-500/10 dark:ring-white/[0.1]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">{selected.label} · deferred detail</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted">{selected.label} · strategy prepared</div>
             <h2 className="font-serif text-[20px] font-bold text-ink mt-1">{selected.title}</h2>
-            <p className="text-[12.5px] text-ink-dim mt-1 max-w-[650px]">{selected.objective}</p>
+            <p className="text-[12.5px] text-ink-dim mt-1 max-w-[650px]">{selected.summary ?? selected.objective}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[10.5px] text-ink-muted">
+              <span className="rounded-full bg-paper-soft px-2.5 py-1">{missionCount} strategic mission{missionCount === 1 ? "" : "s"}</span>
+              {selected.gapIds?.length ? <span className="rounded-full bg-paper-soft px-2.5 py-1">{selected.gapIds.length} open gap{selected.gapIds.length === 1 ? "" : "s"}</span> : null}
+              {outcomeCount ? <span className="rounded-full bg-paper-soft px-2.5 py-1">{outcomeCount} expected outcome{outcomeCount === 1 ? "" : "s"}</span> : null}
+            </div>
+            <p className="mt-3 text-[11px] text-ink-muted">Strategy prepared. A detailed plan will be generated when opened.</p>
+            {selected.detailError && <p className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{selected.detailError}</p>}
           </div>
           <button
-            onClick={() => void onScheduleAction({ yearIndex })}
+            onClick={() => void onScheduleAction(selected.yearIndex !== undefined ? { yearIndex } : { unitIndex: selectedIndex })}
             disabled={scheduleBusy}
             className="rounded-full bg-ink text-paper px-4 py-2.5 text-[12px] font-semibold disabled:opacity-60"
           >
