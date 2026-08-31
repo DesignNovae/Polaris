@@ -10,6 +10,12 @@
  * Every target is a public /demo route, so captures use seeded data and never
  * put a real student's email, name, or plan into a committed image.
  *
+ * Not covered here: docs/screenshots/action-lab-{exam,ai-practice,essay,video}.png.
+ * Those Action Lab tabs load from authenticated endpoints (the exam catalog, the
+ * practice generator, the lesson finder), so in /demo they render empty or with
+ * a "session has expired" notice. They were captured by hand from a signed-in
+ * session and must be re-taken by hand if the UI changes.
+ *
  * Usage:
  *   npm run dev                    # in another terminal
  *   node scripts/screenshots.mjs   # add --scale 2 for retina, --only roadmap
@@ -65,6 +71,24 @@ const PAGE_HELPERS = `
       if (el) el.click();
       return !!el;
     },
+    /**
+     * Action Lab tabs are a <span> label inside a <button> that also carries a
+     * hint line, so the button's own textContent never equals the label.
+     * Match the leaf, then click its button.
+     */
+    clickTab(label) {
+      const leaf = [...document.querySelectorAll("span, div")]
+        .find((n) => n.children.length === 0 && n.textContent.trim() === label);
+      const btn = leaf && leaf.closest("button");
+      if (btn) btn.click();
+      return !!btn;
+    },
+    /** The workspace scrolls <main>, not the document. */
+    scrollMain(px) {
+      const main = document.querySelector("main.polaris-scrollbar");
+      if (main) main.scrollTop = px;
+      return !!main;
+    },
     closeSidePanel() {
       const open = document.querySelector('[placeholder*="Ask anything about your path"]');
       if (!open) return false;
@@ -112,6 +136,28 @@ const TARGETS = [
     settle: 3500,
     prep: "window.__shot.closeSidePanel()",
     caption: "Action Lab",
+  },
+  {
+    name: "action-lab-routine",
+    path: "/demo/action-lab",
+    settle: 3500,
+    prep:
+      "window.__shot.closeSidePanel();" +
+      "window.__shot.clickTab('Smart Routine');" +
+      "setTimeout(() => window.__shot.scrollMain(200), 1800)",
+    afterPrep: 3500,
+    caption: "Action Lab: Smart Routine",
+  },
+  {
+    name: "action-lab-evidence",
+    path: "/demo/action-lab",
+    settle: 3500,
+    prep:
+      "window.__shot.closeSidePanel();" +
+      "window.__shot.clickTab('Evidence Graph');" +
+      "setTimeout(() => window.__shot.scrollMain(200), 1800)",
+    afterPrep: 3500,
+    caption: "Action Lab: Evidence Graph",
   },
   {
     name: "resources",
