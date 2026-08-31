@@ -17,7 +17,7 @@ import type {
 const MODELS: ModelDescriptor[] = [
   {
     id: DEFAULT_GEMMA_MODEL,
-    label: "Gemma 4 26B A4B",
+    label: "Polaris AI",
     tier: "free",
     contextWindow: 262_144,
     capabilities: { longContext: true, reasoning: true, code: true },
@@ -28,7 +28,7 @@ const MODELS: ModelDescriptor[] = [
 
 export const gemmaProvider: LLMProvider = {
   id: "gemma",
-  name: "Google Gemma 4",
+  name: "Polaris",
   defaultTier: "free",
   isConfigured: hasGemmaKey,
   listModels: () =>
@@ -37,12 +37,12 @@ export const gemmaProvider: LLMProvider = {
       id: getGemmaModelId(),
       label:
         getGemmaModelId() === "gemma-4-31b-it"
-          ? "Gemma 4 31B"
-          : "Gemma 4 26B A4B",
+          ? "Polaris AI Advanced"
+          : "Polaris AI",
     })),
   async *streamChat(req: StreamRequest): AsyncGenerator<LLMStreamChunk> {
     const client = gemmaClient();
-    if (!client) throw new Error("Gemma 4 API key missing");
+    if (!client) throw new Error("Polaris AI is not configured");
 
     const contents = req.messages.map((message) => ({
       role: message.role === "assistant" ? "model" : "user",

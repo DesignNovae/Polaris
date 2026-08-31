@@ -16,6 +16,7 @@ import {
 import { matchConsultants } from "@/lib/consultants/matching";
 import { ConsultantsClient, type ConsultantView } from "@/components/app/ConsultantsClient";
 
+export const metadata = { title: "Consultants" };
 export const dynamic = "force-dynamic";
 
 export default async function ConsultantsPage({
@@ -38,7 +39,7 @@ export default async function ConsultantsPage({
   const soon = Date.now() + 45 * 24 * 60 * 60 * 1000;
   const upcoming = deadlines
     .filter((deadline) => {
-      const due = deadline.date ?? deadline.dueAt;
+      const due = deadline.date;
       return Boolean(due && new Date(due).getTime() < soon);
     })
     .map((deadline) => deadline.title ?? "")

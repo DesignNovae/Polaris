@@ -72,7 +72,7 @@ function userKey(req: NextRequest): string | null {
 function parseObject(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("Gemma returned invalid JSON");
+  if (start < 0 || end <= start) throw new Error("The AI response was invalid");
   return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
 }
 

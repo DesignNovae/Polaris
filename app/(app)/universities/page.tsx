@@ -16,6 +16,7 @@ import { profileToInputs, type UniversityForModel } from "@/lib/ml/probability";
 import { toUniProfile } from "@/lib/admissions";
 import { UniversitiesClient } from "@/components/app/UniversitiesClient";
 
+export const metadata = { title: "Universities" };
 export const dynamic = "force-dynamic";
 
 // Abroad-focused page: regional/local-market schools stay in the KB for the

@@ -49,7 +49,7 @@ export function GemmaDiscoveryRefresh({
       const data = await response.json() as { items?: Item[]; source?: string; model?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Refresh failed");
       setItems(data.items || []);
-      setTrace(data.source === "gemma4" ? `Gemma 4 · ${data.model}` : (bn ? "প্রমাণের প্রিভিউ" : "Evidence preview"));
+      setTrace(data.source === "gemma4" ? (bn ? "Polaris AI · লাইভ" : "Polaris AI · Live") : (bn ? "প্রমাণের প্রিভিউ" : "Evidence preview"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : (bn ? "হালনাগাদ করা যায়নি।" : "Could not refresh."));
     } finally { setBusy(false); }
@@ -59,12 +59,12 @@ export function GemmaDiscoveryRefresh({
     <Card className={compact ? "border border-aurora-500/20 p-3.5" : "mb-5 border border-aurora-500/20 bg-gradient-to-r from-aurora-500/[0.06] via-paper-card to-polaris-500/[0.05] p-4"}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="min-w-0 lg:w-[270px]">
-          <div className="flex items-center gap-2"><Pill tone="aurora"><Icon.spark size={11} /> Gemma 4</Pill>{trace && <span className="text-[9px] text-ink-muted">{trace}</span>}</div>
+          <div className="flex items-center gap-2"><Pill tone="aurora"><Icon.spark size={11} /> Polaris AI</Pill>{trace && <span className="text-[9px] text-ink-muted">{trace}</span>}</div>
           <h3 className="mt-2 font-serif text-[17px] font-bold text-ink">{bn ? "প্রমাণভিত্তিক তালিকা হালনাগাদ করুন" : "Refresh the evidence-backed list"}</h3>
         </div>
         <div className="flex min-w-0 flex-1 gap-2">
           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void refresh(); }} className="h-10 min-w-0 flex-1 rounded-xl border border-ink-faint/20 bg-bg/70 px-3 text-[12px] text-ink outline-none focus:border-aurora-500" />
-          <Btn variant="accent" disabled={busy || query.trim().length < 2} onClick={() => void refresh()} icon={<Icon.spark size={12} />}>{busy ? (bn ? "Gemma খুঁজছে…" : "Refreshing…") : (bn ? "Gemma দিয়ে হালনাগাদ" : "Refresh with Gemma")}</Btn>
+          <Btn variant="accent" disabled={busy || query.trim().length < 2} onClick={() => void refresh()} icon={<Icon.spark size={12} />}>{busy ? (bn ? "Polaris খুঁজছে…" : "Refreshing…") : (bn ? "Polaris দিয়ে হালনাগাদ" : "Refresh with Polaris")}</Btn>
         </div>
       </div>
       {error && <p className="mt-2 text-[10.5px] text-signal-rose">{error}</p>}

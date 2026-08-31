@@ -63,12 +63,12 @@ type ModelChoice = { providerId: string; modelId: string } | "auto";
 
 const DEMO_PROVIDERS: ProviderInfo[] = [{
   id: "gemma",
-  name: "Gemma 4",
+  name: "Polaris",
   defaultTier: "free",
   configured: true,
   models: [
-    { id: "gemma-4-26b-a4b-it", label: "Gemma 4 26B", tier: "free" },
-    { id: "gemma-4-31b-it", label: "Gemma 4 31B", tier: "free" },
+    { id: "gemma-4-26b-a4b-it", label: "Polaris AI", tier: "free" },
+    { id: "gemma-4-31b-it", label: "Polaris AI Advanced", tier: "free" },
   ],
 }];
 
@@ -475,7 +475,7 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
     abortRef.current = ctrl;
     try {
       if (demo) {
-        setThinking("Consulting Gemma 4…");
+        setThinking("Consulting Polaris…");
         const response = await fetch("/api/demo/strategist", {
           method: "POST",
           headers: { "content-type": "application/json", ...gemmaHeaders() },
@@ -496,11 +496,14 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
         }));
         setMessages((items) => withLastAgent(items, (message) => ({ ...message, text: data.text, sources })));
         if (tid) void persistMessage(tid, "assistant", data.text, sources);
-        setRouteInfo({ provider: "Gemma 4", model: data.trace?.model || "Gemma 4", reason: "Competition demo route" });
+        setRouteInfo({ provider: "Polaris AI", model: "Polaris AI", reason: "Competition demo route" });
         return;
       }
       const body: Record<string, unknown> = {
         message: text,
+        // Lets the server load recent turns and resolve follow-up references
+        // ("what about the second one?") before retrieval.
+        ...(tid ? { threadId: tid } : {}),
         mode,
         routeMode,
         offline,
@@ -547,6 +550,16 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
             }
             return;
           }
+          if (chunk.name === "retrieval") {
+            if (chunk.status === "start") {
+              setThinking("Searching your roadmap and knowledge base…");
+            } else if (chunk.status === "done") {
+              const r = chunk.result as { kbHits?: number; userHits?: number } | undefined;
+              const found = (r?.kbHits ?? 0) + (r?.userHits ?? 0);
+              setThinking(found ? `Grounded in ${found} passage${found === 1 ? "" : "s"}…` : null);
+            }
+            return;
+          }
           if (chunk.status === "start" && chunk.name === "web_search") {
             setThinking("Searching the web…");
           } else if (chunk.status === "done" && chunk.name === "web_search") {
@@ -559,6 +572,17 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
           } else if (chunk.status === "error") {
             setThinking(null);
           }
+          return;
+        }
+        if (chunk.kind === "verification") {
+          // Deterministic numeric guard fired: the answer quotes a figure that
+          // is in none of its sources. Say so where the student will see it.
+          agentText += `
+
+> **Verify before relying on this.** ${chunk.message}`;
+          setMessages((items) =>
+            withLastAgent(items, (message) => ({ ...message, text: agentText })),
+          );
           return;
         }
         if (chunk.kind === "done") {

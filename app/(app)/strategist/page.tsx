@@ -3,6 +3,7 @@ import { getProfile, getUserById } from "@/lib/db/collections";
 import { scoreProbability, profileToInputs, type UniversityForModel } from "@/lib/ml/probability";
 import { StrategistClient, type GapRow } from "@/components/app/StrategistClient";
 
+export const metadata = { title: "Strategist" };
 export const dynamic = "force-dynamic";
 
 const TARGET: Record<string, { tier: UniversityForModel["tier"]; rate: number; label: string }> = {

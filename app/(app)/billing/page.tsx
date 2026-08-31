@@ -12,6 +12,7 @@ import { billingSummary, listPaymentMethods } from "@/lib/billing/service";
 import { BillingClient, type MethodDto, type SubscriptionDto } from "@/components/app/BillingClient";
 import type { PlanId } from "@/lib/billing/plans";
 
+export const metadata = { title: "Billing" };
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {

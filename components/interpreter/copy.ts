@@ -62,12 +62,12 @@ const EN = {
   sourceVerbatim: "Verbatim script",
   sourceCompanion: "Polaris companion track",
   sourceCaptions: "Published captions",
-  sourceGenerated: "Gemma outline",
+  sourceGenerated: "Polaris AI outline",
   sourceNote: {
     verbatim: "The exact words Polaris speaks in this exercise.",
     "authored-companion": "Written by Polaris and timed to the lesson. Not a word-for-word transcript of the speaker.",
     "published-captions": "The lesson's own caption track.",
-    "ai-generated": "Written by Gemma from the lesson topic. Gemma has not heard the audio.",
+    "ai-generated": "Written by Polaris AI from the lesson topic. The AI has not heard the audio.",
   },
 
   certifiedLabel: "Certified interpreter",
@@ -131,12 +131,12 @@ const BN: InterpreterCopy = {
   sourceVerbatim: "হুবহু স্ক্রিপ্ট",
   sourceCompanion: "Polaris সহযোগী ট্র্যাক",
   sourceCaptions: "প্রকাশিত ক্যাপশন",
-  sourceGenerated: "Gemma রূপরেখা",
+  sourceGenerated: "Polaris AI রূপরেখা",
   sourceNote: {
     verbatim: "এই অনুশীলনে Polaris যে কথাগুলো বলে, ঠিক সেগুলো।",
     "authored-companion": "Polaris লিখেছে ও পাঠের সময়ের সঙ্গে মিলিয়েছে। বক্তার হুবহু কথা নয়।",
     "published-captions": "পাঠের নিজস্ব ক্যাপশন ট্র্যাক।",
-    "ai-generated": "পাঠের বিষয় থেকে Gemma লিখেছে। Gemma অডিও শোনেনি।",
+    "ai-generated": "পাঠের বিষয় থেকে Polaris AI লিখেছে। AI অডিও শোনেনি।",
   },
 
   certifiedLabel: "সনদপ্রাপ্ত দোভাষী",

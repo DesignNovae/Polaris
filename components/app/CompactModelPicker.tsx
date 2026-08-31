@@ -66,7 +66,7 @@ export function CompactModelPicker({
           ? "border-white/15 bg-white/[0.05] text-paper"
           : "border-polaris-200 bg-paper-card text-ink",
       )}
-      aria-label={lang === "bn" ? "Gemma 4 মডেল নিয়ন্ত্রণ" : "Gemma 4 model controls"}
+      aria-label={lang === "bn" ? "Polaris AI নিয়ন্ত্রণ" : "Polaris AI controls"}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -74,7 +74,7 @@ export function CompactModelPicker({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-aurora-400 opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-aurora-500" />
           </span>
-          <span className="truncate text-[12px] font-semibold" data-no-translate>Gemma 4 26B</span>
+          <span className="truncate text-[12px] font-semibold" data-no-translate>Polaris AI</span>
           <span className="rounded-full bg-aurora-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-aurora-500">
             {lang === "bn" ? "একমাত্র ভাষা মডেল" : "Only LLM"}
           </span>

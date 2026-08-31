@@ -17,8 +17,8 @@ const BN_DIGITS: Record<string, string> = {
 };
 
 const NUMERIC_NAMES = [
-  "Gemma 4 26B",
-  "Gemma 4",
+  "Polaris AI",
+  "Polaris",
   "Microsoft 365",
   "Scholarships360",
   "F-1",
@@ -407,13 +407,13 @@ export const BN_UI: Record<string, string> = {
   "Confirm password": "পাসওয়ার্ড নিশ্চিত করুন",
   "I agree to the terms": "আমি শর্তাবলিতে সম্মত",
 
-  "Gemma 4 usage": "Gemma 4 ব্যবহার",
+  "Polaris AI usage": "Polaris AI ব্যবহার",
   "A visible audit of the only generative model used by this project.": "এই প্রকল্পে ব্যবহৃত একমাত্র জেনারেটিভ মডেলের স্বচ্ছ তালিকা।",
   "Only generative model": "একমাত্র জেনারেটিভ মডেল",
-  "Gemma product surfaces": "Gemma চালিত ফিচার",
+  "AI-assisted surfaces": "AI-সহায়িত ফিচার",
   "Traceable model routes": "যাচাইযোগ্য মডেল রুট",
   "Surface": "ফিচার",
-  "Gemma role": "Gemma-এর ভূমিকা",
+  "Polaris role": "Polaris-এর ভূমিকা",
   "Full-page Strategist": "পূর্ণপাতা স্ট্র্যাটেজিস্ট",
   "Sidebar Strategist": "সাইডবার স্ট্র্যাটেজিস্ট",
   "Research mode": "গবেষণা মোড",
@@ -1213,7 +1213,7 @@ const WORD_RULES: Array<[RegExp, string]> = [
   [/\blive\b/gi, "লাইভ"], [/\bfree\b/gi, "ফ্রি"],
 ];
 
-const PROTECTED = /^(?:Polaris|Gemma 4|MIT|SAT|IELTS|GPA|CGPA|HSC|SSC|BUET|DU|Ivy|Oxbridge|GitHub|Google|Facebook|Notion|Coursera|Figma|JetBrains|Microsoft|Codeforces|NUS|NYU|TUM|SOP|EA|ED)$/i;
+const PROTECTED = /^(?:Polaris|Polaris AI|MIT|SAT|IELTS|GPA|CGPA|HSC|SSC|BUET|DU|Ivy|Oxbridge|GitHub|Google|Facebook|Notion|Coursera|Figma|JetBrains|Microsoft|Codeforces|NUS|NYU|TUM|SOP|EA|ED)$/i;
 
 function dynamicBengali(text: string): string {
   return text
