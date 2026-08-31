@@ -1,6 +1,6 @@
 # Polaris
 
-**A bilingual academic strategy platform that turns a student's goals, scores, and deadlines into a living admissions roadmap — and keeps it honest.**
+**A bilingual academic strategy platform that turns a student's goals, scores, and deadlines into a living admissions roadmap, and keeps it honest.**
 
 Polaris plans a multi-year path to a target university, breaks it into weekly work, and puts a retrieval-grounded AI Strategist next to it that cites its sources and is checked for fabricated figures before it finishes answering.
 
@@ -34,10 +34,10 @@ Most admissions tools do one of three things: store a checklist, answer question
 
 | Design decision | What it means in practice |
 | --- | --- |
-| The plan is the product | The roadmap is a real data structure — yearly missions, milestones, weekly tasks — not a chat transcript. Everything else reads from and writes to it. |
+| The plan is the product | The roadmap is a real data structure (yearly missions, milestones, weekly tasks), not a chat transcript. Everything else reads from and writes to it. |
 | Grounded, not generative-only | The Strategist retrieves from a shared knowledge base and the student's own record, then cites what it used. Retrieval is measured, not assumed. |
 | Answers are checked before they land | A deterministic citation audit and an unsupported-figure guard run over every answer; the figure guard emits a visible warning rather than silently passing. |
-| Degrade, never break | No embeddings, no `TAVILY_API_KEY`, no reranker, no MongoDB — each absence downgrades a capability instead of failing the request. |
+| Degrade, never break | No embeddings, no `TAVILY_API_KEY`, no reranker, no MongoDB: each absence downgrades a capability instead of failing the request. |
 | Gates live in code | Plan limits and feature access are enforced server-side (`lib/features.ts`), not by hiding buttons. |
 
 ---
@@ -48,8 +48,8 @@ Most admissions tools do one of three things: store a checklist, answer question
 
 - **Node.js 22 or newer** (developed on 26; `scripts/screenshots.mjs` needs the global `WebSocket` from Node 22+)
 - npm
-- MongoDB — only for the authenticated workspace
-- A Google AI Studio API key — only for AI features
+- MongoDB, only for the authenticated workspace
+- A Google AI Studio API key, only for AI features
 
 ### Fastest path: the demo, with no database
 
@@ -95,25 +95,51 @@ A goal becomes yearly missions, missions become milestones, and milestones becom
 
 ### Grounded Strategist
 
-Streams profile-aware guidance over SSE. Every turn carries the student's profile, roadmap, extracted memory, retrieved knowledge-base passages, and — on request — live web results, with citations back to each source.
+Streams profile-aware guidance over SSE. Every turn carries the student's profile, roadmap, extracted memory, retrieved knowledge-base passages, and, on request, live web results, with citations back to each source.
 
 ![Polaris grounded Strategist](docs/screenshots/strategist.png)
 
 ### University intelligence
 
-Sourced universities with dated official data, filters, and an acceptance-probability model that starts from each school's published rate and adjusts it from academic inputs only — no demographic features.
+Sourced universities with dated official data, filters, and an acceptance-probability model that starts from each school's published rate and adjusts it from academic inputs only, with no demographic features.
 
 ![Polaris university discovery](docs/screenshots/universities.png)
 
 ### Action Lab
 
-Seven tools for turning intent into evidence: the Decision Twin stress-tests a constraint change and shows the probability delta, alongside mock exams, smart routines, curated learning, knowledge notes, and essay work.
+Seven tools for turning intent into evidence: Decision Twin, Evidence Graph, Exam Lab, Smart Routine, Video Learning, Knowledge Notes, and Essay Studio.
 
-![Polaris Action Lab](docs/screenshots/action-lab.png)
+The **Decision Twin** stress-tests a constraint change ("my SAT date moved six weeks earlier") and shows the acceptance probability before and after, next to a diff of what the plan would do differently.
+
+![Polaris Action Lab Decision Twin](docs/screenshots/action-lab.png)
+
+The **Evidence Graph** maps a claim to the artifact that proves it, then names the verified signal, the remaining gap, and the next action. Claims with nothing behind them are surfaced rather than quietly counted.
+
+![Polaris Action Lab Evidence Graph](docs/screenshots/action-lab-evidence.png)
+
+**Smart Routine** turns the roadmap and a declared weekly capacity into protected time blocks. Blocks are added in natural language ("add math practice on Monday from 9 to 10 pm") or through the manual editor, and every generated block stays editable.
+
+![Polaris Action Lab Smart Routine](docs/screenshots/action-lab-routine.png)
+
+**Exam Lab** runs timed mock exams with autosave and recovery. The catalog covers a SAT Math module, a full adaptive SAT of four modules plus a break, and all four IELTS papers. An interrupted attempt shows as *Resume* instead of being lost.
+
+![Polaris Action Lab Exam Lab](docs/screenshots/action-lab-exam.png)
+
+**AI Practice** generates a fresh original practice set for a chosen exam, section, difficulty and target skill. The disclaimer belongs to the product rather than this README: these are original unofficial questions and do not predict an official IELTS band or SAT score.
+
+![Polaris Action Lab AI Practice](docs/screenshots/action-lab-ai-practice.png)
+
+**Essay Studio** captures Bengali, English or mixed handwriting and extracts it into an editable draft, preserving the original language and paragraphing. The uploaded image is not stored, it is processed only for the active extraction request. The coach returns feedback, refinement and outline suggestions rather than rewriting the essay.
+
+![Polaris Action Lab Essay Studio](docs/screenshots/action-lab-essay.png)
+
+**Video Learning** collects vetted official lessons for the current section, with an AI lesson finder that refreshes the list. A sign language interpreter track can be toggled on for the player.
+
+![Polaris Action Lab Video Learning](docs/screenshots/action-lab-video.png)
 
 ### Knowledge hub
 
-Composite admit stories, real scholarships with official links, and sourced cost benchmarks — the same corpus the Strategist retrieves from.
+Composite admit stories, real scholarships with official links, and sourced cost benchmarks. This is the same corpus the Strategist retrieves from.
 
 ![Polaris resource hub](docs/screenshots/resources.png)
 
@@ -123,9 +149,9 @@ Read-only-by-default integrations with explicit scopes and one-click revocation.
 
 ![Polaris connections](docs/screenshots/connections.png)
 
-> Screenshots are reproducible: `npm run dev`, then `npm run screenshots`. They render only public `/demo` routes, so no real student data reaches a committed image.
+> Most screenshots are reproducible: `npm run dev`, then `npm run screenshots`. Those render only public `/demo` routes, so no real student data reaches a committed image. The four Exam Lab, AI Practice, Essay Studio and Video Learning captures are the exception: those surfaces load from authenticated endpoints, so they were taken from a signed-in session and cannot be regenerated by the script.
 
-Also included and not pictured: deadline command with risk scoring, IELTS and SAT exam runners with real scoring, community channels, consultant marketplace and bookings, family/monitor visibility, billing, and an admin console.
+Also included and not pictured: deadline command with risk scoring, Knowledge Notes, community channels, consultant marketplace and bookings, family/monitor visibility, billing, and an admin console.
 
 ---
 
@@ -137,7 +163,7 @@ flowchart TB
         UI["Workspace shell<br/>roadmap · strategist · exams · deadlines"]
     end
 
-    subgraph api["Next.js App Router — API routes"]
+    subgraph api["Next.js App Router: API routes"]
         MW["middleware.ts<br/>JWT gate on 21 protected prefixes"]
         RM["/api/roadmap/v2<br/>generate · adapt · schedule"]
         ST["/api/strategist<br/>SSE stream"]
@@ -152,7 +178,7 @@ flowchart TB
         EXE["lib/exams<br/>assembler · state machine · scoring"]
     end
 
-    subgraph rag["Retrieval — lib/rag"]
+    subgraph rag["Retrieval: lib/rag"]
         IDX["kb_chunks + user_chunks"]
         HYB["BM25 + dense vectors<br/>weighted RRF"]
         CHK["citation audit · figure guard"]
@@ -194,10 +220,10 @@ Retrieval quality is measured, not asserted. Baselines over 50 labelled queries 
 | --- | --- | --- | --- | --- |
 | Lexical (BM25 only) | 0.640 | 0.780 | 0.860 | 0.726 |
 | Vector only | 0.880 | 0.960 | 0.980 | 0.925 |
-| **Hybrid — the default** | 0.840 | 0.980 | 0.980 | 0.897 |
+| **Hybrid (default)** | 0.840 | 0.980 | 0.980 | 0.897 |
 | Hybrid + LLM rerank | 0.940 | 0.960 | 0.980 | 0.955 |
 
-Reranking wins on R@1 and MRR but not on R@5, and the Strategist passes all five passages to the model either way — so it ships **off**, costing one fewer model call per turn. Flip `RAG_RERANK=on` if answer quality turns out to depend on passage order.
+Reranking wins on R@1 and MRR but not on R@5, and the Strategist passes all five passages to the model either way, so it ships **off**, costing one fewer model call per turn. Flip `RAG_RERANK=on` if answer quality turns out to depend on passage order.
 
 Generation-side checks (n=8):
 
@@ -209,7 +235,7 @@ Generation-side checks (n=8):
 | Groundedness (LLM judge) | 0.903 |
 | Answer relevance | 1.000 |
 
-The groundedness judge is itself calibrated against labelled fixtures — 0.800 detection, 0.000 false-alarm rate — because a model grading a model is worth nothing until you know its error rate.
+The groundedness judge is itself calibrated against labelled fixtures (0.800 detection, 0.000 false-alarm rate), because a model grading a model is worth nothing until you know its error rate.
 
 Full design, failure behaviour, and the measurement caveats are in **[docs/RAG.md](docs/RAG.md)**.
 
@@ -230,7 +256,7 @@ Full design, failure behaviour, and the measurement caveats are in **[docs/RAG.m
 | Payments | LemonSqueezy subscriptions and signed webhooks (optional) |
 | Content | react-markdown, GFM, KaTeX |
 
-**On model policy:** Gemma 4 is the only model that generates language. The embedding model is a non-generative retriever and the web-search provider returns documents, not prose — both are retrieval components, not second authors.
+**On model policy:** Gemma 4 is the only model that generates language. The embedding model is a non-generative retriever and the web-search provider returns documents, not prose. Both are retrieval components, not second authors.
 
 ---
 
@@ -238,11 +264,11 @@ Full design, failure behaviour, and the measurement caveats are in **[docs/RAG.m
 
 ```text
 app/
-  (app)/                Authenticated workspace shell — roadmap, strategist, exams, …
+  (app)/                Authenticated workspace shell: roadmap, strategist, exams, ...
   (auth)/               Sign in / sign up / sign out
   (exam)/               IELTS and SAT runners
   admin/                Content, knowledge, roadmaps, users
-  demo/                 Public seeded demo — no database required
+  demo/                 Public seeded demo, no database required
   api/                  81 route handlers
 components/             Product, workspace, landing, and shared UI
 data/                   Seed universities, scholarships, case studies, RAG eval set
@@ -287,20 +313,20 @@ tests/                  Node test-runner suites
 | --- | --- | --- |
 | `RAG_EMBEDDINGS` | on | `off` falls back to BM25-only retrieval |
 | `RAG_EMBED_MODEL` | `gemini-embedding-001` | changing it invalidates stored vectors |
-| `RAG_EMBED_DIM` | `768` | as above — re-run `npm run rag:ingest -- --force` |
+| `RAG_EMBED_DIM` | `768` | as above, re-run `npm run rag:ingest -- --force` |
 | `RAG_VECTOR_WEIGHT` | `1.6` | dense weight during fusion; retune with `npm run rag:eval` |
 | `RAG_QUERY_REWRITE` | on | `off` skips follow-up resolution |
 | `RAG_RERANK` | off | `on` adds a model call per turn and widens retrieval depth to 15 |
 | `RAG_SECOND_PASS` | on | `off` disables the retry on weak retrieval |
 | `RAG_SECOND_PASS_THRESHOLD` | `0.6` | cosine below which retrieval counts as having found nothing |
-| `RAG_EVAL_RPM` | `12` | request budget for the batch harnesses only — never for request paths |
+| `RAG_EVAL_RPM` | `12` | request budget for the batch harnesses only, never for request paths |
 
 ### Optional services
 
 | Variable | Purpose |
 | --- | --- |
 | `TAVILY_API_KEY` | Non-generative live-web retrieval in Research mode |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate-limit store — **see the warning below** |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate-limit store, **see the warning below** |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Calendar / Classroom **integrations** (not sign-in) |
 | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | Facebook **integration** (not sign-in) |
 | `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_VARIANT_PRO`, `LEMONSQUEEZY_VARIANT_ELITE` | Checkout, subscription management, webhook verification |
@@ -321,7 +347,7 @@ Plan budgets for the Strategist, enforced server-side over a 5-minute window: **
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint, zero warnings tolerated |
-| `npm test` | Node test runner — exam scoring and roadmap contracts |
+| `npm test` | Node test runner: exam scoring and roadmap contracts |
 | `npm run rag:test` | 38 deterministic retrieval self-tests, no database or network |
 | `npm run rag:ingest` | Ingest or refresh the retrieval corpus (`-- --force` re-embeds everything) |
 | `npm run rag:eval` | Recall@k and MRR per retriever (`-- --rerank` includes the reranker) |
@@ -342,11 +368,11 @@ npm run rag:test                      # 38 self-tests
 npm run build                         # production build
 ```
 
-Current state: **all green** — lint clean, types clean, 15/15, 38/38, build compiles.
+Current state: **all green**: lint clean, types clean, 15/15, 38/38, build compiles.
 
 The two suites cover the places where a silent regression would be most expensive: **exam scoring** (whole-word matching, per-stage scoring, rejecting plausible wrong answers) and **roadmap contracts** (gap analysis, deterministic priority scoring, duration units).
 
-The retrieval harnesses are separate because they need network and a database. `rag:test` deliberately does not — it is the one retrieval check that runs anywhere, and it has already caught two real bugs in code that had never executed in production.
+The retrieval harnesses are separate because they need network and a database. `rag:test` deliberately does not. It is the one retrieval check that runs anywhere, and it has already caught two real bugs in code that had never executed in production.
 
 ---
 
@@ -357,10 +383,10 @@ Before shipping:
 - [ ] `npm run lint && npx tsc --noEmit && npm test && npm run rag:test && npm run build` all pass
 - [ ] Production secrets set in the deployment environment, not in the repo
 - [ ] `NEXTAUTH_URL` exactly matches the public origin
-- [ ] `UPSTASH_*` configured — otherwise rate limits are per-instance
+- [ ] `UPSTASH_*` configured, otherwise rate limits are per-instance
 - [ ] MongoDB network access allows the deployment, and indexes are created (`lib/db/indexes.ts`, `lib/db/indexes-app.ts`)
 - [ ] `npm run rag:ingest` has run since the last change to `RAG_EMBED_MODEL` or `RAG_EMBED_DIM`
-- [ ] `ADMIN_EMAILS` set — the admin console is gated on it
+- [ ] `ADMIN_EMAILS` set, since the admin console is gated on it
 - [ ] LemonSqueezy webhook points at `/api/webhooks/lemonsqueezy`, if billing is on
 
 ---
@@ -371,7 +397,7 @@ Before shipping:
 - **Student retrieval rows are scoped by `userId`** at both the store query and a per-row re-check, and `user_chunks` is deleted with the account alongside profiles, roadmaps, memory, chat, and transactions.
 - **Protected routes are gated in middleware** across 21 path prefixes, reading the JWT with `secureCookie` forced on HTTPS so a misconfigured `NEXTAUTH_URL` cannot desynchronise the cookie name.
 - **API input is validated with Zod**, and plan/role requirements are enforced in the handler.
-- **The acceptance model uses academic inputs only** — GPA, test percentile, activity count, research. No demographic features.
+- **The acceptance model uses academic inputs only**: GPA, test percentile, activity count, research. No demographic features.
 - **Integrations are read-only by default**, request explicit scopes, and can be revoked in one click.
 - **Answers are audited before they finish**: citation URIs are parsed and verified against what was actually retrieved, and any currency or score figure not present in the supplied context raises a visible warning on the message.
 
@@ -381,10 +407,10 @@ Before shipping:
 
 Stated plainly, because a README that only lists strengths is a sales page:
 
-- **The knowledge corpus is small** — 114 chunks. It grows through Admin → Knowledge, which requires an `https` source URL and a verification date for every document. Nothing is auto-generated into it.
-- **Groundedness scores are noisy at n=8**, swinging 0.77–0.93 across runs with no code change. Use `npm run rag:faith -- --n 20` before believing a prompt change helped. The deterministic metrics (citation precision, figure violations) are stable.
+- **The knowledge corpus is small**, at 114 chunks. It grows through Admin → Knowledge, which requires an `https` source URL and a verification date for every document. Nothing is auto-generated into it.
+- **Groundedness scores are noisy at n=8**, swinging 0.77 to 0.93 across runs with no code change. Use `npm run rag:faith -- --n 20` before believing a prompt change helped. The deterministic metrics (citation precision, figure violations) are stable.
 - **The reranker hits free-tier quota** on roughly 2 of 50 eval queries even with pacing. In production it degrades silently to fused order by design.
-- **Vector search is a brute-force cosine scan** in Node, not Atlas `$vectorSearch` — exact and tier-independent, but linear in corpus size. It is fine at this scale and will need revisiting well before six figures of chunks.
+- **Vector search is a brute-force cosine scan** in Node, not Atlas `$vectorSearch`. It is exact and tier-independent, but linear in corpus size. It is fine at this scale and will need revisiting well before six figures of chunks.
 - **No CI pipeline and no licence file yet.** The verification commands above are run manually.
 
 ---
