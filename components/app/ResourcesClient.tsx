@@ -864,8 +864,44 @@ function Guides() {
   const [active, setActive] = useState<string | null>(null);
   const resources = useMemo(() => (active ? resourcesForTopics([active], 6) : []), [active]);
 
+  /* Curated Video Learning - backend. My watch history, newest first.
+   * Loaded once from MongoDB when the tab opens. */
+  const [watched, setWatched] = useState<WatchedItem[]>([]);
+  useEffect(() => {
+    fetch("/api/resources/watched")
+      .then((res) => res.json())
+      .then((rows) => setWatched(rows))
+      .catch(() => setWatched([]));
+  }, []);
+
+  /* Fast lookup for the "Watched" badge on each row. */
+  const watchedRefs = useMemo(() => new Set(watched.map((w) => w.ref)), [watched]);
+
+  /* Called when a video is opened - saves it to MongoDB. */
+  function markWatched(ref: string, title: string) {
+    // Update the screen straight away, then tell the server.
+    setWatched((current) => {
+      const existing = current.find((w) => w.ref === ref);
+      const updated: WatchedItem = {
+        ref,
+        title,
+        plays: (existing?.plays ?? 0) + 1,
+        lastWatchedAt: new Date().toISOString(),
+      };
+      return [updated, ...current.filter((w) => w.ref !== ref)]; // move to top
+    });
+    fetch("/api/resources/watched", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref, title }),
+    }).catch(() => {});
+  }
+
   return (
     <div>
+      {/* My watch history, straight from MongoDB */}
+      <WatchHistory items={watched} onReplay={markWatched} />
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
         {GUIDE_TILES.map((g, i) => (
           <motion.button
@@ -889,7 +925,14 @@ function Guides() {
       </div>
       {active && (
         <div className="space-y-2.5">
-          {resources.map((r) => <HubResourceRow key={r.ref} r={r} />)}
+          {resources.map((r) => (
+            <HubResourceRow
+              key={r.ref}
+              r={r}
+              watched={watchedRefs.has(r.ref)}
+              onWatched={markWatched}
+            />
+          ))}
           {resources.length === 0 && <div className="text-[12px] text-ink-muted italic">No curated resources for this guide yet.</div>}
         </div>
       )}
@@ -897,12 +940,75 @@ function Guides() {
   );
 }
 
+/* One row of my watch history, as /api/resources/watched sends it. */
+type WatchedItem = {
+  ref: string;
+  title: string;
+  plays: number;
+  lastWatchedAt: string;
+};
+
+/* ─── Watch history panel ─── */
+
+function WatchHistory({ items, onReplay }: {
+  items: WatchedItem[];
+  onReplay: (ref: string, title: string) => void;
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="app-glass rounded-2xl p-4 mb-4">
+        <div className="text-[10.5px] uppercase tracking-[0.2em] text-ink-muted font-semibold mb-1">
+          Continue watching
+        </div>
+        <p className="text-[12px] text-ink-muted italic">
+          Nothing watched yet. Open a guide below and press play.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-glass rounded-2xl p-4 mb-4">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-[10.5px] uppercase tracking-[0.2em] text-ink-muted font-semibold">
+          Continue watching
+        </div>
+        <span className="text-[10px] font-mono text-ink-muted">{items.length}</span>
+      </div>
+
+      {/* Reuses the same row component as the guides, so clicking one
+          opens the player inline exactly the same way. */}
+      <div className="space-y-2">
+        {items.slice(0, 5).map((w) => (
+          <HubResourceRow
+            key={w.ref}
+            r={{
+              kind: "youtube",
+              title: w.title,
+              ref: w.ref,
+              note: `${new Date(w.lastWatchedAt).toLocaleDateString()}${w.plays > 1 ? ` · watched ${w.plays}x` : ""}`,
+            }}
+            onWatched={onReplay}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── shared: resource row with in-app video ─── */
 
-function HubResourceRow({ r }: { r: { kind: string; title: string; ref: string; note?: string } }) {
+function HubResourceRow({ r, watched = false, onWatched }: {
+  r: { kind: string; title: string; ref: string; note?: string };
+  watched?: boolean;
+  onWatched?: (ref: string, title: string) => void;
+}) {
   const [playing, setPlaying] = useState(false);
   const embeddable = r.kind === "youtube" && isYouTubeId(r.ref);
-  const log = () => roadmapStore.emit("RESOURCE_OPENED", `Opened "${r.title}"`);
+  const log = () => {
+    roadmapStore.emit("RESOURCE_OPENED", `Opened "${r.title}"`);
+    onWatched?.(r.ref, r.title);   // -> POST /api/resources/watched -> MongoDB
+  };
 
   if (embeddable && playing) {
     return (
@@ -945,6 +1051,12 @@ function HubResourceRow({ r }: { r: { kind: string; title: string; ref: string; 
         <span className="block text-[13px] font-medium text-ink truncate">{r.title}</span>
         {r.note && <span className="block text-[11px] text-ink-muted truncate">{r.note}</span>}
       </span>
+      {/* Comes from MongoDB via GET /api/resources/watched */}
+      {watched && (
+        <span className="shrink-0 rounded-full bg-aurora-100 text-aurora-700 ring-1 ring-inset ring-aurora-400/40 px-2 py-[1px] text-[9.5px] font-bold uppercase tracking-wide dark:bg-aurora-400/15 dark:text-aurora-100">
+          Watched
+        </span>
+      )}
       <span className="text-[9.5px] uppercase tracking-wider font-bold text-ink-muted shrink-0">{embeddable ? "play in-app" : r.kind}</span>
     </>
   );

@@ -11,7 +11,7 @@
  * updated doc - the same doc the Strategist reads.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
@@ -50,6 +50,27 @@ export function RoadmapNodeModal({
   const [evidenceRef, setEvidenceRef] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [adaptMsg, setAdaptMsg] = useState<string | null>(null);
+
+  /* Curated Video Learning - backend. Which of these videos have I already
+   * opened? Loaded once when the modal mounts.
+   * NOTE: must stay above the `if (!found) return null` below - React
+   * requires every hook to run in the same order on every render. */
+  const [watched, setWatched] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/resources/watched")
+      .then((res) => res.json())
+      .then((rows: Array<{ ref: string }>) => setWatched(rows.map((row) => row.ref)))
+      .catch(() => setWatched([]));
+  }, []);
+
+  function markWatched(ref: string, title: string) {
+    setWatched((current) => [...current, ref]);
+    fetch("/api/resources/watched", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ref, title }),
+    }).catch(() => {});
+  }
 
   if (!found) return null;
   const { branch, node } = found;
@@ -335,7 +356,7 @@ export function RoadmapNodeModal({
               <Label>Resources for these tasks</Label>
               <div className="space-y-2">
                 {taskResources.map((r) => (
-                  <ResourceRow key={r.ref} r={r} />
+                  <ResourceRow key={r.ref} r={r} watched={watched.includes(r.ref)} onWatched={markWatched} />
                 ))}
               </div>
             </section>
@@ -477,10 +498,17 @@ function Chip({ children, tone = "ink" }: { children: React.ReactNode; tone?: "i
   );
 }
 
-function ResourceRow({ r }: { r: { kind: string; title: string; ref: string; note?: string } }) {
+function ResourceRow({ r, watched = false, onWatched }: {
+  r: { kind: string; title: string; ref: string; note?: string };
+  watched?: boolean;
+  onWatched?: (ref: string, title: string) => void;
+}) {
   const [playing, setPlaying] = useState(false);
   const embeddable = r.kind === "youtube" && isYouTubeId(r.ref);
-  const logOpen = () => roadmapStore.emit("RESOURCE_OPENED", `Opened resource "${r.title}"`);
+  const logOpen = () => {
+    roadmapStore.emit("RESOURCE_OPENED", `Opened resource "${r.title}"`);
+    onWatched?.(r.ref, r.title);   // -> POST /api/resources/watched -> MongoDB
+  };
 
   if (embeddable && playing) {
     return (
@@ -522,6 +550,11 @@ function ResourceRow({ r }: { r: { kind: string; title: string; ref: string; not
         <span className="block text-[12.5px] font-medium text-ink truncate">{r.title}</span>
         {r.note && <span className="block text-[11px] text-ink-muted truncate">{r.note}</span>}
       </span>
+      {watched && (
+        <span className="shrink-0 rounded-full bg-aurora-100 text-aurora-700 ring-1 ring-inset ring-aurora-400/40 px-2 py-[1px] text-[9px] font-bold uppercase tracking-wide dark:bg-aurora-400/15 dark:text-aurora-100">
+          Watched
+        </span>
+      )}
       <span className="text-[10px] uppercase tracking-wider font-bold text-ink-muted shrink-0">{embeddable ? "play" : r.kind}</span>
     </>
   );
