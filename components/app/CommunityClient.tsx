@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/* The channels. Just a list - not stored in the database. */
+/* The channels, not stored in the db. */
 const CHANNELS = [
   { id: "general",      name: "General",      blurb: "Introductions and open questions" },
   { id: "scholarships", name: "Scholarships", blurb: "Aid letters, awards, negotiation" },
@@ -25,7 +25,7 @@ export function CommunityClient() {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
 
-  /* Load messages */
+  /* Load messages*/
   useEffect(() => {
     fetch("/api/community?channel=" + channel)
       .then((res) => res.json())
