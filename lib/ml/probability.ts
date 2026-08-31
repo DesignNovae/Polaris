@@ -1,9 +1,9 @@
 /**
- * Acceptance-probability model (logistic regression).
+ * Transparent acceptance estimate.
  *
  * Starts from a university's published acceptance rate, then moves it up or
- * down based on the student's academic profile. Academic inputs only - the
- * model uses no demographic data.
+ * down using explicit, hand-tuned academic factors. This is not a trained or
+ * calibrated admissions model, and the UI must present it as an estimate.
  */
 
 import type { StudentProfile } from "@/lib/profile";

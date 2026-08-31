@@ -66,7 +66,7 @@ type Msg = {
   gap?: boolean;
 };
 
-export type GapRow = { signal: string; you: string; admit: string; move: string };
+export type GapRow = { signal: string; you: string; reference?: string; admit?: string; move: string };
 type CtxRow = { k: string; v: string };
 
 const SUGGESTIONS = [
@@ -95,7 +95,7 @@ const ACTIVE_THREAD_KEY = "polaris.chat.activeThread";
 const DRAFT_KEY = "polaris.strategist.draft";
 
 export function StrategistClient({
-  studentName, initials, grade, contextRows, gapRows, eyebrow, demo = false,
+  studentName, initials, grade, contextRows, gapRows, eyebrow, benchmarkNote, demo = false,
 }: {
   studentName: string;
   initials: string;
@@ -103,6 +103,7 @@ export function StrategistClient({
   contextRows: CtxRow[];
   gapRows: GapRow[];
   eyebrow: string;
+  benchmarkNote?: string;
   demo?: boolean;
 }) {
   /* ─── core chat state ─── */
@@ -813,7 +814,7 @@ export function StrategistClient({
 
         {/* Messages */}
         <div ref={scroller} className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-y px-4 sm:px-6 lg:px-10 py-5 lg:py-6 space-y-5">
-          {messages.map((m) => <BigBubble key={m.id} m={m} initials={initials} gapRows={gapRows} />)}
+          {messages.map((m) => <BigBubble key={m.id} m={m} initials={initials} gapRows={gapRows} benchmarkNote={benchmarkNote} />)}
           {thinking && streaming && (
             <div className="max-w-3xl mx-auto flex items-center gap-2 text-ink-muted pl-10 text-[12.5px]">
               <span className="relative flex h-1.5 w-1.5">
@@ -952,7 +953,7 @@ function WebDot() {
   );
 }
 
-function BigBubble({ m, initials, gapRows }: { m: Msg; initials: string; gapRows: GapRow[] }) {
+function BigBubble({ m, initials, gapRows, benchmarkNote }: { m: Msg; initials: string; gapRows: GapRow[]; benchmarkNote?: string }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end gap-3 max-w-3xl mx-auto animate-fadeUp">
@@ -976,7 +977,7 @@ function BigBubble({ m, initials, gapRows }: { m: Msg; initials: string; gapRows
             <MarkdownMessage text={m.text} sources={citationSources} theme="light" />
           </div>
         )}
-        {m.gap && <GapAnalysis rows={gapRows} />}
+        {m.gap && <GapAnalysis rows={gapRows} note={benchmarkNote} />}
         {m.sources.length > 0 && (
           <SourceFooter sources={m.sources} />
         )}
@@ -1026,20 +1027,20 @@ function SourceFooter({ sources }: { sources: WebSource[] }) {
   );
 }
 
-function GapAnalysis({ rows }: { rows: GapRow[] }) {
+function GapAnalysis({ rows, note }: { rows: GapRow[]; note?: string }) {
   return (
     <Card className="overflow-hidden">
       <div className="px-4 py-2.5 border-b border-polaris-500/10 flex items-center gap-2">
         <Icon.spark size={14} />
-        <div className="text-[12.5px] font-semibold text-ink">Your signals vs. the admit-median reference</div>
-        <Pill tone="aurora" className="ml-auto">engine</Pill>
+        <div className="text-[12.5px] font-semibold text-ink">Your signals vs. available benchmarks</div>
+        <Pill tone="aurora" className="ml-auto">estimate</Pill>
       </div>
       <table className="w-full text-[12.5px]">
         <thead className="text-[10.5px] uppercase tracking-wider text-ink-muted font-medium">
           <tr className="text-left">
             <th className="px-4 py-1.5 font-medium">Signal</th>
             <th className="px-2 py-1.5 font-medium">You</th>
-            <th className="px-2 py-1.5 font-medium">Admit ref.</th>
+            <th className="px-2 py-1.5 font-medium">Reference</th>
             <th className="px-4 py-1.5 font-medium">Next move</th>
           </tr>
         </thead>
@@ -1048,12 +1049,13 @@ function GapAnalysis({ rows }: { rows: GapRow[] }) {
             <tr key={i} className="border-t border-polaris-500/10">
               <td className="px-4 py-2 text-ink">{r.signal}</td>
               <td className="px-2 py-2 font-mono text-ink-dim">{r.you}</td>
-              <td className="px-2 py-2 font-mono text-aurora-600">{r.admit}</td>
+              <td className={cn("px-2 py-2 font-mono", r.reference === "Not measured" ? "text-ink-muted" : "text-aurora-600")}>{r.reference ?? r.admit ?? "Not available"}</td>
               <td className="px-4 py-2 text-polaris-500 font-medium">{r.move}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      {note && <p className="px-4 py-2.5 text-[10.5px] leading-relaxed text-ink-muted border-t border-polaris-500/10">{note}</p>}
     </Card>
   );
 }
