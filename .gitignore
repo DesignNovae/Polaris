@@ -72,6 +72,7 @@ desktop.ini
 
 # ---- Agents ----
 .agents/
+.impeccable/critique/
 test-db-hardcoded.js
 .env*
 /.claude
