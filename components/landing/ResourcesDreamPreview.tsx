@@ -132,7 +132,7 @@ export function ResourcesDreamPreview() {
                   <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-muted">
                     <PlayGlyph /> 12 min read · video inside
                   </span>
-                  <Link href="/signup" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-polaris-500 hover:text-polaris-600 transition-colors">
+                  <Link href="/case-studies" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-polaris-500 hover:text-polaris-600 transition-colors">
                     All stories <GArrow s={11} />
                   </Link>
                 </div>
@@ -167,3 +167,4 @@ function PlayGlyph() {
     </svg>
   );
 }
+

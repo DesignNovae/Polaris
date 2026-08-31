@@ -261,3 +261,4 @@ function CountdownRing({ days, total }: { days: number; total: number }) {
     </div>
   );
 }
+

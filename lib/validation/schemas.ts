@@ -54,7 +54,6 @@ export const studentProfileSchema = z.object({
   undergradMajor: z.string().max(120).optional(),
   testScores: z.record(z.string().min(1).max(20), z.number().min(0).max(1600)).optional(),
 });
-
 export const registerSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email(),
@@ -62,9 +61,36 @@ export const registerSchema = z.object({
   role: z.enum(["student", "parent", "partner"]).optional(),
 });
 
+export const roadmapBodySchema = z.object({
+  profile: studentProfileSchema,
+});
+
+export const milestonePatchSchema = z.object({
+  milestoneId: z.string().min(1),
+  status: z.enum(["pending", "in-progress", "done"]).optional(),
+  deadline: z.string().optional(),
+});
+
+export const checkoutSchema = z.object({
+  tier: z.enum(["pro", "elite"]),
+});
+
+export const linkInviteSchema = z.object({
+  viewerEmail: z.string().email(),
+  relationship: z.enum(["parent", "partner"]),
+});
+
+export const linkAcceptSchema = z.object({
+  token: z.string().min(1),
+});
+
 export const inviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(["parent", "partner"]),
+});
+
+export const benchmarkBodySchema = z.object({
+  profile: studentProfileSchema,
 });
 
 export const accountUpdateSchema = z.object({
@@ -73,4 +99,10 @@ export const accountUpdateSchema = z.object({
   newPassword: z.string().min(8, "New password must be at least 8 characters").optional(),
   phone: z.string().max(30).optional(),
   avatarUrl: z.string().url("Avatar must be a valid URL").max(500).optional().or(z.literal("")),
+});
+
+export const adminUserUpdateSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["student", "parent", "partner", "admin"]).optional(),
+  plan: z.enum(["free", "pro", "elite"]).optional(),
 });

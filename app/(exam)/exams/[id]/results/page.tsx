@@ -7,4 +7,3 @@ export default async function ExamResultsPage({ params }: { params: Promise<{ id
   const { id } = await params;
   return <ExamResults sessionId={id} />;
 }
-

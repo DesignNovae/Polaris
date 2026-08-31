@@ -211,7 +211,7 @@ function parseObject(text: string): Record<string, unknown> {
       }
     }
   }
-  throw new Error("Gemma returned invalid JSON");
+  throw new Error("The AI provider returned invalid JSON");
 }
 
 function numericTokens(value: string): Set<string> {
@@ -701,7 +701,7 @@ async function gemmaJson(
         return parseObject(text);
       } catch {
         const preview = text.replace(/\s+/g, " ").trim().slice(0, 420);
-        throw new Error(`Gemma returned invalid JSON; response preview: ${preview}`);
+        throw new Error(`The AI provider returned invalid JSON; response preview: ${preview}`);
       }
     } catch (error) {
       lastError = error;
@@ -878,7 +878,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
           // repetition, and local uniqueness checks. Keep them when the
           // reviewer service itself is unavailable, and only fill questions
           // that are actually missing after all Gemma retries.
-          rejectedReasons.push("Semantic review unavailable; structurally valid Gemma items retained");
+          rejectedReasons.push("Semantic review unavailable; structurally valid AI items retained");
         }
       }
       if (live && reviewerAvailable && verified.length < batch.count) {
@@ -964,8 +964,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         }).catch(() => null)
       : null;
     const fallback = lang === "bn"
-      ? `### অনানুষ্ঠানিক অনুশীলন মূল্যায়ন\n\nআপনি ${practice.wordCount}টি শব্দ লিখেছেন। Task Response, Coherence and Cohesion, Lexical Resource এবং Grammatical Range and Accuracy অনুযায়ী আরও নির্দিষ্ট প্রতিক্রিয়ার জন্য Gemma API key ব্যবহার করুন। এখন আপনার অবস্থানটি প্রথম অনুচ্ছেদে স্পষ্ট করুন, প্রতিটি মূল ধারণাকে একটি প্রাসঙ্গিক উদাহরণ দিয়ে সমর্থন করুন এবং শেষে নিজের যুক্তির সঙ্গে সামঞ্জস্যপূর্ণ উপসংহার দিন।`
-      : `### Unofficial practice review\n\nYou wrote ${practice.wordCount} words. Connect a Gemma API key for detailed evidence across Task Response, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy. For now, state your position clearly in the introduction, support each main idea with a relevant example, and make the conclusion consistent with your argument.`;
+      ? `### অনানুষ্ঠানিক অনুশীলন মূল্যায়ন\n\nআপনি ${practice.wordCount}টি শব্দ লিখেছেন। Task Response, Coherence and Cohesion, Lexical Resource এবং Grammatical Range and Accuracy অনুযায়ী আরও নির্দিষ্ট প্রতিক্রিয়ার জন্য AI API key ব্যবহার করুন। এখন আপনার অবস্থানটি প্রথম অনুচ্ছেদে স্পষ্ট করুন, প্রতিটি মূল ধারণাকে একটি প্রাসঙ্গিক উদাহরণ দিয়ে সমর্থন করুন এবং শেষে নিজের যুক্তির সঙ্গে সামঞ্জস্যপূর্ণ উপসংহার দিন।`
+      : `### Unofficial practice review\n\nYou wrote ${practice.wordCount} words. Connect an AI API key for detailed evidence across Task Response, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy. For now, state your position clearly in the introduction, support each main idea with a relevant example, and make the conclusion consistent with your argument.`;
     const feedback = finalizeGeneratedLanguage(generated || fallback, lang);
     const source = generated ? "gemma4" as const : "deterministic-fallback" as const;
     const model = generated ? getGemmaModelId() : "none";
@@ -1059,7 +1059,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         2,
       );
       if (!verification) {
-        rejectedReasons.push("Semantic verification unavailable; structurally valid Gemma items retained");
+        rejectedReasons.push("Semantic verification unavailable; structurally valid AI items retained");
         verified = accepted;
       } else {
         verified = accepted.filter((_, index) => {
@@ -1173,7 +1173,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const generatedText = live
       ? await generateGemmaText({
           system: `You are a fast, constructive exam coach. ${languageRule} Keep IELTS, SAT, and official skill names in English. Use only the supplied attempt evidence; do not invent a skill gap, question detail, or distractor rationale. Give: result summary, two diagnosed skill gaps when evidence supports them, why the supplied distractors were tempting, and a three-step practice plan tied to this attempt. Use clean Markdown and under 220 words. Gemma 4 is the only generative model.`,
-          contents: `EXAM: ${persisted.generation.input.exam}\nSECTION: ${persisted.generation.input.section}\nDIFFICULTY: ${persisted.generation.input.difficulty}\nTARGET SKILL: ${persisted.generation.input.targetSkill || "none"}\nSCORE: ${score}/${questions.length}\nMISSED ITEMS (evidence from this completed attempt):\n${misses || "None — the student answered every item correctly."}`,
+          contents: `EXAM: ${persisted.generation.input.exam}\nSECTION: ${persisted.generation.input.section}\nDIFFICULTY: ${persisted.generation.input.difficulty}\nTARGET SKILL: ${persisted.generation.input.targetSkill || "none"}\nSCORE: ${score}/${questions.length}\nMISSED ITEMS (evidence from this completed attempt):\n${misses || "None: the student answered every item correctly."}`,
           temperature: 0.3,
           maxOutputTokens: 850,
           thinkingLevel: "minimal",
@@ -1224,7 +1224,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   if (body.kind === "essay-ocr") {
     if (!live) {
-      return fail(503, lang === "bn" ? "হাতের লেখা পড়তে একটি Gemma API key প্রয়োজন।" : "A Gemma API key is required to read handwriting.");
+      return fail(503, lang === "bn" ? "হাতের লেখা পড়তে একটি AI API key প্রয়োজন।" : "An AI API key is required to read handwriting.");
     }
     const generated = await generateGemmaVisionText({
       system: "You are the handwriting transcription layer in Polaris. Gemma 4 is the only generative model. Transcribe the student's essay faithfully. Preserve the original language, paragraph breaks, punctuation, spelling, and wording. Support Bengali, English, and mixed Bengali-English handwriting. Never translate, improve, summarize, or invent missing words. Mark unreadable fragments as [অস্পষ্ট] for Bengali text or [unclear] for English text.",
@@ -1240,13 +1240,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       return null;
     });
     if (!generated) {
-      return fail(502, lang === "bn" ? "Gemma ছবিটি পড়তে পারেনি। পরিষ্কার আলোতে আবার ছবি তুলুন।" : "Gemma could not read the image. Retake it in clear light and try again.");
+      return fail(502, lang === "bn" ? "Polaris AI ছবিটি পড়তে পারেনি। পরিষ্কার আলোতে আবার ছবি তুলুন।" : "Polaris AI could not read the image. Retake it in clear light and try again.");
     }
     let parsed: Record<string, unknown>;
     try {
       parsed = parseObject(generated);
     } catch {
-      return fail(502, lang === "bn" ? "Gemma-এর লেখা সম্পূর্ণ পাওয়া যায়নি। আবার চেষ্টা করুন।" : "Gemma returned an incomplete transcription. Please try again.");
+      return fail(502, lang === "bn" ? "Polaris AI-এর লেখা সম্পূর্ণ পাওয়া যায়নি। আবার চেষ্টা করুন।" : "Polaris AI returned an incomplete transcription. Please try again.");
     }
     const transcription = String(parsed.transcription || "").trim();
     if (transcription.length < 5) {
@@ -1270,7 +1270,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   if (body.kind === "essay-translate") {
     if (!live) {
-      return fail(503, lang === "bn" ? "অনুবাদের জন্য একটি Gemma API key প্রয়োজন।" : "A Gemma API key is required for translation.");
+      return fail(503, lang === "bn" ? "অনুবাদের জন্য একটি AI API key প্রয়োজন।" : "An AI API key is required for translation.");
     }
     const generated = await generateGemmaText({
       system: "You are a faithful academic translator. Gemma 4 is the only generative model. Translate the student's Bengali or mixed-language essay into natural English. Preserve meaning, paragraph breaks, names, facts, uncertainty markers, and the student's voice. Do not improve arguments, add achievements, summarize, or remove content. Return only the English translation.",
@@ -1282,7 +1282,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       apiKey,
     }).catch(() => null);
     if (!generated) {
-      return fail(502, lang === "bn" ? "Gemma এখন অনুবাদ সম্পন্ন করতে পারেনি। আবার চেষ্টা করুন।" : "Gemma could not complete the translation. Please try again.");
+      return fail(502, lang === "bn" ? "Polaris AI এখন অনুবাদ সম্পন্ন করতে পারেনি। আবার চেষ্টা করুন।" : "Polaris AI could not complete the translation. Please try again.");
     }
     return Response.json({ text: generated, source: "gemma4", model: getGemmaModelId() });
   }
@@ -1299,8 +1299,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         }).catch(() => null)
       : null;
     const fallback = lang === "bn"
-      ? "Gemma চালু হলে এখানে আপনার কণ্ঠ বজায় রেখে কাঠামো, নির্দিষ্টতা, প্রতিফলন ও ভাষার উপর বিস্তারিত পরামর্শ দেখা যাবে। এখন প্রথম অনুচ্ছেদে একটি নির্দিষ্ট দৃশ্য, আপনার সিদ্ধান্ত এবং শেখার ফল যোগ করুন।"
-      : "When Gemma is available, this panel gives detailed feedback on structure, specificity, reflection, and voice. For now, add one concrete scene, the decision you made, and what changed in your thinking.";
+      ? "Polaris AI চালু হলে এখানে আপনার কণ্ঠ বজায় রেখে কাঠামো, নির্দিষ্টতা, প্রতিফলন ও ভাষার উপর বিস্তারিত পরামর্শ দেখা যাবে। এখন প্রথম অনুচ্ছেদে একটি নির্দিষ্ট দৃশ্য, আপনার সিদ্ধান্ত এবং শেখার ফল যোগ করুন।"
+      : "When Polaris AI is available, this panel gives detailed feedback on structure, specificity, reflection, and voice. For now, add one concrete scene, the decision you made, and what changed in your thinking.";
     return Response.json({ text: finalizeGeneratedLanguage(generated || fallback, lang), source: generated ? "gemma4" : "deterministic-fallback", model: generated ? getGemmaModelId() : "none" });
   }
 

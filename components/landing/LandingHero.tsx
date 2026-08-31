@@ -14,7 +14,7 @@ import { useSession } from "next-auth/react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/cn";
 import {
-  Accent, Dot, FloatWrap, StarField, useTilt,
+  Eyebrow, Accent, Dot, FloatWrap, StarField, useTilt,
   GFlame, GArrow, NorthStarMark,
 } from "./shared";
 
@@ -71,8 +71,16 @@ export function LandingHero() {
         <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-8 items-center">
           {/* Left - message */}
           <div className="text-center lg:text-left">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <Eyebrow onDark>Polaris academic strategy</Eyebrow>
+            </motion.div>
+
             <motion.h1
-              className="text-balance font-sans text-[40px] sm:text-6xl lg:text-[64px] xl:text-[72px] font-bold leading-[1.05] tracking-tight text-paper"
+              className="mt-7 text-balance font-sans text-[40px] sm:text-6xl lg:text-[64px] xl:text-[72px] font-bold leading-[1.05] tracking-tight text-paper"
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
@@ -99,14 +107,14 @@ export function LandingHero() {
               transition={{ duration: 0.8, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             >
               <Link
-                href={session ? "/roadmap" : "/signup"}
+                href={session ? "/roadmap" : "/demo"}
                 className="group relative inline-flex items-center gap-2 rounded-full bg-paper px-6 py-3.5 text-[14px] font-semibold text-ink hover:bg-paper-soft transition-colors shadow-[0_12px_40px_-12px_rgba(250,246,240,0.45)]"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-aurora-500 opacity-75 animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-aurora-500" />
                 </span>
-                {session ? "Open your roadmap" : "Start for free today"}
+                {session ? "Open your roadmap" : "Try the live Polaris demo"}
                 <span className="transition-transform duration-200 group-hover:translate-x-1"><GArrow /></span>
               </Link>
               <Link
@@ -332,11 +340,8 @@ function MiniTree() {
         <g key={i}>
           {l.done && (
             <motion.circle
-              cx={l.cx} cy={l.cy} r={5}
-              fill="none" stroke="#8FB89A" strokeWidth="0.8"
-              // `r` needs a defined starting value: animating the attribute
-              // without one writes r="undefined" on the first frame.
-              initial={{ r: 5, opacity: 0.5 }}
+              cx={l.cx} cy={l.cy} r="7"
+              fill="none" stroke="#8FB89A" strokeWidth="0.8" opacity="0.4"
               animate={{ r: [5, 9, 5], opacity: [0.5, 0.08, 0.5] }}
               transition={{ duration: 3, delay: i * 0.5, repeat: Infinity, ease: "easeInOut" }}
             />

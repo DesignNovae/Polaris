@@ -41,11 +41,11 @@ const MODULES: Module[] = [
     blurb: "Discover real universities, see fit and reach analysis, compare shortlists, and import their deadlines." },
   { key: "deadlines",  name: "Deadlines",   ring: "outer", angle: 72,  tone: "from-[#C36F89] to-signal-rose",   icon: <GCalendar />, href: "/deadlines",
     blurb: "A smart calendar with urgency scoring, countdowns, and checklists - synced with your roadmap." },
-  { key: "resources",  name: "Resources",   ring: "outer", angle: 144, tone: "from-[#D2A24C] to-[#A87B2E]",     icon: <GBook />,     href: "/signup",
+  { key: "resources",  name: "Resources",   ring: "outer", angle: 144, tone: "from-[#D2A24C] to-[#A87B2E]",     icon: <GBook />,     href: "/resources",
     blurb: "Student stories, scholarships, real cost breakdowns, and SAT/IELTS material in one knowledge hub." },
   { key: "connections", name: "Connections", ring: "outer", angle: 216, tone: "from-[#5E8CA8] to-[#3E647D]",    icon: <GLink />,     href: "/connections",
     blurb: "GitHub, Codeforces, Google Calendar and Drive - connected with explicit permission only." },
-  { key: "partners",   name: "Partners",    ring: "outer", angle: 288, tone: "from-[#9C7BB8] to-[#6E548A]",     icon: <GGift />,     href: "/signup",
+  { key: "partners",   name: "Partners",    ring: "outer", angle: 288, tone: "from-[#9C7BB8] to-[#6E548A]",     icon: <GGift />,     href: "/partners",
     blurb: "Free student tools and verified offers, matched to your roadmap - free resources always rank first." },
 ];
 
@@ -237,3 +237,4 @@ function OrbitNode({
     </div>
   );
 }
+

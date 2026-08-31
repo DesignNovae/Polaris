@@ -5,7 +5,6 @@
 :root {
   color-scheme: light;
 }
-
 html,
 body {
   background: #FAF6F0;
@@ -570,9 +569,11 @@ details > summary::-webkit-details-marker { display: none; }
 .chev { transition: transform .2s ease; }
 details[open] .chev { transform: rotate(90deg); }
 
-/* ─── Sign-language interpreter stage ─────────────────────────────────────
-   Keep the lesson first in the accessibility tree; desktop placement is only
-   a visual arrangement. On smaller screens the video and interpreter stack. */
+/* ─── Sign language interpreter stage ──────────────────────────────────────
+   Media is always first in the DOM so reading and tab order reach the lesson
+   before the interpreter. Side placement is a desktop-only visual reorder; it
+   never changes the accessibility tree. Below the breakpoint the panel stacks
+   under the video and the side setting simply stops applying. */
 .interpreter-stage {
   display: grid;
   gap: 1rem;
@@ -586,16 +587,24 @@ details[open] .chev { transform: rotate(90deg); }
   .interpreter-stage[data-layout="beside"][data-side="left"] {
     grid-template-columns: var(--interpreter-column, 21rem) minmax(0, 1fr);
   }
+
+  /* Focus inverts the emphasis: the interpreter takes the major column and the
+     lesson plays smaller beside it. For a viewer who reads the signing rather
+     than listening, this is the correct default, not a novelty. */
   .interpreter-stage[data-layout="focus"][data-side="right"] {
     grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr);
   }
   .interpreter-stage[data-layout="focus"][data-side="left"] {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.62fr);
   }
+
   .interpreter-stage[data-side="left"] > .interpreter-stage-media { order: 2; }
   .interpreter-stage[data-side="left"] > .interpreter-stage-panel { order: 1; }
 }
 
+/* Overlay: the panel floats above a full-width lesson. Below the breakpoint it
+   stacks instead of floating, because a panel covering a phone-width video hides
+   the thing it is interpreting. */
 .interpreter-stage-overlay {
   display: grid;
   gap: 1rem;
@@ -622,6 +631,12 @@ details[open] .chev { transform: rotate(90deg); }
   }
 }
 
+/* ─── Lesson player frame ──────────────────────────────────────────────────
+   The YouTube IFrame API replaces the element it is given, so the resulting
+   iframe carries its own width/height attributes (640x360 by default) and does
+   not inherit anything set on the placeholder. These rules pin whatever ends up
+   inside the frame to the box, which is what keeps the player filling its
+   16:9 container instead of sitting at its intrinsic size inside it. */
 .lesson-player-frame > iframe,
 .lesson-player-frame > div {
   position: absolute;

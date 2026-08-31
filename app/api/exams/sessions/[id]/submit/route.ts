@@ -13,4 +13,3 @@ export const POST = withErrorHandling(async (_req: NextRequest, { params }: Cont
   const { id } = await params;
   return Response.json(await finalizeExamSession(user.id, id));
 });
-

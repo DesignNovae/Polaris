@@ -1,9 +1,8 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongodb";
 import { HttpError } from "@/lib/api/respond";
+import type { DeadlineKind } from "@/types/app";
 import type { ChecklistItem, DeadlineCreate, DeadlinePatch, DeadlineType } from "./schema";
-
-type DeadlineKind = "hard" | "soft" | "repeat";
 
 export type DbDeadline = {
   _id?: ObjectId;
@@ -14,8 +13,6 @@ export type DbDeadline = {
   milestoneId?: string;
   source: "user" | "ai" | "external" | "university";
   createdAt: Date;
-  /** Legacy alias used by older consumers; current deadline records use date. */
-  dueAt?: string;
   // ── extended model (all optional for back-compat with old rows) ──
   type?: DeadlineType;
   priority?: "high" | "medium" | "low";
@@ -40,7 +37,6 @@ export async function listDeadlines(userId: string, opts?: { from?: string; to?:
   }
   return db.collection<DbDeadline>(COLL).find(q).sort({ date: 1 }).toArray();
 }
-
 export async function createDeadline(userId: string, body: DeadlineCreate) {
   const db = await getDb();
   const doc: DbDeadline = {

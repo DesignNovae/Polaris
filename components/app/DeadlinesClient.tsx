@@ -16,6 +16,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { roadmapStore } from "@/lib/roadmap/store";
+import { UniversityLogo } from "./UniversityLogo";
+import { Icon } from "./ui";
+import { PremiumSelect, OptionDot } from "@/components/ui/PremiumSelect";
 import { cn } from "@/lib/cn";
 
 /* ─── types ─── */
@@ -144,26 +148,6 @@ function fmtDate(date: string): string {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-/* ─── shared icon helpers ─── */
-
-const CheckIcon = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 6 9 17l-5-5"/>
-  </svg>
-);
-
-const PlusIcon = ({ size = 13 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-    <path d="M12 5v14M5 12h14"/>
-  </svg>
-);
-
-const ChevIcon = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 18l6-6-6-6"/>
-  </svg>
-);
-
 /* ════════════════════════════════════════════════════════════════════════ */
 
 export function DeadlinesClient({ initial, demo = false }: { initial: UiDeadline[]; demo?: boolean }) {
@@ -232,7 +216,7 @@ export function DeadlinesClient({ initial, demo = false }: { initial: UiDeadline
             onClick={() => setCreateOpen(todayIso())}
             className="inline-flex items-center gap-1.5 rounded-full bg-ink text-paper px-4 py-2 text-[12.5px] font-semibold hover:bg-polaris-700 transition-colors"
           >
-            <PlusIcon size={13} /> New
+            <Icon.plus size={13} /> New
           </button>
         </div>
       </motion.div>
@@ -244,7 +228,7 @@ export function DeadlinesClient({ initial, demo = false }: { initial: UiDeadline
             key={w.days}
             initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-            className="glass rounded-2xl p-4 relative overflow-hidden"
+            className="app-glass rounded-2xl p-4 relative overflow-hidden"
           >
             <div className={cn("absolute top-0 left-0 h-[2px] w-full bg-gradient-to-r", w.urgent > 0 ? "from-rose-400 to-nova-400" : "from-aurora-400 to-polaris-400")} />
             <div className="text-[10.5px] uppercase tracking-wider text-ink-muted font-medium">Next {w.days} days</div>
@@ -374,11 +358,15 @@ function CountdownCard({ d, onOpen }: { d: UiDeadline; onOpen: () => void }) {
       variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       onClick={onOpen}
-      className={cn("glass rounded-2xl p-4 text-left relative overflow-hidden group", d.status === "done" && "opacity-65")}
+      className={cn("app-glass rounded-2xl p-4 text-left relative overflow-hidden group", d.status === "done" && "opacity-65")}
     >
       <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", meta.bar)} />
       <div className="flex items-start gap-3">
-        <TypeTile type={d.type} size={36} />
+        {d.universityId ? (
+          <span className="shrink-0 rounded-lg shadow-sm"><UniversityLogo id={d.universityId} name={d.universityName ?? ""} size={36} /></span>
+        ) : (
+          <TypeTile type={d.type} size={36} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
             <span className={cn("text-[9.5px] uppercase tracking-wider font-bold", t.tone)}>{t.label}</span>
@@ -414,7 +402,7 @@ function CountdownRing({ left, done, size = 44 }: { left: number; done?: boolean
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
         {done ? (
-          <span className="text-aurora-600 dark:text-aurora-300"><CheckIcon size={14} /></span>
+          <span className="text-aurora-600 dark:text-aurora-300"><Icon.check size={14} /></span>
         ) : (
           <>
             <span className="font-serif text-[13px] font-bold text-ink tabular-nums">{left < 0 ? `${-left}` : left}</span>
@@ -450,10 +438,10 @@ function MonthCalendar({
   const tIso = todayIso();
 
   return (
-    <div className="glass rounded-2xl overflow-hidden">
+    <div className="app-glass rounded-2xl overflow-hidden">
       <div className="px-4 py-3 flex items-center gap-2 border-b border-polaris-500/10 dark:border-white/[0.08]">
-        <button onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))} className="h-8 w-8 rounded-lg border border-polaris-500/20 bg-paper-card text-ink-dim hover:text-ink inline-flex items-center justify-center"><span className="rotate-180"><ChevIcon size={12} /></span></button>
-        <button onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))} className="h-8 w-8 rounded-lg border border-polaris-500/20 bg-paper-card text-ink-dim hover:text-ink inline-flex items-center justify-center"><ChevIcon size={12} /></button>
+        <button onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))} className="h-8 w-8 rounded-lg hairline bg-paper-card text-ink-dim hover:text-ink inline-flex items-center justify-center"><span className="rotate-180"><Icon.chev size={12} /></span></button>
+        <button onClick={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))} className="h-8 w-8 rounded-lg hairline bg-paper-card text-ink-dim hover:text-ink inline-flex items-center justify-center"><Icon.chev size={12} /></button>
         <h2 className="font-serif text-[17px] font-bold tracking-tight text-ink ml-1">
           {anchor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
         </h2>
@@ -522,7 +510,7 @@ function RiskBoard({ items, onOpen }: { items: UiDeadline[]; onOpen: (id: string
         const list = items.filter((i) => riskOf(i) === risk).sort((a, b) => a.date.localeCompare(b.date));
         const meta = RISK_META[risk];
         return (
-          <div key={risk} className="glass rounded-2xl p-3 min-h-[160px]">
+          <div key={risk} className="app-glass rounded-2xl p-3 min-h-[160px]">
             <div className="flex items-center gap-2 px-1 mb-2.5">
               <span className={cn("h-2 w-2 rounded-full", meta.bar)} />
               <span className="text-[11px] uppercase tracking-wider font-bold text-ink-dim">{meta.label}</span>
@@ -532,21 +520,23 @@ function RiskBoard({ items, onOpen }: { items: UiDeadline[]; onOpen: (id: string
               {list.length === 0 && <div className="text-[11px] text-ink-muted italic px-1 py-3">Nothing here.</div>}
               {list.map((d) => {
                 const t = TYPE_META[d.type] ?? TYPE_META.custom;
-                const openCount = d.checklist.filter((c) => !c.done).length;
+                const open = d.checklist.filter((c) => !c.done).length;
                 return (
                   <motion.button
                     key={d.id}
                     whileHover={{ y: -2 }}
                     onClick={() => onOpen(d.id)}
-                    className="w-full text-left rounded-xl bg-paper-card border border-polaris-500/10 dark:border-white/[0.08] p-2.5 block"
+                    className="w-full text-left rounded-xl bg-paper-card hairline p-2.5 block"
                   >
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className={t.tone}><TypeIcon type={d.type} size={12} /></span>
+                      {d.universityId
+                        ? <UniversityLogo id={d.universityId} name={d.universityName ?? ""} size={18} />
+                        : <span className={t.tone}><TypeIcon type={d.type} size={12} /></span>}
                       <span className="text-[10px] font-mono text-ink-muted">{fmtDate(d.date)}</span>
                       <span className="ml-auto font-mono text-[10px] font-bold text-ink">{daysLeft(d.date)}d</span>
                     </div>
                     <div className="text-[12px] font-medium text-ink leading-snug line-clamp-2">{d.title}</div>
-                    {openCount > 0 && <div className="text-[9.5px] font-mono text-ink-muted mt-1">{openCount} item{openCount === 1 ? "" : "s"} left</div>}
+                    {open > 0 && <div className="text-[9.5px] font-mono text-ink-muted mt-1">{open} item{open === 1 ? "" : "s"} left</div>}
                   </motion.button>
                 );
               })}
@@ -608,6 +598,9 @@ function DetailModal({
 
   async function markComplete() {
     await patch({ status: d.status === "done" ? "pending" : "done" }, "complete");
+    if (d.status !== "done") {
+      roadmapStore.emit("DEADLINE_COMPLETED", `Completed deadline "${d.title}"`);
+    }
   }
 
   async function remove() {
@@ -621,6 +614,14 @@ function DetailModal({
     const r = await fetch(`/api/deadlines?id=${d.id}`, { method: "DELETE" });
     if (r.ok || r.status === 204) onDeleted();
     setBusy(null);
+  }
+
+  function askStrategist() {
+    const open = d.checklist.filter((c) => !c.done).map((c) => c.text);
+    window.dispatchEvent(new CustomEvent("polaris:openAgentRail", {
+      detail: { draft: `Help me prepare for the deadline "${d.title}" on ${fmtDate(d.date)} (${left} days away, risk: ${RISK_META[risk].label}).${open.length ? ` Still open: ${open.join(", ")}.` : ""} Give me a day-by-day plan. ` },
+    }));
+    onClose();
   }
 
   async function toggleReminder(day: number) {
@@ -644,14 +645,18 @@ function DetailModal({
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-polaris-500/10 dark:border-white/[0.08]">
           <div className="flex items-start gap-3.5">
-            <TypeTile type={d.type} size={44} />
+            {d.universityId ? (
+              <span className="shrink-0 rounded-xl shadow-sm"><UniversityLogo id={d.universityId} name={d.universityName ?? ""} size={44} /></span>
+            ) : (
+              <TypeTile type={d.type} size={44} />
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap mb-1">
                 <span className={cn("text-[9.5px] uppercase tracking-wider font-bold", t.tone)}>{t.label}</span>
                 <span className={cn("text-[9.5px] uppercase tracking-wider font-bold rounded-full px-1.5 py-[1px] ring-1 ring-inset", RISK_META[risk].chip)}>{RISK_META[risk].label}</span>
                 <span className="text-[9.5px] uppercase tracking-wider font-bold text-ink-muted">{d.priority} priority</span>
                 {d.source === "university" && (
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-aurora-700 dark:text-aurora-200 inline-flex items-center gap-0.5"><CheckIcon size={8} /> official source</span>
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-aurora-700 dark:text-aurora-200 inline-flex items-center gap-0.5"><Icon.check size={8} /> official source</span>
                 )}
               </div>
               <h2 className="font-serif text-[19px] leading-tight font-bold tracking-tight text-ink">{d.title}</h2>
@@ -683,7 +688,7 @@ function DetailModal({
                       )}
                     >
                       <span className={cn("h-[16px] w-[16px] shrink-0 rounded ring-1 ring-inset flex items-center justify-center", c.done ? "bg-aurora-500 ring-aurora-500 text-white" : "ring-ink-faint")}>
-                        {busy === `c-${c.id}` ? <span className="h-2 w-2 rounded-full border border-current border-t-transparent animate-spin" /> : c.done ? <CheckIcon size={9} /> : null}
+                        {busy === `c-${c.id}` ? <span className="h-2 w-2 rounded-full border border-current border-t-transparent animate-spin" /> : c.done ? <Icon.check size={9} /> : null}
                       </span>
                       <span className={cn(c.done ? "text-ink-muted line-through" : "text-ink")}>{c.text}</span>
                     </button>
@@ -759,12 +764,13 @@ function DetailModal({
             disabled={busy !== null}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition-colors disabled:opacity-50",
-              d.status === "done" ? "bg-paper-soft text-ink-dim border border-polaris-500/20" : "bg-aurora-600 text-white hover:bg-aurora-700",
+              d.status === "done" ? "bg-paper-soft text-ink-dim hairline" : "bg-aurora-600 text-white hover:bg-aurora-700",
             )}
           >
             {busy === "complete" ? "…" : d.status === "done" ? "Reopen" : "✓ Mark complete"}
           </button>
           <button onClick={() => setReschedule(d.date)} className="text-[12px] font-medium text-ink-dim hover:text-ink">Reschedule</button>
+          <button onClick={askStrategist} className="text-[12.5px] text-polaris-600 dark:text-polaris-300 hover:underline font-medium">Ask Strategist →</button>
           <button onClick={() => void remove()} disabled={busy !== null} className="ml-auto text-[12px] text-rose-600 dark:text-rose-300 hover:underline">
             {busy === "delete" ? "…" : "Delete"}
           </button>
@@ -837,12 +843,6 @@ function CreateModal({
     }
   }
 
-  const PRIORITY_OPTIONS: { value: "high" | "medium" | "low"; label: string; dot: string }[] = [
-    { value: "high", label: "High", dot: "bg-rose-500" },
-    { value: "medium", label: "Medium", dot: "bg-nova-500" },
-    { value: "low", label: "Low", dot: "bg-aurora-500" },
-  ];
-
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -868,24 +868,18 @@ function CreateModal({
               type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="flex-1 rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-[13px] text-ink focus:border-polaris-400 focus:outline-none dark:border-white/[0.14] dark:bg-paper-deep"
             />
-            {/* Priority selector */}
-            <div className="flex rounded-xl border border-polaris-200 dark:border-white/[0.14] overflow-hidden shrink-0">
-              {PRIORITY_OPTIONS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => setPriority(p.value)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 text-[11.5px] font-medium transition-colors",
-                    priority === p.value
-                      ? "bg-ink text-paper"
-                      : "text-ink-dim hover:text-ink hover:bg-paper-soft",
-                  )}
-                >
-                  <span className={cn("h-2 w-2 rounded-full", p.dot)} />
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <PremiumSelect
+              value={priority}
+              onChange={(v) => setPriority(v as typeof priority)}
+              variant="input"
+              align="right"
+              className="w-[130px] shrink-0"
+              options={[
+                { value: "high", label: "High", icon: <OptionDot className="bg-rose-500" /> },
+                { value: "medium", label: "Medium", icon: <OptionDot className="bg-nova-500" /> },
+                { value: "low", label: "Low", icon: <OptionDot className="bg-aurora-500" /> },
+              ]}
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(TYPE_META).map(([k, m]) => (
@@ -930,7 +924,7 @@ function Segment<T extends string>({
   options, value, onChange,
 }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="inline-flex p-0.5 bg-paper-deep rounded-lg border border-polaris-500/15 dark:border-white/[0.08]">
+    <div className="inline-flex p-0.5 bg-paper-deep rounded-lg hairline">
       {options.map((o) => (
         <button key={o.value} onClick={() => onChange(o.value)}
           className={cn("h-8 px-3 text-[12px] font-medium rounded-md transition-colors", value === o.value ? "bg-paper-card text-ink shadow-sm" : "text-ink-dim hover:text-ink")}>
@@ -947,17 +941,18 @@ function Label({ children }: { children: React.ReactNode }) {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="glass rounded-2xl p-12 text-center">
+    <div className="app-glass rounded-2xl p-12 text-center">
       <span className="mx-auto mb-3 h-14 w-14 rounded-2xl bg-gradient-to-br from-polaris-500/20 via-nova-500/15 to-aurora-500/15 ring-1 ring-inset ring-polaris-500/20 dark:ring-white/[0.1] flex items-center justify-center text-polaris-600 dark:text-polaris-300 shadow-sm">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM8 3v4M16 3v4M9 14l2 2 4-4"/></svg>
       </span>
       <div className="font-serif text-[20px] font-bold text-ink">No deadlines yet</div>
       <p className="text-[12.5px] text-ink-dim mt-1.5 max-w-md mx-auto">
-        Add your own deadlines here. Track applications, exams, essays, and more — all in one risk-aware view.
+        Add your own, or shortlist universities on the Universities page - their official deadlines import here with application checklists.
       </p>
       <button onClick={onAdd} className="mt-4 inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-ink text-paper text-[13px] font-medium hover:bg-polaris-700 transition-colors">
-        <PlusIcon size={13} /> Add first deadline
+        <Icon.plus size={13} /> Add first deadline
       </button>
     </div>
   );
 }
+

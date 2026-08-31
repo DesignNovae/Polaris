@@ -317,3 +317,4 @@ export function NorthStarMark({ s = 28 }: { s?: number }) {
     </svg>
   );
 }
+

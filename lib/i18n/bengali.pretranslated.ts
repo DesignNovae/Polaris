@@ -1,7 +1,7 @@
 /**
  * Pre-generated Bengali catalog for the public product workspace.
  *
- * Generated with Gemma 4, reviewed in the rendered interface, and loaded
+ * Generated for Polaris, reviewed in the rendered interface, and loaded
  * locally at runtime. Language switching never makes a translation request.
  */
 export const BN_PRETRANSLATED: Record<string, string> = {
@@ -273,8 +273,8 @@ export const BN_PRETRANSLATED: Record<string, string> = {
   "G T": "G T",
   "G U": "G U",
   "GB": "GB",
-  "Gemma 4 26B": "Gemma 4 26B",
-  "Gemma 4 model controls": "Gemma 4 মডেল কন্ট্রোলস",
+  "Polaris AI": "Polaris AI",
+  "Polaris AI controls": "Polaris AI নিয়ন্ত্রণ",
   "General": "সাধারণ",
   "General ?": "সাধারণ ?",
   "Germany": "জার্মানি",

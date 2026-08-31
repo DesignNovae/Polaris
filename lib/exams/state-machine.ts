@@ -9,4 +9,3 @@ const ALLOWED_TRANSITIONS: Record<ExamSessionStatus, ExamSessionStatus[]> = {
 export function canTransitionExamSession(from: ExamSessionStatus, to: ExamSessionStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
-

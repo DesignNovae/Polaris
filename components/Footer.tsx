@@ -18,48 +18,48 @@ export function Footer() {
   const copy = bn ? {
     kicker: "পরবর্তী পদক্ষেপটি এখনই নিন",
     title: "পরিকল্পনাকে অগ্রগতিতে পরিণত করুন।",
-    body: "Gemma 4 দিয়ে আপনার লক্ষ্য, প্রমাণ, সময়সীমা ও দৈনিক কাজকে একই জীবন্ত পরিকল্পনায় আনুন।",
-    primary: "আজই বিনামূল্যে শুরু করুন",
-    secondary: "সাইন ইন",
+    body: "Polaris দিয়ে আপনার লক্ষ্য, প্রমাণ, সময়সীমা ও দৈনিক কাজকে একই জীবন্ত পরিকল্পনায় আনুন।",
+    primary: "বিনামূল্যে ডেমো চালান",
+    secondary: "অ্যাকশন ল্যাব দেখুন",
     product: "প্রোডাক্ট",
     workspace: "ওয়ার্কস্পেস",
     account: "অ্যাকাউন্ট",
     status: "সিস্টেম সচল",
-    gemma: "Gemma 4 দ্বারা চালিত",
+    intelligence: "Polaris AI সহায়তা",
     note: "শিক্ষার্থীর সিদ্ধান্ত সহায়তার জন্য তৈরি",
     links: {
-      how: "কীভাবে কাজ করে", pricing: "মূল্য", roadmap: "রোডম্যাপ",
+      how: "কীভাবে কাজ করে", pricing: "মূল্য", stories: "সাফল্যের গল্প", roadmap: "রোডম্যাপ",
       strategist: "স্ট্র্যাটেজিস্ট", deadlines: "সময়সীমা", universities: "বিশ্ববিদ্যালয়", action: "অ্যাকশন ল্যাব",
-      signup: "অ্যাকাউন্ট খুলুন", signin: "সাইন ইন", account: "অ্যাকাউন্ট", github: "সোর্স কোড",
+      demo: "পাবলিক ডেমো", family: "পরিবার", settings: "সেটিংস", github: "সোর্স কোড",
     },
   } : {
     kicker: "Your next move starts here",
     title: "Turn planning into momentum.",
-    body: "Bring goals, evidence, deadlines, and daily work into one living plan powered by Gemma 4.",
-    primary: "Start for free today",
-    secondary: "Sign in",
+    body: "Bring goals, evidence, deadlines, and daily work into one living plan with Polaris.",
+    primary: "Try the free demo",
+    secondary: "Explore Action Lab",
     product: "Product",
     workspace: "Workspace",
     account: "Access",
     status: "All systems operational",
-    gemma: "Powered by Gemma 4",
+    intelligence: "Polaris AI assistance",
     note: "Built for student decision support",
     links: {
-      how: "How it works", pricing: "Pricing", roadmap: "Roadmap",
+      how: "How it works", pricing: "Pricing", stories: "Success stories", roadmap: "Roadmap",
       strategist: "Strategist", deadlines: "Deadlines", universities: "Universities", action: "Action Lab",
-      signup: "Create account", signin: "Sign in", account: "Account", github: "Source code",
+      demo: "Public demo", family: "Family", settings: "Settings", github: "Source code",
     },
   };
 
   const groups = [
     { title: copy.product, links: [
-      ["/#how", copy.links.how], ["/#pricing", copy.links.pricing], ["/roadmap", copy.links.roadmap],
+      ["/#how", copy.links.how], ["/#pricing", copy.links.pricing], ["/case-studies", copy.links.stories], ["/demo", copy.links.roadmap],
     ] },
     { title: copy.workspace, links: [
-      ["/strategist", copy.links.strategist], ["/deadlines", copy.links.deadlines], ["/universities", copy.links.universities], ["/action-lab", copy.links.action],
+      ["/demo/strategist", copy.links.strategist], ["/demo/deadlines", copy.links.deadlines], ["/demo/universities", copy.links.universities], ["/demo/action-lab", copy.links.action],
     ] },
     { title: copy.account, links: [
-      ["/signup", copy.links.signup], ["/signin", copy.links.signin], ["/account", copy.links.account], ["https://github.com/DesignNovae/Polaris", copy.links.github],
+      ["/demo", copy.links.demo], ["/demo/family", copy.links.family], ["/demo/settings", copy.links.settings], ["https://github.com/ImtiazHossain-Eshan/polaris-gemma4", copy.links.github],
     ] },
   ] as const;
 
@@ -85,7 +85,7 @@ export function Footer() {
               </h2>
               <p className="mt-4 max-w-xl text-[13.5px] leading-relaxed text-paper/68 sm:text-[15px]">{copy.body}</p>
               <div className="mt-5 flex flex-wrap gap-2 text-[10.5px] text-paper/65">
-                {[copy.gemma, copy.status, bn ? "বাংলা ও English" : "English and Bengali"].map((item, index) => (
+                {[copy.intelligence, copy.status, bn ? "বাংলা ও English" : "English and Bengali"].map((item, index) => (
                   <span key={item} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1.5">
                     <span className={index === 1 ? "h-1.5 w-1.5 rounded-full bg-aurora-400" : "text-polaris-300"}>{index === 1 ? "" : "✦"}</span>{item}
                   </span>
@@ -93,8 +93,8 @@ export function Footer() {
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-              <FooterButton href="/signup" primary>{copy.primary}</FooterButton>
-              <FooterButton href="/signin">{copy.secondary}</FooterButton>
+              <FooterButton href="/demo" primary>{copy.primary}</FooterButton>
+              <FooterButton href="/demo/action-lab">{copy.secondary}</FooterButton>
             </div>
           </div>
         </div>
@@ -124,7 +124,7 @@ export function Footer() {
       <div className="border-t border-ink/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-5 text-center text-[11px] text-ink-muted sm:flex-row sm:text-left">
           <span>© {new Date().getFullYear()} Polaris. {copy.note}.</span>
-          <span className="font-mono">EN / বাংলা · Gemma 4 · v1.0</span>
+          <span className="font-mono">EN / বাংলা · Polaris · v1.0</span>
         </div>
       </div>
     </footer>

@@ -48,12 +48,12 @@ const COPY = {
       decision: ["Decision Twin", "Stress-test the roadmap"],
       evidence: ["Evidence Graph", "Turn claims into proof"],
       exam: ["Exam Lab", "Mocks and AI practice"],
-      routine: ["Smart Routine", "Gemma + manual planning"],
+      routine: ["Smart Routine", "AI-assisted manual planning"],
       learn: ["Video Learning", "Curated official lessons"],
       notes: ["Knowledge Notes", "Feedback becomes memory"],
       essay: ["Essay Studio", "Write, reflect, refine"],
     },
-    gemmaReady: "Gemma 4 reasoning layer",
+    gemmaReady: "Polaris AI reasoning layer",
   },
   bn: {
     eyebrow: "Polaris অ্যাকশন ল্যাব",
@@ -63,12 +63,12 @@ const COPY = {
       decision: ["ডিসিশন টুইন", "রোডম্যাপ যাচাই করুন"],
       evidence: ["প্রমাণের মানচিত্র", "দাবিকে প্রমাণে রূপ দিন"],
       exam: ["মক পরীক্ষা", "IELTS ও SAT অনুশীলন"],
-      routine: ["স্মার্ট রুটিন", "Gemma ও ম্যানুয়াল পরিকল্পনা"],
+      routine: ["স্মার্ট রুটিন", "AI ও ম্যানুয়াল পরিকল্পনা"],
       learn: ["ভিডিও লার্নিং", "নির্বাচিত অফিসিয়াল পাঠ"],
       notes: ["নলেজ নোট", "প্রতিক্রিয়া থেকে স্মৃতি"],
       essay: ["রচনা স্টুডিও", "লিখুন, ভাবুন, উন্নত করুন"],
     },
-    gemmaReady: "Gemma 4 বিশ্লেষণ ব্যবস্থা",
+    gemmaReady: "Polaris AI বিশ্লেষণ ব্যবস্থা",
   },
 } as const;
 
@@ -224,7 +224,7 @@ export function ActionLabClient() {
 
         <details className="group mb-5 ml-auto max-w-xl rounded-2xl border border-aurora-500/15 bg-paper-card/65 p-2 open:shadow-card">
           <summary className="cursor-pointer list-none px-2 py-1 text-right text-[10.5px] font-semibold text-aurora-700 dark:text-aurora-100">
-            {lang === "bn" ? "নিজের Gemma API key ব্যবহার করুন" : "Use your own Gemma API key"}
+            {lang === "bn" ? "নিজের AI API key ব্যবহার করুন" : "Use your own AI API key"}
           </summary>
           <div className="mt-2"><GemmaKeyCard lang={lang} compact /></div>
         </details>
@@ -323,7 +323,7 @@ function DecisionTwin({ lang }: { lang: "en" | "bn" }) {
           </select>
         </label>
         <Btn onClick={() => void run()} disabled={busy || event.trim().length < 3} variant="accent" size="lg" className="mt-4 w-full" icon={<Icon.spark size={14} />}>
-          {busy ? (bn ? "Gemma পরিকল্পনা পরীক্ষা করছে…" : "Gemma is stress-testing…") : (bn ? "পরিকল্পনার প্রভাব দেখুন" : "Run the Decision Twin")}
+          {busy ? (bn ? "Polaris AI পরিকল্পনা পরীক্ষা করছে…" : "Polaris AI is stress-testing…") : (bn ? "পরিকল্পনার প্রভাব দেখুন" : "Run the Decision Twin")}
         </Btn>
         {error && <p className="mt-2 text-[11px] text-signal-rose">{error}</p>}
       </Card>
@@ -479,7 +479,7 @@ function EvidenceGraph({ lang }: { lang: "en" | "bn" }) {
           <textarea value={proofDetail} onChange={(e) => setProofDetail(e.target.value)} rows={3} className="mt-1.5 w-full resize-none rounded-xl border border-ink-faint/25 bg-bg/60 px-3.5 py-3 text-[13px] normal-case leading-relaxed tracking-normal text-ink outline-none focus:border-polaris-500" />
         </label>
         <Btn onClick={() => void run()} disabled={busy || claim.trim().length < 3} variant="accent" size="lg" className="mt-4 w-full" icon={<Icon.spark size={14} />}>
-          {busy ? (bn ? "Gemma যাচাই করছে…" : "Gemma is auditing…") : (bn ? "প্রমাণের মানচিত্র তৈরি করুন" : "Build the evidence graph")}
+          {busy ? (bn ? "Polaris AI যাচাই করছে…" : "Polaris AI is auditing…") : (bn ? "প্রমাণের মানচিত্র তৈরি করুন" : "Build the evidence graph")}
         </Btn>
         {error && <p className="mt-2 text-[11px] text-signal-rose">{error}</p>}
       </Card>
@@ -579,7 +579,7 @@ function RoutineStudio({ lang }: { lang: "en" | "bn" }) {
           <div className="absolute right-[-80px] top-[-100px] h-60 w-60 rounded-full bg-nova-500/[0.10] blur-2xl" />
           <div className="relative">
             <Pill tone="nova"><Icon.spark size={11} /> {bn ? "প্রাকৃতিক ভাষায় রুটিন" : "Natural-language scheduling"}</Pill>
-            <h2 className="mt-3 font-serif text-[22px] font-bold text-ink">{bn ? "Gemma-কে বলুন কী যোগ করবেন" : "Tell Gemma what to add"}</h2>
+            <h2 className="mt-3 font-serif text-[22px] font-bold text-ink">{bn ? "Polaris AI-কে বলুন কী যোগ করবেন" : "Tell Polaris AI what to add"}</h2>
             <p className="mt-1.5 text-[11.5px] text-ink-dim">{bn ? "দিন, সময় ও কাজ লিখুন। যোগ হওয়ার পর প্রতিটি ব্লক ম্যানুয়ালি পরিবর্তন করা যাবে।" : "Include the day, time, and task. Every generated block stays manually editable."}</p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <input value={instruction} onChange={(e) => setInstruction(e.target.value)} className="h-11 flex-1 rounded-xl border border-ink-faint/25 bg-bg/70 px-3.5 text-[13px] text-ink outline-none focus:border-polaris-500" />
@@ -750,7 +750,7 @@ function ModelTrace({ source, model }: { source: string; model: string }) {
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9.5px] font-medium", live ? "border-aurora-500/25 bg-aurora-500/[0.08] text-aurora-700 dark:text-aurora-100" : "border-ink-faint/20 text-ink-muted")}>
       <span className={cn("h-1.5 w-1.5 rounded-full", live ? "bg-aurora-500" : "bg-ink-muted")} />
-      {live ? `Gemma 4 · ${model}` : "Preview · run to use Gemma 4"}
+      {live ? "Polaris AI · live" : "Preview · run with Polaris AI"}
     </span>
   );
 }

@@ -127,3 +127,4 @@ export async function getStreak(userId: string): Promise<StreakState> {
     weekCount: days.filter((d) => d >= monKey).length,
   };
 }
+

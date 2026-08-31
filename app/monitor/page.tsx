@@ -15,11 +15,3 @@ export default function MonitorPage() {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-polaris-200 bg-paper p-5">
-      <div className="text-sm font-semibold text-ink mb-4">{title}</div>
-      {children}
-    </div>
-  );
-}

@@ -40,14 +40,19 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [selected, setSelected] = useState<ExamMode | null>(null);
   const [error, setError] = useState("");
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const bn = lang === "bn";
 
   const loadCatalog = useCallback(async () => {
     const response = await fetch("/api/exams/catalog", { cache: "no-store" });
     const data = await response.json() as CatalogResponse & { error?: string };
-    if (!response.ok) throw new Error(data.error || "The exam catalog could not be loaded.");
+    if (!response.ok) {
+      setErrorStatus(response.status);
+      throw new Error(data.error || "The exam catalog could not be loaded.");
+    }
     setCatalog(data);
     setError("");
+    setErrorStatus(null);
   }, []);
 
   useEffect(() => {
@@ -73,9 +78,9 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
           <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "সময়ভিত্তিক পরীক্ষা, অটোসেভ, পুনরুদ্ধার এবং জমা দেওয়ার পর বিশ্লেষণ।" : "Timed exams with autosave, recovery, and clear performance analysis after submission."}</p>
         </button>
         <button type="button" aria-pressed={mode === "practice"} onClick={() => setMode("practice")} className={cn("rounded-2xl border p-5 text-left transition", mode === "practice" ? "border-nova-500 bg-nova-500/[0.08] shadow-card" : "border-ink-faint/20 bg-paper-card hover:border-nova-500/45")}>
-          <Pill tone="nova"><Icon.spark size={12} /> Gemma 4</Pill>
+          <Pill tone="nova"><Icon.spark size={12} /> Polaris AI</Pill>
           <h2 className="mt-3 font-serif text-[24px] font-bold text-ink">{bn ? "AI অনুশীলন" : "AI Practice"}</h2>
-          <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "Gemma পরিকল্পিত পূর্ণ বিভাগের প্রশ্নসেট ধাপে ধাপে তৈরি করে, সঙ্গে রচনা প্রতিক্রিয়া দেয়।" : "Gemma builds full section-length practice sets in reviewed batches, with focused writing feedback."}</p>
+          <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris AI পরিকল্পিত পূর্ণ বিভাগের প্রশ্নসেট ধাপে ধাপে তৈরি করে, সঙ্গে রচনা প্রতিক্রিয়া দেয়।" : "Polaris AI builds full section-length practice sets in reviewed batches, with focused writing feedback."}</p>
         </button>
       </div>
 
@@ -87,7 +92,23 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
             <div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">Exam workspace</div><h2 className="mt-1 font-serif text-[28px] font-bold text-ink">Choose an exam</h2></div>
             <Pill tone="aurora">{catalog ? `${catalog.available.length} exams` : "Loading exams…"}</Pill>
           </div>
-          {error && <Card className="mb-4 border border-signal-rose/25 p-4"><p role="alert" className="text-[11px] text-signal-rose">{error}</p></Card>}
+          {error && (
+            <Card className="mb-4 border border-signal-rose/25 p-4">
+              <p role="alert" className="text-[11px] text-signal-rose">
+                {errorStatus === 401 ? "Your session has expired. Sign in again to load your exam catalog." : error}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {errorStatus === 401 ? (
+                  <Link href={`/signin?callbackUrl=${encodeURIComponent("/action-lab#exam")}`} className="rounded-lg bg-ink px-3 py-2 text-[11px] font-semibold text-paper">
+                    Sign in again
+                  </Link>
+                ) : null}
+                <button type="button" onClick={() => void loadCatalog().catch((cause) => setError(cause instanceof Error ? cause.message : "The exam catalog could not be loaded."))} className="rounded-lg border border-ink-faint/25 px-3 py-2 text-[11px] font-semibold text-ink-dim transition hover:border-polaris-500/40 hover:text-ink">
+                  Try again
+                </button>
+              </div>
+            </Card>
+          )}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(catalog?.available ?? []).map((entry) => {
               const label = LABELS[entry.mode];

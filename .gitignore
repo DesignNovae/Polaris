@@ -73,3 +73,5 @@ desktop.ini
 # ---- Agents ----
 .agents/
 test-db-hardcoded.js
+.env*
+/.claude

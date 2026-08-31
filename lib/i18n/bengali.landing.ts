@@ -6,12 +6,12 @@
  * experience stays complete without generating copy during page load.
  */
 export const BN_LANDING: Record<string, string> = {
-  "Gemma 4 admission strategist": "Gemma 4 ভর্তি কৌশলবিদ",
+  "Polaris academic strategy": "Polaris শিক্ষাগত কৌশল",
   "Turn your dream university into a": "স্বপ্নের বিশ্ববিদ্যালয়কে রূপ দিন",
   "living roadmap": "জীবন্ত রোডম্যাপে",
   "Polaris builds a personalized admission roadmap from your education level, scores, deadlines, and target universities - then keeps adapting as you improve.": "আপনার শিক্ষাস্তর, স্কোর, সময়সীমা ও লক্ষ্য বিশ্ববিদ্যালয়ের ভিত্তিতে Polaris ব্যক্তিগত ভর্তি রোডম্যাপ তৈরি করে-আর আপনার অগ্রগতির সঙ্গে পরিকল্পনাটিও বদলে যায়।",
   "Open your roadmap": "আপনার রোডম্যাপ খুলুন",
-  "Try the live Gemma 4 demo": "লাইভ Gemma 4 ডেমো দেখুন",
+  "Try the live Polaris demo": "লাইভ Polaris ডেমো দেখুন",
   "See the product": "পণ্যটি দেখুন",
   "Built for every level, Class 5 to HSC": "পঞ্চম শ্রেণি থেকে HSC-সব স্তরের শিক্ষার্থীর জন্য",
   "scroll": "নিচে দেখুন",

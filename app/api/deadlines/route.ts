@@ -60,3 +60,4 @@ export const DELETE = withErrorHandling(async (req) => {
   await deleteDeadline(user.id, id);
   return new NextResponse(null, { status: 204 });
 });
+

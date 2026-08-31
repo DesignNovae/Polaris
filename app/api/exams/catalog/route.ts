@@ -10,4 +10,3 @@ export const GET = withErrorHandling(async (_req: NextRequest) => {
   const user = await requireSession();
   return Response.json(await getExamCatalog(user.id));
 });
-

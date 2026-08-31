@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/dashboard", destination: "/roadmap", statusCode: 301 },
+      { source: "/universities/:id", destination: "/university/:id", permanent: false },
     ];
   },
 };

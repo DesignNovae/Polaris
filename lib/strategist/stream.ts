@@ -1,122 +1,147 @@
-import { generateGemmaText, hasGemmaKey } from "@/lib/llm/gemma";
-import { summarizeProfile, type StudentProfile } from "@/lib/profile";
-import type { StrategistRequest } from "./schemas";
+/**
+ * Server-Sent Events stream for the Strategist agent.
+ *
+ * Forwards the deep-research orchestrator's chunks over SSE, and fires
+ * an async memory-extraction pass once the answer is complete.
+ */
 
-export function sseHeaders(): HeadersInit {
-  return {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  };
-}
+import { deepResearch, type ResearchOutcome } from "./research";
+import {
+  addMemoryFacts,
+  getUserMemory,
+  type UserMemoryFact,
+} from "@/lib/db/collections";
+import { extractFactsFromExchange } from "./memory";
+import { ingestUserDocs } from "@/lib/rag/ingest";
+import type { TurnHistory } from "@/lib/rag/rewrite";
+import type { StrategistChunk } from "./schemas";
+import type { StudentProfile } from "@/lib/profile";
+import type { StrategistMode } from "./profiles";
+import type { RouteMode } from "@/lib/llm/providers/types";
+import type { Lang } from "@/lib/i18n/strings";
+import { BN_ERRORS } from "@/lib/i18n/server";
 
-function encodeChunk(value: unknown): Uint8Array {
-  return new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`);
-}
-
-function fallbackReply(message: string, mode: StrategistRequest["mode"], profile: StudentProfile | null): string {
-  const focus = profile?.targetTier ? `your ${profile.targetTier} target` : "your target universities";
-  const modeLead = mode === "coding"
-    ? "Let’s turn this into a small, testable build step."
-    : mode === "study"
-      ? "Let’s make this concrete and manageable."
-      : mode === "research"
-        ? "I’ll separate the research question from the next action."
-        : "Here’s a grounded next move.";
-  return [
-    modeLead,
-    `For ${focus}, start with one outcome for this week: ${message.trim().slice(0, 180)}.`,
-    "1. Define the smallest deliverable you can finish in 60–90 minutes.",
-    "2. Put it on a specific day and record the result in your roadmap.",
-    "3. Come back with the result and I’ll help you choose the next highest-leverage step.",
-  ].join("\n\n");
-}
-
-function splitText(text: string, size = 180): string[] {
-  const chunks: string[] = [];
-  for (let i = 0; i < text.length; i += size) chunks.push(text.slice(i, i + size));
-  return chunks.length ? chunks : [text];
-}
-
-export function strategistStream({
-  message,
-  mode,
-  profile,
-  roadmapContext,
-  abortSignal,
-}: {
-  message: string;
-  mode: StrategistRequest["mode"];
-  profile: StudentProfile | null;
-  roadmapContext?: StrategistRequest["roadmapContext"];
+type StreamInput = {
+  userId: string;
+  profile: StudentProfile;
+  recentMilestones: string[];
+  userMessage: string;
+  history?: TurnHistory;
+  mode: StrategistMode;
+  language?: Lang;
+  routeMode?: RouteMode;
+  preferred?: { providerId: string; modelId: string };
+  autoSelect?: boolean;
+  offline?: boolean;
+  allowPaid?: boolean;
   abortSignal?: AbortSignal;
-}): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
+};
+
+function sseLine(chunk: StrategistChunk): string {
+  return `data: ${JSON.stringify(chunk)}\n\n`;
+}
+export function strategistStream(input: StreamInput): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder();
+  return new ReadableStream({
     async start(controller) {
-      const push = (value: unknown) => {
-        if (!abortSignal?.aborted) controller.enqueue(encodeChunk(value));
-      };
+      const send = (c: StrategistChunk) =>
+        controller.enqueue(enc.encode(sseLine(c)));
 
       try {
-        push({
-          kind: "tool",
-          name: "model_route",
-          status: "done",
-          result: {
-            providerName: hasGemmaKey() ? "Gemma 4" : "Polaris local fallback",
-            modelLabel: hasGemmaKey() ? "Gemma 4 26B" : "Local Strategist",
-            reason: hasGemmaKey() ? "Gemma-only project route" : "No Gemma key configured",
+        const memDoc = await getUserMemory(input.userId).catch(() => null);
+        const memory: UserMemoryFact[] = memDoc?.facts ?? [];
+
+        const outcomeBox: { current?: ResearchOutcome } = {};
+        for await (const chunk of deepResearch(
+          {
+            userId: input.userId,
+            profile: input.profile,
+            memory,
+            recentMilestones: input.recentMilestones,
+            userMessage: input.userMessage,
+            history: input.history,
+            mode: input.mode,
+            language: input.language,
+            routeMode: input.routeMode,
+            preferred: input.preferred,
+            autoSelect: input.autoSelect,
+            offline: input.offline,
+            allowPaid: input.allowPaid,
+            abortSignal: input.abortSignal,
           },
-        });
-
-        // Keep profile and roadmap context inside this server process. The
-        // optional hosted completion receives only the user's actual prompt.
-        let text: string | null = null;
-        if (hasGemmaKey() && !abortSignal?.aborted) {
-          const timeout = AbortSignal.timeout(25000);
-          const signal = typeof AbortSignal.any === "function"
-            ? AbortSignal.any([abortSignal ?? timeout, timeout])
-            : timeout;
-          text = await generateGemmaText({
-            system: [
-              "You are PolarisBot, the AI Strategist inside Polaris.",
-              "Give practical, concise advice for an ambitious student.",
-              `Current mode: ${mode}.`,
-              "Use short paragraphs and numbered actions when useful. Do not invent citations.",
-            ].join("\n\n"),
-            contents: message,
-            temperature: mode === "coding" ? 0.25 : 0.4,
-            maxOutputTokens: 900,
-            thinkingLevel: mode === "research" ? "high" : "minimal",
-            abortSignal: signal,
-          }).catch(() => null);
+          outcomeBox,
+        )) {
+          if (input.abortSignal?.aborted) return;
+          send(chunk);
         }
 
-        const reply = text?.trim() || fallbackReply(message, mode, profile);
-        for (const delta of splitText(reply)) {
-          if (abortSignal?.aborted) return;
-          push({ kind: "text", delta });
+        // Async memory extraction, then a refresh of this student's retrieval
+        // index. Both run after the answer has streamed, so neither adds
+        // latency; the index is warm for the next turn. New chat messages are
+        // persisted by the client, so they land in the turn after that.
+        const outcome = outcomeBox.current;
+        if (
+          outcome &&
+          outcome.outcome === "ok" &&
+          outcome.answerText.length > 40
+        ) {
+          void (async () => {
+            try {
+              const newFacts = await extractFactsFromExchange(
+                input.userMessage,
+                outcome.answerText,
+                memory,
+              );
+              if (newFacts.length > 0) {
+                await addMemoryFacts(input.userId, newFacts);
+              }
+            } catch (err) {
+              console.error("[strategist] memory write failed:", err);
+            }
+            const report = await ingestUserDocs(input.userId).catch((err) => ({
+              error: (err as Error).message,
+            }));
+            if ("error" in report && report.error) {
+              console.error("[strategist] user index refresh failed:", report.error);
+            }
+          })();
         }
-        if (profile) {
-          push({ kind: "source", label: "Student profile", uri: "profile://current", source: "profile" });
-        }
-        if (roadmapContext?.recentEvents?.length) {
-          push({ kind: "source", label: "Recent roadmap activity", uri: "roadmap://recent", source: "roadmap" });
-        }
-        push({
-          kind: "done",
-          messageId: crypto.randomUUID(),
-          tokensIn: Math.ceil(message.length / 4),
-          tokensOut: Math.ceil(reply.length / 4),
-        });
+      } catch (err) {
+        console.error("[strategist] stream error:", err);
+        const e = err as { status?: number; message?: string };
+        const isQuota =
+          e?.status === 429 ||
+          /quota|rate.?limit|too many requests|\b429\b/i.test(e?.message ?? "");
+        send(
+          isQuota
+            ? {
+                kind: "error",
+                code: "AI_QUOTA",
+                message:
+                  input.language === "bn"
+                    ? BN_ERRORS.capacity
+                    : "The Strategist's AI is temporarily over capacity. Please try again.",
+              }
+            : {
+                kind: "error",
+                code: "STREAM_FAILED",
+                message: input.language === "bn"
+                  ? BN_ERRORS.stream
+                  : "The Strategist hit an error. Try again in a moment.",
+              },
+        );
+      } finally {
         controller.close();
-      } catch {
-        if (!abortSignal?.aborted) {
-          push({ kind: "error", message: "The Strategist could not complete that request.", code: "STRATEGIST_ERROR" });
-          controller.close();
-        }
       }
     },
   });
+}
+
+export function sseHeaders() {
+  return {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  };
 }

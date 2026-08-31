@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/authz";
 import { listTransactions } from "@/lib/db/collections";
 import { TransactionsClient, type TxDto } from "@/components/app/TransactionsClient";
 
+export const metadata = { title: "Transactions" };
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {

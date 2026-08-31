@@ -116,7 +116,7 @@ export function RoadmapScheduleWorkspace({
               {selected.gapIds?.length ? <span className="rounded-full bg-paper-soft px-2.5 py-1">{selected.gapIds.length} open gap{selected.gapIds.length === 1 ? "" : "s"}</span> : null}
               {outcomeCount ? <span className="rounded-full bg-paper-soft px-2.5 py-1">{outcomeCount} expected outcome{outcomeCount === 1 ? "" : "s"}</span> : null}
             </div>
-            <p className="mt-3 text-[11px] text-ink-muted">Strategy prepared — detailed plan will be generated when opened.</p>
+            <p className="mt-3 text-[11px] text-ink-muted">Strategy prepared. A detailed plan will be generated when opened.</p>
             {selected.detailError && <p className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{selected.detailError}</p>}
           </div>
           <button

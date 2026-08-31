@@ -80,7 +80,7 @@ async function studioPost<T>(body: Record<string, unknown>, lang: Lang): Promise
     body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({})) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error || "Gemma Studio could not complete the request.");
+  if (!response.ok) throw new Error(data.error || "Polaris AI could not complete the request.");
   return data;
 }
 
@@ -363,7 +363,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-faint/10 px-4 py-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-muted">{bn ? "অ্যাক্সেসিবিলিটি" : "Accessibility"}</p>
-          <p className="mt-0.5 text-[11px] text-ink-dim">{bn ? "Gemma-এর তৈরি স্ক্রিপ্টের ভিজ্যুয়াল বক্তা" : "Visual speaker for the Gemma-generated script"}</p>
+          <p className="mt-0.5 text-[11px] text-ink-dim">{bn ? "Polaris AI-এর তৈরি স্ক্রিপ্টের ভিজ্যুয়াল বক্তা" : "Visual speaker for the Polaris AI-generated script"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <InterpreterToggle
@@ -429,7 +429,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
                 <div className="h-full w-full"><VisemeMouth viseme={viseme} /></div>
               </foreignObject>
             </motion.svg>
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-white/65 backdrop-blur">Gemma visual speech</div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-white/65 backdrop-blur">Polaris AI visual speech</div>
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2"><Pill tone="aurora">{bn ? "৮টি ভিসিম" : "8 visemes"}</Pill><Tag tone="ink">{bn ? "শব্দের সীমার সঙ্গে সিঙ্ক" : "word-boundary synced"}</Tag></div>
@@ -814,7 +814,7 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
       setWritingSubmitted(true);
       setWritingSeconds(result.remainingSeconds);
       const elapsedMinutes = Math.max(1, Math.round((result.elapsedSeconds || 0) / 60));
-      setWritingFeedback(result.feedback || `### Submission saved\n\n${result.wordCount} words submitted in ${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"}. Request Gemma feedback when you are ready for a detailed review.`);
+      setWritingFeedback(result.feedback || `### Submission saved\n\n${result.wordCount} words submitted in ${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"}. Request Polaris AI feedback when you are ready for a detailed review.`);
       setTrace({ source: "deterministic-fallback", model: "none", activity: "writing-submission", attemptId: result.id });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : (bn ? "রচনাটি মূল্যায়ন করা যায়নি।" : "The response could not be evaluated."));
@@ -931,11 +931,11 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
         <div className="min-w-0 space-y-3">
           <Card className="min-w-0 overflow-hidden border border-ink-faint/15 p-5">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-              <Pill tone="polaris">{trace?.source === "gemma4" ? "Gemma 4 coaching" : (bn ? "তাৎক্ষণিক পর্যালোচনা" : "Instant review")}</Pill>
+              <Pill tone="polaris">{trace?.source === "gemma4" ? "Polaris AI coaching" : (bn ? "তাৎক্ষণিক পর্যালোচনা" : "Instant review")}</Pill>
               <span className="shrink-0"><ModelTrace trace={trace} /></span>
             </div>
-            {coachingBusy ? <p className="mt-4 break-words text-[12.5px] text-ink-dim">{bn ? "Gemma আপনার ভুলের ধরন বিশ্লেষণ করছে…" : "Gemma is diagnosing your answer pattern…"}</p> : <MarkdownMessage className="mt-4 min-w-0 break-words text-[12.5px] [overflow-wrap:anywhere]" text={feedback} theme="light" />}
-            {trace?.source !== "gemma4" && <Btn className="mt-4 max-w-full" size="sm" variant="outline" disabled={coachingBusy} onClick={() => void requestCoaching()} icon={<Icon.spark size={12} />}>{bn ? "বিস্তারিত Gemma কোচিং নিন" : "Get detailed Gemma coaching"}</Btn>}
+            {coachingBusy ? <p className="mt-4 break-words text-[12.5px] text-ink-dim">{bn ? "Polaris AI আপনার ভুলের ধরন বিশ্লেষণ করছে…" : "Polaris AI is diagnosing your answer pattern…"}</p> : <MarkdownMessage className="mt-4 min-w-0 break-words text-[12.5px] [overflow-wrap:anywhere]" text={feedback} theme="light" />}
+            {trace?.source !== "gemma4" && <Btn className="mt-4 max-w-full" size="sm" variant="outline" disabled={coachingBusy} onClick={() => void requestCoaching()} icon={<Icon.spark size={12} />}>{bn ? "বিস্তারিত Polaris AI কোচিং নিন" : "Get detailed Polaris AI coaching"}</Btn>}
             {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
           </Card>
           {questions.map((item, itemIndex) => {
@@ -949,8 +949,8 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
                 </summary>
                 {reviewed && (
                   <div className="mt-3 grid gap-2 pl-7 sm:grid-cols-2">
-                    <div className="min-w-0 rounded-lg border border-ink-faint/15 bg-bg/40 p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "আপনার উত্তর:" : "Your answer:"}</span> {reviewed.selectedAnswer === undefined ? (bn ? "ফাঁকা" : "Blank") : <ExamText text={item.options[reviewed.selectedAnswer] || "—"} className="mt-1 text-[10.5px]" />}</div>
-                    <div className="min-w-0 rounded-lg border border-aurora-500/20 bg-aurora-500/[0.06] p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "সঠিক উত্তর:" : "Correct answer:"}</span> <ExamText text={item.options[reviewed.correctAnswer] || "—"} className="mt-1 text-[10.5px]" /></div>
+                    <div className="min-w-0 rounded-lg border border-ink-faint/15 bg-bg/40 p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "আপনার উত্তর:" : "Your answer:"}</span> {reviewed.selectedAnswer === undefined ? (bn ? "ফাঁকা" : "Blank") : <ExamText text={item.options[reviewed.selectedAnswer] || "-"} className="mt-1 text-[10.5px]" />}</div>
+                    <div className="min-w-0 rounded-lg border border-aurora-500/20 bg-aurora-500/[0.06] p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "সঠিক উত্তর:" : "Correct answer:"}</span> <ExamText text={item.options[reviewed.correctAnswer] || "-"} className="mt-1 text-[10.5px]" /></div>
                   </div>
                 )}
                 <div className="mt-3 min-w-0 pl-7"><ExamText text={reviewed?.explanation || (bn ? "ব্যাখ্যা পাওয়া যায়নি।" : "Explanation unavailable.")} className="text-[11.5px] text-ink-dim" /></div>
@@ -970,10 +970,10 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
       <Card className="relative overflow-hidden border border-ink-faint/15 p-5">
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-polaris-500/15 blur-3xl" />
         <Pill tone="polaris"><Icon.spark size={11} /> {writing ? (bn ? "সময়বদ্ধ রচনা" : "Timed writing task") : (bn ? "চাহিদামতো প্রশ্ন" : "On-demand questions")}</Pill>
-        <h2 className="mt-3 font-serif text-[24px] font-bold text-ink">{writing ? (bn ? "Gemma IELTS রচনা অনুশীলন" : "Gemma IELTS Writing Practice") : (bn ? "Gemma AI অনুশীলন সেট" : "Gemma AI Practice Sets")}</h2>
+        <h2 className="mt-3 font-serif text-[24px] font-bold text-ink">{writing ? (bn ? "Polaris AI IELTS রচনা অনুশীলন" : "Polaris AI IELTS Writing Practice") : (bn ? "Polaris AI অনুশীলন সেট" : "Polaris AI Practice Sets")}</h2>
         <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{writing
-          ? (bn ? "Gemma একটি বাস্তবসম্মত IELTS Writing Task 2 বিষয় তৈরি করবে। ৪০ মিনিটের মধ্যে কমপক্ষে ২৫০ শব্দ লিখুন।" : "Gemma creates a realistic IELTS Writing Task 2 prompt. Write at least 250 words within 40 minutes.")
-          : (bn ? "পরীক্ষা, বিভাগ ও কঠিনতার মাত্রা বেছে নিন। প্রতিবার নতুন মৌলিক অনুশীলন সেট তৈরি হবে।" : "Choose an exam, section, and difficulty. Gemma creates a fresh original practice set every time.")}</p>
+          ? (bn ? "Polaris AI একটি বাস্তবসম্মত IELTS Writing Task 2 বিষয় তৈরি করবে। ৪০ মিনিটের মধ্যে কমপক্ষে ২৫০ শব্দ লিখুন।" : "Polaris AI creates a realistic IELTS Writing Task 2 prompt. Write at least 250 words within 40 minutes.")
+          : (bn ? "পরীক্ষা, বিভাগ ও কঠিনতার মাত্রা বেছে নিন। প্রতিবার নতুন মৌলিক অনুশীলন সেট তৈরি হবে।" : "Choose an exam, section, and difficulty. Polaris AI creates a fresh original practice set every time.")}</p>
         <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => changeExam(value as "IELTS" | "SAT")} />
         <div className="mt-4 block text-[10px] font-bold uppercase tracking-wider text-ink-muted">
           <div>{bn ? "বিভাগ" : "Section"}</div>
@@ -997,13 +997,13 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
           {restoring
             ? (bn ? "সংরক্ষিত সেট ফিরিয়ে আনা হচ্ছে…" : "Restoring saved set…")
             : busy
-            ? (writing ? writingBusy === "start" ? (bn ? "রচনা অনুশীলন শুরু হচ্ছে…" : "Starting writing practice…") : writingBusy === "submit" ? (bn ? "রচনা জমা হচ্ছে…" : "Submitting writing…") : (bn ? "Gemma রচনার বিষয় তৈরি করছে…" : "Gemma is creating the writing task…") : objectiveBusy === "grade" ? (bn ? "উত্তর যাচাই হচ্ছে…" : "Checking answers…") : (bn ? "Gemma প্রশ্ন তৈরি করছে…" : "Gemma is generating…"))
+            ? (writing ? writingBusy === "start" ? (bn ? "রচনা অনুশীলন শুরু হচ্ছে…" : "Starting writing practice…") : writingBusy === "submit" ? (bn ? "রচনা জমা হচ্ছে…" : "Submitting writing…") : (bn ? "Polaris AI রচনার বিষয় তৈরি করছে…" : "Polaris AI is creating the writing task…") : objectiveBusy === "grade" ? (bn ? "উত্তর যাচাই হচ্ছে…" : "Checking answers…") : (bn ? "Polaris AI প্রশ্ন তৈরি করছে…" : "Polaris AI is generating…"))
             : (writing ? (bn ? "নতুন রচনার বিষয় তৈরি করুন" : "Generate writing task") : (bn ? "নতুন অনুশীলন সেট" : "Generate practice set"))}
         </Btn>
         {error && <p className="mt-3 text-[11px] text-signal-rose">{error}</p>}
         <div className="mt-5 rounded-xl border border-aurora-500/20 bg-aurora-500/[0.06] p-3 text-[11px] leading-relaxed text-ink-dim">
           {writing
-            ? (bn ? "এটি একটি অনানুষ্ঠানিক IELTS অনুশীলন। Gemma-এর মূল্যায়ন কোনো আনুষ্ঠানিক IELTS ব্যান্ড স্কোর নয়।" : "This is unofficial IELTS practice. Gemma's evaluation is not an official IELTS band score.")
+            ? (bn ? "এটি একটি অনানুষ্ঠানিক IELTS অনুশীলন। Polaris AI-এর মূল্যায়ন কোনো আনুষ্ঠানিক IELTS ব্যান্ড স্কোর নয়।" : "This is unofficial IELTS practice. Polaris AI's evaluation is not an official IELTS band score.")
             : (bn ? "এগুলো মৌলিক অনানুষ্ঠানিক অনুশীলন প্রশ্ন। এগুলো IELTS ব্যান্ড বা SAT স্কোরের আনুষ্ঠানিক পূর্বাভাস নয়।" : "These are original unofficial practice questions. They do not predict an official IELTS band or SAT score.")}
         </div>
       </Card>
@@ -1015,7 +1015,7 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
               <div>
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500"><Icon.spark size={25} /></div>
                 <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{bn ? "আপনার রচনার পরীক্ষা তৈরি করুন" : "Create your writing exam"}</h3>
-                <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Gemma একটি মৌলিক IELTS Writing Task 2 বিষয় তৈরি করবে। প্রশ্ন তৈরি হলে টাইমার আলাদাভাবে শুরু করুন।" : "Gemma will create an original IELTS Writing Task 2 prompt. Start the timer separately when you are ready."}</p>
+                <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris AI একটি মৌলিক IELTS Writing Task 2 বিষয় তৈরি করবে। প্রশ্ন তৈরি হলে টাইমার আলাদাভাবে শুরু করুন।" : "Polaris AI will create an original IELTS Writing Task 2 prompt. Start the timer separately when you are ready."}</p>
               </div>
             </div>
           ) : writingSubmitted ? (
@@ -1030,9 +1030,9 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
               </div>
               <Card className="mt-5 min-w-0 overflow-hidden border border-ink-faint/15 p-5">
                 {writingCoaching
-                  ? <p className="text-[12.5px] text-ink-dim">{bn ? "Gemma Task Response, সামঞ্জস্য, শব্দভাণ্ডার ও ব্যাকরণ বিশ্লেষণ করছে…" : "Gemma is evaluating task response, coherence, vocabulary, and grammar…"}</p>
+                  ? <p className="text-[12.5px] text-ink-dim">{bn ? "Polaris AI Task Response, সামঞ্জস্য, শব্দভাণ্ডার ও ব্যাকরণ বিশ্লেষণ করছে…" : "Polaris AI is evaluating task response, coherence, vocabulary, and grammar…"}</p>
                   : <MarkdownMessage className="min-w-0 break-words text-[12.5px] [overflow-wrap:anywhere]" text={writingFeedback} theme="light" />}
-                {trace?.source !== "gemma4" && <Btn className="mt-4" size="sm" variant="outline" disabled={writingCoaching} onClick={() => void requestWritingCoaching()} icon={<Icon.spark size={12} />}>{bn ? "Gemma রচনা মূল্যায়ন নিন" : "Get Gemma writing feedback"}</Btn>}
+                {trace?.source !== "gemma4" && <Btn className="mt-4" size="sm" variant="outline" disabled={writingCoaching} onClick={() => void requestWritingCoaching()} icon={<Icon.spark size={12} />}>{bn ? "Polaris AI রচনা মূল্যায়ন নিন" : "Get Polaris AI writing feedback"}</Btn>}
                 {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
               </Card>
               <details className="mt-4 rounded-xl border border-ink-faint/15 bg-bg/40 p-4">
@@ -1093,8 +1093,8 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
             <div>
               <div className={cn("mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500", practiceStatus && practiceStatus !== "complete" && "animate-pulse")}><Icon.spark size={25} /></div>
               <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{practiceStatus ? (bn ? "অনুশীলন সেট পরিকল্পনা হচ্ছে" : "Planning your full practice set") : (bn ? "একটি নতুন অনুশীলন সেট তৈরি করুন" : "Create a practice set")}</h3>
-              <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{practicePlan?.coverageSummary || (bn ? "Gemma নির্বাচিত বিভাগের দক্ষতা, কঠিনতার মাত্রা ও মৌলিক বিভ্রান্তিকর উত্তর পরিকল্পনা করবে।" : "Gemma plans skill coverage, difficulty, and original distractors for the selected section.")}</p>
-              {practiceStatus && <div className="mx-auto mt-5 w-64"><Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 4} tone="polaris" height="h-1.5" /><p className="mt-2 text-[10.5px] text-ink-muted">{practiceProgress.generated} / {practiceProgress.target || "—"} questions ready</p></div>}
+              <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{practicePlan?.coverageSummary || (bn ? "Polaris AI নির্বাচিত বিভাগের দক্ষতা, কঠিনতার মাত্রা ও মৌলিক বিভ্রান্তিকর উত্তর পরিকল্পনা করবে।" : "Polaris AI plans skill coverage, difficulty, and original distractors for the selected section.")}</p>
+              {practiceStatus && <div className="mx-auto mt-5 w-64"><Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 4} tone="polaris" height="h-1.5" /><p className="mt-2 text-[10.5px] text-ink-muted">{practiceProgress.generated} / {practiceProgress.target || "-"} questions ready</p></div>}
             </div>
           </div>
         ) : (
@@ -1258,10 +1258,10 @@ export function GemmaVideoLearning({ lang }: { lang: Lang }) {
       />
       <div className={cn("space-y-4", interpreterOn && "xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0")}>
         <Card className="border border-ink-faint/15 p-4">
-          <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Gemma পাঠ অনুসন্ধান" : "Gemma lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
+          <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Polaris AI পাঠ অনুসন্ধান" : "Polaris AI lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
           <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => { const next = value as "IELTS" | "SAT"; setExam(next); chooseSection(next === "IELTS" ? "Listening" : "Reading and Writing", next); }} />
           <div className="mt-3 flex flex-wrap gap-1.5">{sections.map((item) => <button key={item} onClick={() => chooseSection(item)} className={cn("rounded-full border px-3 py-1.5 text-[10.5px] font-semibold transition", item === section ? "border-polaris-500 bg-polaris-500 text-white" : "border-ink-faint/20 text-ink-dim hover:border-polaris-500/40")}>{tr(item)}</button>)}</div>
-          <Btn className="mt-4 w-full" variant="accent" disabled={busy} onClick={() => void refresh()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Gemma খুঁজছে…" : "Gemma is searching…") : (bn ? "Gemma দিয়ে হালনাগাদ করুন" : "Refresh with Gemma")}</Btn>
+          <Btn className="mt-4 w-full" variant="accent" disabled={busy} onClick={() => void refresh()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris AI খুঁজছে…" : "Polaris AI is searching…") : (bn ? "Polaris AI দিয়ে হালনাগাদ করুন" : "Refresh with Polaris AI")}</Btn>
         </Card>
         <Card className="max-h-[390px] space-y-2 overflow-y-auto border border-ink-faint/15 p-3">
           {visibleVideos.map((item, index) => (
@@ -1314,13 +1314,13 @@ export function GemmaNotesStudio({ lang }: { lang: Lang }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
       <Card className="border border-ink-faint/15 p-5">
-        <Pill tone="nova"><Icon.spark size={11} /> {bn ? "Gemma জ্ঞানভান্ডার" : "Gemma knowledge memory"}</Pill>
+        <Pill tone="nova"><Icon.spark size={11} /> {bn ? "Polaris AI জ্ঞানভান্ডার" : "Polaris AI knowledge memory"}</Pill>
         <h2 className="mt-3 font-serif text-[23px] font-bold text-ink">{bn ? "প্রতিক্রিয়া থেকে নোট তৈরি করুন" : "Turn feedback into a reusable note"}</h2>
-        <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "আপনার নোট এই ব্রাউজারে থাকে। Gemma এটিকে সারাংশ, মূল ধারণা ও পরবর্তী কাজে সাজায়।" : "Your notes stay in this browser. Gemma turns them into a summary, key concepts, and next actions."}</p>
+        <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "আপনার নোট এই ব্রাউজারে থাকে। Polaris AI এটিকে সারাংশ, মূল ধারণা ও পরবর্তী কাজে সাজায়।" : "Your notes stay in this browser. Polaris AI turns them into a summary, key concepts, and next actions."}</p>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={bn ? "নোটের শিরোনাম" : "Note title"} className="mt-4 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] text-ink outline-none focus:border-polaris-500" />
         <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={6} placeholder={bn ? "যা শিখলেন বা মনে রাখতে চান…" : "What did you learn or want to remember?"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12.5px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-        <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={3} placeholder={bn ? "Gemma-এর প্রতিক্রিয়া এখানে দিন (ঐচ্ছিক)" : "Paste Gemma feedback (optional)"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-        <Btn className="mt-3 w-full" variant="accent" disabled={busy || title.trim().length < 2 || content.trim().length < 5} onClick={() => void save()}>{busy ? (bn ? "Gemma সাজাচ্ছে…" : "Gemma is structuring…") : (bn ? "নোট সংরক্ষণ ও বিশ্লেষণ করুন" : "Save and analyze note")}</Btn>
+        <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={3} placeholder={bn ? "AI প্রতিক্রিয়া এখানে দিন (ঐচ্ছিক)" : "Paste AI feedback (optional)"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
+        <Btn className="mt-3 w-full" variant="accent" disabled={busy || title.trim().length < 2 || content.trim().length < 5} onClick={() => void save()}>{busy ? (bn ? "Polaris AI সাজাচ্ছে…" : "Polaris AI is structuring…") : (bn ? "নোট সংরক্ষণ ও বিশ্লেষণ করুন" : "Save and analyze note")}</Btn>
       </Card>
       <div className="grid content-start gap-3 md:grid-cols-2">
         {notes.length === 0 && <Card className="col-span-full grid min-h-[260px] place-items-center border border-dashed border-ink-faint/25 p-8 text-center"><div><h3 className="font-serif text-[21px] font-bold text-ink">{bn ? "জ্ঞানভান্ডার এখন খালি" : "Your knowledge vault is empty"}</h3><p className="mt-2 text-[12px] text-ink-dim">{bn ? "মক পরীক্ষার প্রতিক্রিয়া, রচনার অন্তর্দৃষ্টি বা রোডম্যাপ গবেষণা থেকে প্রথম নোট তৈরি করুন।" : "Create the first note from mock feedback, essay insight, or roadmap research."}</p></div></Card>}
@@ -1587,7 +1587,7 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
       setTranslation("");
       setResponse("");
     } catch (cause) {
-      setScanError(cause instanceof Error ? cause.message : (bn ? "Gemma হাতের লেখা পড়তে পারেনি।" : "Gemma could not read the handwriting."));
+      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris AI হাতের লেখা পড়তে পারেনি।" : "Polaris AI could not read the handwriting."));
     } finally {
       setScanBusy(false);
     }
@@ -1605,7 +1605,7 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
       }, lang);
       setTranslation(result.text);
     } catch (cause) {
-      setScanError(cause instanceof Error ? cause.message : (bn ? "Gemma অনুবাদ করতে পারেনি।" : "Gemma could not translate the essay."));
+      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris AI অনুবাদ করতে পারেনি।" : "Polaris AI could not translate the essay."));
     } finally {
       setTranslationBusy(false);
     }
@@ -1644,16 +1644,16 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
         <div className="pointer-events-none absolute -right-14 -top-20 h-52 w-52 rounded-full bg-aurora-500/10 blur-3xl" />
         <div className="relative grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <Pill tone="aurora"><Icon.spark size={11} /> {bn ? "Gemma হাতের লেখা স্ক্যানার" : "Gemma handwriting scanner"}</Pill>
+            <Pill tone="aurora"><Icon.spark size={11} /> {bn ? "Polaris AI হাতের লেখা স্ক্যানার" : "Polaris AI handwriting scanner"}</Pill>
             <h2 className="mt-3 font-serif text-[23px] font-bold text-ink">{bn ? "ছবি থেকে সম্পাদনাযোগ্য রচনা" : "From handwriting to an editable essay"}</h2>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-dim">{bn ? "বাংলা, ইংরেজি বা মিশ্র হাতের লেখা ছবি তুলুন বা আপলোড করুন। Gemma মূল ভাষা ও অনুচ্ছেদ ঠিক রেখে লেখাটি তুলবে।" : "Capture or upload Bengali, English, or mixed handwriting. Gemma preserves the original language, wording, and paragraphs."}</p>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-dim">{bn ? "বাংলা, ইংরেজি বা মিশ্র হাতের লেখা ছবি তুলুন বা আপলোড করুন। Polaris AI মূল ভাষা ও অনুচ্ছেদ ঠিক রেখে লেখাটি তুলবে।" : "Capture or upload Bengali, English, or mixed handwriting. Polaris AI preserves the original language, wording, and paragraphs."}</p>
             <label className="mt-4 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-aurora-500/35 bg-bg/45 p-4 text-center transition hover:border-aurora-500/70 hover:bg-aurora-500/[0.05]">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-aurora-500/15 text-lg text-aurora-600">↑</span>
               <span className="mt-2 text-[12px] font-semibold text-ink">{scan ? (bn ? "অন্য ছবি বেছে নিন" : "Choose another image") : (bn ? "স্ক্যান করুন বা ছবি আপলোড করুন" : "Scan or upload a page")}</span>
               <span className="mt-1 text-[9.5px] text-ink-muted">JPEG, PNG, WebP</span>
               <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={(event) => void chooseImage(event.target.files?.[0])} />
             </label>
-            <p className="mt-2 text-[9.5px] leading-relaxed text-ink-muted">{bn ? "ছবি সংরক্ষণ করা হয় না। সক্রিয় extraction অনুরোধে এটি শুধু Gemma-কে পাঠানো হয়।" : "The image is not stored. It is sent to Gemma only for the active extraction request."}</p>
+            <p className="mt-2 text-[9.5px] leading-relaxed text-ink-muted">{bn ? "ছবি সংরক্ষণ করা হয় না। এটি শুধু সক্রিয় extraction অনুরোধে প্রসেস করা হয়।" : "The image is not stored. It is processed only for the active extraction request."}</p>
           </div>
           <div className="rounded-2xl border border-ink-faint/15 bg-bg/50 p-4">
             {scan ? (
@@ -1677,9 +1677,9 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
                     <Tag tone="aurora">{sourceLanguage === "bn" ? "বাংলা" : sourceLanguage === "mixed" ? (bn ? "মিশ্র ভাষা" : "Mixed") : "English"}</Tag>
                     {uncertainText && <Tag tone="nova">{bn ? "অস্পষ্ট অংশ চিহ্নিত" : "Unclear text marked"}</Tag>}
                   </div>
-                  <Btn className="mt-3 w-full" variant="accent" disabled={scanBusy} onClick={() => void extractHandwriting()} icon={<Icon.spark size={13} />}>{scanBusy ? (bn ? "Gemma পড়ছে…" : "Gemma is reading…") : (bn ? "Gemma দিয়ে লেখা তুলুন" : "Extract with Gemma")}</Btn>
+                  <Btn className="mt-3 w-full" variant="accent" disabled={scanBusy} onClick={() => void extractHandwriting()} icon={<Icon.spark size={13} />}>{scanBusy ? (bn ? "Polaris AI পড়ছে…" : "Polaris AI is reading…") : (bn ? "Polaris AI দিয়ে লেখা তুলুন" : "Extract with Polaris AI")}</Btn>
                   {(sourceLanguage === "bn" || sourceLanguage === "mixed") && draft.trim() && (
-                    <Btn className="mt-2 w-full" variant="outline" disabled={translationBusy} onClick={() => void translateToEnglish()}>{translationBusy ? (bn ? "ইংরেজিতে অনুবাদ হচ্ছে…" : "Translating to English…") : (bn ? "Gemma দিয়ে ইংরেজিতে রূপান্তর" : "Convert to English with Gemma")}</Btn>
+                    <Btn className="mt-2 w-full" variant="outline" disabled={translationBusy} onClick={() => void translateToEnglish()}>{translationBusy ? (bn ? "ইংরেজিতে অনুবাদ হচ্ছে…" : "Translating to English…") : (bn ? "Polaris AI দিয়ে ইংরেজিতে রূপান্তর" : "Convert to English with Polaris AI")}</Btn>
                   )}
                   {uncertainText && <p className="mt-3 rounded-xl bg-nova-500/[0.08] p-2.5 text-[10.5px] leading-relaxed text-ink-dim">{uncertainText}</p>}
                   {scanError && <p className="mt-3 text-[10.5px] text-signal-rose">{scanError}</p>}
@@ -1687,14 +1687,14 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
               </div>
             ) : (
               <div className="grid min-h-64 place-items-center text-center">
-                <div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-aurora-500/[0.09] text-aurora-600"><Icon.spark size={22} /></div><p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-ink-dim">{bn ? "পরিষ্কার আলোতে পুরো পৃষ্ঠা সোজা করে ছবি তুলুন। Gemma বাংলা অক্ষর, ইংরেজি লেখা ও মিশ্র ভাষা শনাক্ত করবে।" : "Photograph the full page straight-on in clear light. Gemma detects Bengali script, English writing, and mixed-language essays."}</p></div>
+                <div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-aurora-500/[0.09] text-aurora-600"><Icon.spark size={22} /></div><p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-ink-dim">{bn ? "পরিষ্কার আলোতে পুরো পৃষ্ঠা সোজা করে ছবি তুলুন। Polaris AI বাংলা অক্ষর, ইংরেজি লেখা ও মিশ্র ভাষা শনাক্ত করবে।" : "Photograph the full page straight-on in clear light. Polaris AI detects Bengali script, English writing, and mixed-language essays."}</p></div>
               </div>
             )}
           </div>
         </div>
         {translation && (
           <div className="relative mt-4 rounded-2xl border border-polaris-500/20 bg-bg/55 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[12.5px] font-semibold text-ink">{bn ? "Gemma-এর ইংরেজি অনুবাদ" : "Gemma English translation"}</h3><div className="flex gap-2"><Btn size="sm" variant="outline" onClick={() => { setDraft(translation); setSourceLanguage("en"); }}>{bn ? "বর্তমান খসড়ায় ব্যবহার" : "Use in current draft"}</Btn><Btn size="sm" variant="primary" onClick={saveEnglishCopy}>{bn ? "নতুন কপি হিসেবে সংরক্ষণ" : "Save as a new copy"}</Btn></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[12.5px] font-semibold text-ink">{bn ? "Polaris AI-এর ইংরেজি অনুবাদ" : "Polaris AI English translation"}</h3><div className="flex gap-2"><Btn size="sm" variant="outline" onClick={() => { setDraft(translation); setSourceLanguage("en"); }}>{bn ? "বর্তমান খসড়ায় ব্যবহার" : "Use in current draft"}</Btn><Btn size="sm" variant="primary" onClick={saveEnglishCopy}>{bn ? "নতুন কপি হিসেবে সংরক্ষণ" : "Save as a new copy"}</Btn></div></div>
             <textarea value={translation} onChange={(event) => setTranslation(event.target.value)} rows={8} className="mt-3 w-full resize-y rounded-xl border border-ink-faint/15 bg-bg px-3 py-3 text-[12.5px] leading-[1.7] text-ink outline-none focus:border-polaris-500" />
           </div>
         )}
@@ -1709,16 +1709,16 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
           </div>
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={bn ? "খসড়ার শিরোনাম" : "Draft title"} className="mt-3 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] font-semibold text-ink outline-none focus:border-polaris-500" />
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={2} placeholder={bn ? "রচনার বিষয় বা প্রশ্ন" : "Essay prompt or question"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={16} placeholder={bn ? "নিজের ভাষায় খসড়া লিখুন। Gemma আপনার কণ্ঠ ও তথ্য বজায় রেখে সাহায্য করবে।" : "Write in your own voice. Gemma will help while preserving your facts and authorship."} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[13px] leading-[1.75] text-ink outline-none focus:border-polaris-500" />
+          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={16} placeholder={bn ? "নিজের ভাষায় খসড়া লিখুন। Polaris AI আপনার কণ্ঠ ও তথ্য বজায় রেখে সাহায্য করবে।" : "Write in your own voice. Polaris AI will help while preserving your facts and authorship."} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[13px] leading-[1.75] text-ink outline-none focus:border-polaris-500" />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-[10.5px] leading-relaxed text-ink-muted">{bn ? "প্রতিটি খসড়া এই ব্রাউজারে আলাদাভাবে স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।" : "Every draft autosaves separately in this browser."}</p><Btn size="sm" variant="outline" onClick={saveDraft}>{bn ? "এখন সংরক্ষণ করুন" : "Save now"}</Btn></div>
           {savedAt && <p className="mt-1 text-right text-[9px] text-aurora-600">{bn ? "সংরক্ষিত" : "Saved"} · {new Date(savedAt).toLocaleTimeString(lang === "bn" ? "bn-BD" : "en-US", { hour: "2-digit", minute: "2-digit" })}</p>}
         </Card>
         <Card className="border border-ink-faint/15 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "নৈতিক Gemma পরামর্শক" : "Ethical Gemma coach"}</div><h3 className="mt-1 font-serif text-[21px] font-bold text-ink">{bn ? "আপনার কণ্ঠ, আরও পরিষ্কার" : "Your voice, made clearer"}</h3></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "নৈতিক Polaris AI পরামর্শক" : "Ethical Polaris AI coach"}</div><h3 className="mt-1 font-serif text-[21px] font-bold text-ink">{bn ? "আপনার কণ্ঠ, আরও পরিষ্কার" : "Your voice, made clearer"}</h3></div></div>
           <Segmented value={mode} options={["feedback", "refine", "outline"]} labels={bn ? ["প্রতিক্রিয়া", "পরিমার্জন", "রূপরেখা"] : undefined} onChange={(value) => setMode(value as typeof mode)} />
-          <Btn className="mt-4 w-full" variant="accent" disabled={busy || draft.trim().length < 20} onClick={() => void run()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Gemma বিশ্লেষণ করছে…" : "Gemma is reviewing…") : (bn ? "Gemma দিয়ে উন্নত করুন" : "Improve with Gemma")}</Btn>
+          <Btn className="mt-4 w-full" variant="accent" disabled={busy || draft.trim().length < 20} onClick={() => void run()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris AI বিশ্লেষণ করছে…" : "Polaris AI is reviewing…") : (bn ? "Polaris AI দিয়ে উন্নত করুন" : "Improve with Polaris AI")}</Btn>
           <div className="mt-4 min-h-[420px] rounded-2xl border border-ink-faint/15 bg-bg/35 p-4">
-            {response ? <MarkdownMessage className="text-[12.5px]" text={response} theme="light" /> : <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-polaris-500/[0.08] text-polaris-500"><Icon.spark size={22} /></div><p className="mt-4 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Gemma আপনার সংরক্ষিত নোটের সঙ্গে খসড়া মিলিয়ে নির্দিষ্টতা, আত্মবিশ্লেষণ, কাঠামো ও নিজস্ব কণ্ঠ উন্নত করবে।" : "Gemma can connect your saved knowledge notes with the draft to improve specificity, reflection, structure, and voice."}</p></div></div>}
+            {response ? <MarkdownMessage className="text-[12.5px]" text={response} theme="light" /> : <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-polaris-500/[0.08] text-polaris-500"><Icon.spark size={22} /></div><p className="mt-4 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris AI আপনার সংরক্ষিত নোটের সঙ্গে খসড়া মিলিয়ে নির্দিষ্টতা, আত্মবিশ্লেষণ, কাঠামো ও নিজস্ব কণ্ঠ উন্নত করবে।" : "Polaris AI can connect your saved knowledge notes with the draft to improve specificity, reflection, structure, and voice."}</p></div></div>}
           </div>
         </Card>
       </div>
@@ -1732,15 +1732,15 @@ function ExamText({ text, className }: { text: string; className?: string }) {
 
 function ModelTrace({ trace }: { trace: Trace | null }) {
   const label = !trace
-    ? "Gemma 4 ready"
+    ? "Polaris AI ready"
     : trace.activity === "writing-submission"
       ? "Writing submitted · saved"
       : trace.activity === "writing-feedback"
-        ? trace.source === "gemma4" ? "Gemma writing feedback · saved" : "Writing guidance · saved"
+        ? trace.source === "gemma4" ? "Polaris AI writing feedback · saved" : "Writing guidance · saved"
     : trace.source === "gemma4"
-      ? trace.attemptId ? "Gemma 4 coaching · saved" : trace.generationId ? "Gemma 4 · validated · saved" : `Gemma 4 · ${trace.model}`
+      ? trace.attemptId ? "Polaris AI coaching · saved" : trace.generationId ? "Polaris AI · validated · saved" : "Polaris AI · live"
       : trace.source === "hybrid"
-        ? "Gemma + validated fallback · saved"
+        ? "Polaris AI + validated fallback · saved"
         : trace.attemptId ? "Instant scoring · saved" : trace.generationId ? "Validated backup · saved" : "Instant review";
   return <span title={trace?.generationId ? `Saved set ${trace.generationId}` : undefined} className="rounded-full border border-ink-faint/15 bg-bg/50 px-2 py-1 text-[9px] font-semibold text-ink-muted">{label}</span>;
 }

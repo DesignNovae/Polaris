@@ -10,10 +10,10 @@ import { requireSession } from "@/lib/authz";
 import { listDeadlines, type DbDeadline } from "@/lib/deadlines/service";
 import { DeadlinesClient, type UiDeadline } from "@/components/app/DeadlinesClient";
 
+export const metadata = { title: "Deadlines" };
 export const dynamic = "force-dynamic";
 
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 function toUi(d: DbDeadline): UiDeadline {
   return {

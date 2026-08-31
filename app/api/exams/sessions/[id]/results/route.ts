@@ -13,4 +13,3 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Conte
   const { id } = await params;
   return Response.json(await getPublicExamResult(user.id, id));
 });
-

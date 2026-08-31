@@ -8,6 +8,7 @@ import { requireSession } from "@/lib/authz";
 import { listBookings } from "@/lib/consultants/service";
 import { BookingsClient, type BookingView } from "@/components/app/BookingsClient";
 
+export const metadata = { title: "Bookings" };
 export const dynamic = "force-dynamic";
 
 export default async function BookingsPage() {

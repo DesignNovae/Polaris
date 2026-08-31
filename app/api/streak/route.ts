@@ -17,3 +17,4 @@ export const GET = withErrorHandling(async () => {
   const user = await requireSession();
   return ok(await getStreak(user.id));
 });
+

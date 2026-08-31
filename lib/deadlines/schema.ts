@@ -62,3 +62,4 @@ export type DeadlineType = z.infer<typeof DeadlineTypeSchema>;
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
 export type DeadlineCreate = z.infer<typeof DeadlineCreateSchema>;
 export type DeadlinePatch = z.infer<typeof DeadlinePatchSchema>;
+

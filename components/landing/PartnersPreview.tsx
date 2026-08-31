@@ -98,7 +98,7 @@ export function PartnersPreview() {
               ))}
             </div>
             <Link
-              href="/signup"
+              href="/partners"
               className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-polaris-500 hover:text-polaris-600 transition-colors"
             >
               Browse the marketplace <GArrow s={12} />
@@ -109,3 +109,4 @@ export function PartnersPreview() {
     </section>
   );
 }
+

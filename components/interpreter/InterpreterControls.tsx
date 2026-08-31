@@ -170,7 +170,7 @@ export function InterpreterControls({
   const languageOptions = SIGN_LANGUAGES.map((language) => ({
     value: language.code,
     label: language.abbreviation,
-    hint: `${language.name} — ${language.region}`,
+    hint: `${language.name} · ${language.region}`,
     badge: recordedLanguages.includes(language.code) ? "film" : undefined,
   }));
 

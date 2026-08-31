@@ -278,7 +278,7 @@ function StreakDetail({ data, onClose }: { data: StreakDto; onClose: () => void 
         )}
         {!data.todayDone && (
           <Link href="/roadmap" onClick={onClose}
-            className="mt-4 block w-full h-10 rounded-full bg-ink text-paper text-[12.5px] font-semibold hover:bg-polaris-700 transition-colors text-center leading-10">
+            className="mt-1 block w-full h-10 rounded-full bg-ink text-paper text-[12.5px] font-semibold hover:bg-polaris-700 transition-colors text-center leading-10">
             Do today&apos;s task →
           </Link>
         )}
@@ -295,3 +295,4 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+

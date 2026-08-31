@@ -69,7 +69,6 @@ function useNavContext(): NavCtx {
 
   return ctx;
 }
-
 export function Nav() {
   const { t, lang, setLang } = useLang();
   const { data: session, status } = useSession();
@@ -85,10 +84,11 @@ export function Nav() {
     { href: "/", label: "Home" },
     { href: "/#how", label: t.nav.howItWorks },
     { href: "/#pricing", label: t.nav.pricing },
+    { href: "/case-studies", label: "Case studies" },
     ...(session && !isViewer ? [{ href: "/roadmap", label: "Roadmap" }] : []),
-    ...(session && !isViewer ? [{ href: "/action-lab", label: "Action Lab" }] : []),
-    ...(session ? [] : [{ href: "/signup", label: "Start for free", accent: true }]),
+    { href: "/demo", label: "Live demo", accent: true },
     ...(session && isViewer ? [{ href: "/monitor", label: "Monitor" }] : []),
+    ...(role === "admin" ? [{ href: "/admin", label: "Admin", accent: true }] : []),
   ];
 
   const onDark = theme === "dark";
@@ -109,7 +109,7 @@ export function Nav() {
     : "bg-paper-card text-ink ring-1 ring-inset ring-ink/10";
 
   function isActive(href: string) {
-    // Off-homepage routes (e.g. /roadmap, /signin) - pathname match only.
+    // Off-homepage routes (e.g. /case-studies, /signin) - pathname match only.
     if (pathname !== "/") {
       if (href === "/" || href.startsWith("/#")) return false;
       return pathname === href || pathname.startsWith(href + "/");

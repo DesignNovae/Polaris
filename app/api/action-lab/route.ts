@@ -311,7 +311,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
               end: String(data.end).slice(0, 5),
               title: String(data.title).slice(0, 80),
               category,
-              rationale: "Gemma 4 converted the request into an editable block.",
+              rationale: "Polaris AI converted the request into an editable block.",
               source: "gemma4",
               model: getGemmaModelId(),
             };

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/i18n/LangProvider";
+import { startCheckout } from "@/components/PlanGate";
 import { PLAN_CATALOG, formatMinor, type BillingCycle, type PlanDef } from "@/lib/billing/plans";
 import { cn } from "@/lib/cn";
 import { SectionIntro, Accent, Dot, Reveal, GCheck, GArrow } from "./shared";
@@ -101,6 +102,7 @@ function PricingCard({
 }) {
   const router = useRouter();
   const { data: session } = useSession();
+  const [loading, setLoading] = useState(false);
 
   const featured = !!def.popular;
   const usd = def.usd[cycle];
@@ -108,7 +110,7 @@ function PricingCard({
   const features = lang === "bn" && def.featuresBn.length ? def.featuresBn : def.features;
   const comingSoon = lang === "bn" && def.comingSoonBn?.length ? def.comingSoonBn : def.comingSoon;
 
-  function handleClick() {
+  async function handleClick() {
     if (def.id === "free") {
       router.push(session ? "/roadmap" : "/signup");
       return;
@@ -117,7 +119,8 @@ function PricingCard({
       router.push(`/signup?next=upgrade&tier=${def.id}`);
       return;
     }
-    router.push(`/billing?tier=${def.id}&cycle=${cycle}`);
+    setLoading(true);
+    try { await startCheckout(def.id as "pro" | "elite"); } catch { setLoading(false); router.push("/billing"); }
   }
 
   return (
@@ -207,16 +210,19 @@ function PricingCard({
 
       <button
         onClick={handleClick}
+        disabled={loading}
         className={cn(
           "mt-7 inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-3 text-[13.5px] font-semibold transition-colors",
           featured
             ? "bg-paper text-ink hover:bg-paper-soft"
             : "bg-paper-soft text-ink hover:bg-paper-deep ring-1 ring-inset ring-ink/10",
+          loading && "opacity-70 cursor-wait",
         )}
       >
-        {cta}
+        {loading ? "Redirecting…" : cta}
         <GArrow s={12} />
       </button>
     </motion.div>
   );
 }
+
