@@ -528,6 +528,7 @@ function RoutineStudio({ lang }: { lang: "en" | "bn" }) {
   const [blocks, setBlocks] = useState<RoutineBlock[]>(DEFAULT_ROUTINE);
   const [instruction, setInstruction] = useState("Add math practice on Monday from 9 to 10 pm.");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Omit<RoutineBlock, "id">>({ day: "Monday", start: "21:00", end: "22:00", title: "Math practice", category: "exam" });
 
@@ -544,6 +545,7 @@ function RoutineStudio({ lang }: { lang: "en" | "bn" }) {
 
   const addFromGemma = async () => {
     setBusy(true);
+    setError(null);
     try {
       const suggestion = await postAction<RoutineSuggestion>({
         kind: "routine",
@@ -551,6 +553,10 @@ function RoutineStudio({ lang }: { lang: "en" | "bn" }) {
         existing: blocks.map(({ day, start, end, title }) => ({ day, start, end, title })),
       });
       setBlocks((current) => [...current, { ...suggestion, id: crypto.randomUUID() }]);
+    } catch (reason) {
+      // Without this the request failed silently - nothing was added and the
+      // user saw no reason why (most often the shared rate limit).
+      setError(reason instanceof Error ? reason.message : (bn ? "রুটিনে যোগ করা যায়নি।" : "Could not add to the routine."));
     } finally {
       setBusy(false);
     }
@@ -587,6 +593,11 @@ function RoutineStudio({ lang }: { lang: "en" | "bn" }) {
                 {busy ? (bn ? "যোগ হচ্ছে…" : "Adding…") : (bn ? "রুটিনে যোগ করুন" : "Add to routine")}
               </Btn>
             </div>
+            {error && (
+              <p className="mt-2.5 rounded-lg bg-signal-rose/10 px-3 py-2 text-[11.5px] text-signal-rose ring-1 ring-inset ring-signal-rose/25">
+                {error}
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap gap-1.5">
               {[
                 "Add IELTS reading on Wednesday from 8 to 9 pm.",

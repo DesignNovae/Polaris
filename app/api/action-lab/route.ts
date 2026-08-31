@@ -171,25 +171,141 @@ function evidenceFallback(body: z.infer<typeof evidenceSchema>, lang: "en" | "bn
   };
 }
 
+/* ── Routine instruction parser (deterministic fallback) ──────────────────
+ * Handles: explicit ranges ("9 to 10 pm", "14:00-16:00", "7:30 to 9:00 am"),
+ * single times with optional duration ("at 7pm", "5 pm for 1 hour"),
+ * part-of-day words, full + abbreviated day names, and "today"/"tomorrow".
+ * Meridiem is inherited in BOTH directions, so "9 to 10 pm" is 21:00-22:00.
+ */
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const DAY_ABBR: Record<string, string> = {
+  sun: "Sunday", mon: "Monday", tue: "Tuesday", tues: "Tuesday", wed: "Wednesday",
+  weds: "Wednesday", thu: "Thursday", thur: "Thursday", thurs: "Thursday", fri: "Friday", sat: "Saturday",
+};
+const PART_OF_DAY: Record<string, number> = { morning: 8, noon: 12, afternoon: 15, evening: 19, night: 21 };
+
+const asMinutes = (hour: number, minute: number) => hour * 60 + minute;
+const asClock = (mins: number) =>
+  `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+
+function withMeridiem(hour: number, meridiem?: string): number {
+  if (!meridiem) return hour;
+  if (meridiem === "pm" && hour < 12) return hour + 12;
+  if (meridiem === "am" && hour === 12) return 0;
+  return hour;
+}
+
 function routineFallback(body: z.infer<typeof routineSchema>): RoutineSuggestion {
-  const instruction = body.instruction.toLowerCase();
-  const timeMatch = instruction.match(/(?:from\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|-)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-  const dayMatch = instruction.match(/monday|tuesday|wednesday|thursday|friday|saturday|sunday/i);
-  const day = dayMatch ? dayMatch[0][0].toUpperCase() + dayMatch[0].slice(1).toLowerCase() : "Monday";
-  const to24 = (hour: number, minute: string | undefined, meridiem: string | undefined) => {
-    let h = hour;
-    if (meridiem?.toLowerCase() === "pm" && h < 12) h += 12;
-    if (meridiem?.toLowerCase() === "am" && h === 12) h = 0;
-    return `${String(h).padStart(2, "0")}:${minute || "00"}`;
-  };
-  const start = timeMatch ? to24(Number(timeMatch[1]), timeMatch[2], timeMatch[3]) : "21:00";
-  const end = timeMatch ? to24(Number(timeMatch[4]), timeMatch[5], timeMatch[6] || timeMatch[3]) : "22:00";
-  const category: RoutineCategory = /sat|ielts|exam|mock|math/.test(instruction) ? "exam" : "study";
+  const raw = body.instruction;
+  const text = ` ${raw.toLowerCase().replace(/[.,!?]/g, " ")} `;
+  const examSat = /\bSAT\b/.test(raw); // uppercase only, so "sat" stays a weekday
+
+  /* Day */
+  let day: string | null = null;
+  const fullDay = text.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if (fullDay) day = fullDay[1][0].toUpperCase() + fullDay[1].slice(1);
+  if (!day) {
+    const abbr = text.match(/\b(sun|mon|tues|tue|weds|wed|thurs|thur|thu|fri|sat)\b/);
+    if (abbr && !(abbr[1] === "sat" && examSat)) day = DAY_ABBR[abbr[1]];
+  }
+  const todayIndex = new Date().getDay();
+  if (!day && /\btomorrow\b/.test(text)) day = DAY_NAMES[(todayIndex + 1) % 7];
+  if (!day && /\btoday\b/.test(text)) day = DAY_NAMES[todayIndex];
+  if (!day && /\bweekend\b/.test(text)) day = "Saturday";
+  if (!day) day = "Monday";
+
+  /* Explicit duration ("for 90 minutes", "for 2 hours") */
+  let durationMin: number | null = null;
+  const durMatch = text.match(/\bfor\s+(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m)\b/);
+  if (durMatch) {
+    const n = parseFloat(durMatch[1]);
+    durationMin = /^(h|hr|hrs|hour|hours)$/.test(durMatch[2]) ? Math.round(n * 60) : Math.round(n);
+  }
+
+  /* Time range */
+  let startMin: number | null = null;
+  let endMin: number | null = null;
+  const range = text.match(
+    /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to|till|until)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/,
+  );
+  if (range) {
+    const h1 = Number(range[1]);
+    const h2 = Number(range[4]);
+    let mer1 = range[3];
+    let mer2 = range[6];
+    const explicit24 = h1 > 12 || h2 > 12;
+    if (!mer1 && mer2) mer1 = mer2;        // "9 to 10 pm"  -> both pm
+    else if (mer1 && !mer2) mer2 = mer1;   // "7 pm to 9"   -> both pm
+    let a = asMinutes(withMeridiem(h1, mer1), range[2] ? Number(range[2]) : 0);
+    let b = asMinutes(withMeridiem(h2, mer2), range[5] ? Number(range[5]) : 0);
+    if (b <= a && !explicit24) b += b + 720 > a ? 720 : 1440;
+    if (b <= a) b = a + 60;
+    startMin = a;
+    endMin = b;
+  }
+
+  /* Single time */
+  if (startMin === null) {
+    const one =
+      text.match(/\b(?:at|by|around|from)?\s*(\d{1,2}):(\d{2})\s*(am|pm)?\b/) ||
+      text.match(/\b(?:at|by|around|from)\s*(\d{1,2})()\s*(am|pm)?\b/) ||
+      text.match(/\b(\d{1,2})()\s*(am|pm)\b/);
+    if (one) {
+      startMin = asMinutes(withMeridiem(Number(one[1]), one[3]), one[2] ? Number(one[2]) : 0);
+      endMin = startMin + (durationMin ?? 60);
+    }
+  }
+
+  /* Part of day */
+  if (startMin === null) {
+    for (const [word, hour] of Object.entries(PART_OF_DAY)) {
+      if (new RegExp(`\\b${word}\\b`).test(text)) {
+        startMin = asMinutes(hour, 0);
+        endMin = startMin + (durationMin ?? 60);
+        break;
+      }
+    }
+  }
+
+  /* Nothing parsed - a neutral evening block, not a fixed 21:00 */
+  if (startMin === null) {
+    startMin = asMinutes(19, 0);
+    endMin = startMin + (durationMin ?? 60);
+  }
+  if (endMin === null || endMin <= startMin) endMin = startMin + 60;
+  if (endMin >= 1440) endMin = 1439;
+
+  /* Category */
+  const category: RoutineCategory =
+    examSat || /\b(ielts|toefl|gre|gmat|exam|mock|quiz|midterm|final)\b/i.test(raw) ? "exam"
+    : /\b(gym|workout|run|walk|swim|sleep|nap|rest|meditat\w*|yoga|break|meal|breakfast|lunch|dinner|prayer|namaz)\b/.test(text) ? "wellbeing"
+    : /\b(essay|application|apply|sop|statement|recommendation|scholarship|visa|interview|deadline)\b/.test(text) ? "application"
+    : /\b(project|portfolio|build|code|coding|research|lab|thesis|assignment)\b/.test(text) ? "project"
+    : "study";
+
+  /* Title - strip day, time and command words, keep the activity */
+  const GUARD = "\u0001"; // protects the uppercase exam name from the day strip
+  let title = raw.replace(/[.,!?]/g, " ").replace(/\bSAT\b/g, GUARD)
+    .replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues|tue|weds|wed|thurs|thur|thu|fri|sat)\b/gi, "")
+    .replace(/\b\d{1,2}(:\d{2})?\s*(am|pm)?\s*(?:-|–|—|to|till|until)\s*\d{1,2}(:\d{2})?\s*(am|pm)?/gi, "")
+    .replace(/\b\d{1,2}(:\d{2})?\s*(am|pm)\b/gi, "")
+    .replace(/\b\d{1,2}:\d{2}\b/g, "")
+    .replace(/\bfor\s+\d+(\.\d+)?\s*(hours?|hrs?|h|minutes?|mins?|m)\b/gi, "")
+    .replace(/^\s*(add|schedule|put|create|set|make|move|plan|block)\b/i, "")
+    .replace(/\b(on|at|from|to|the|a|an|my|every ?day|everyday|daily|each|please|tomorrow|today|weekend|morning|afternoon|evening|night|noon|around|by)\b/gi, "")
+    .replace(/\s+/g, " ").trim();
+  if (!title) title = category === "exam" ? "Exam practice" : "Focused study";
+  title = title.split(" ").slice(0, 5)
+    .map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ")
+    .replace(new RegExp(GUARD, "g"), "SAT");
+
   return {
     day,
-    start,
-    end,
-    title: /math/.test(instruction) ? "Math practice" : /ielts/.test(instruction) ? "IELTS practice" : /sat/.test(instruction) ? "SAT practice" : "Focused study",
+    start: asClock(startMin),
+    end: asClock(endMin),
+    title,
     category,
     rationale: "Converted the instruction into an editable schedule block.",
     source: "deterministic-fallback",
@@ -291,8 +407,22 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     let result = routineFallback(body);
     if (hasGemmaKey(overrideKey)) {
       const text = await safeGemmaText({
-        system: "Convert one instruction into one weekly schedule block. Use 24-hour HH:MM time. Keep the title under five English words. Gemma 4 is the only generative model used.",
-        contents: `Instruction: ${body.instruction}\nExisting:\n${body.existing.map((item) => `${item.day} ${item.start}-${item.end}: ${item.title}`).join("\n") || "None"}`,
+        system: [
+          "You convert ONE instruction into ONE new weekly schedule block.",
+          "The EXISTING list is background context only - it shows slots that are already taken.",
+          "Never copy a day, time, or title from EXISTING. Every field you return must come from the INSTRUCTION.",
+          "Use 24-hour HH:MM times. The title must describe the activity in the instruction, under five English words.",
+          "If the instruction gives no explicit time, pick one that suits the activity and make the block 60 minutes.",
+          "Map vague words like this: morning 08:00, noon 12:00, afternoon 15:00, evening 19:00, night 21:00.",
+          "If the instruction gives no day, use Monday.",
+          "Gemma 4 is the only generative model used.",
+        ].join(" "),
+        contents: [
+          `INSTRUCTION (this is what you must convert): ${body.instruction}`,
+          "",
+          "EXISTING BLOCKS (context only - do not copy, do not repeat):",
+          body.existing.map((item) => `- ${item.day} ${item.start}-${item.end}: ${item.title}`).join("\n") || "- None",
+        ].join("\n"),
         responseJsonSchema: routineOutputSchema,
         temperature: 0.05,
         maxOutputTokens: 300,
@@ -304,12 +434,27 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
           const data = parseObject(text);
           const day = String(data.day);
           const category = String(data.category) as RoutineCategory;
-          if (/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/.test(day) && /^(study|exam|project|wellbeing|application)$/.test(category)) {
+          const start = String(data.start).slice(0, 5);
+          const end = String(data.end).slice(0, 5);
+          const title = String(data.title).slice(0, 80);
+
+          // Reject a suggestion that just echoes a block the user already has -
+          // Gemma does this when the instruction is vague. Fall back to the parser.
+          const echoesExisting = body.existing.some(
+            (item) => item.day === day && item.start === start && item.end === end,
+          );
+          const validShape =
+            /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/.test(day) &&
+            /^(study|exam|project|wellbeing|application)$/.test(category) &&
+            /^\d{2}:\d{2}$/.test(start) && /^\d{2}:\d{2}$/.test(end) &&
+            start < end && title.trim().length > 0;
+
+          if (validShape && !echoesExisting) {
             result = {
               day,
-              start: String(data.start).slice(0, 5),
-              end: String(data.end).slice(0, 5),
-              title: String(data.title).slice(0, 80),
+              start,
+              end,
+              title,
               category,
               rationale: "Polaris AI converted the request into an editable block.",
               source: "gemma4",
