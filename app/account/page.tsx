@@ -147,6 +147,9 @@ function AccountInner() {
 
             {/* ─── 3. Plan & billing summary ───────────────────────── */}
             {account && <PlanCard account={account} />}
+
+            {/* ─── 4. Family & mentor monitoring ────────────────────── */}
+            {account?.role === "student" && <FamilyMonitoringCard account={account} />}
           </div>
         )}
       </section>
@@ -1062,6 +1065,160 @@ function PlanCard({ account }: { account: Account }) {
           Account role: <span className="font-semibold text-ink capitalize">{account.role}</span>
         </div>
       )}
+    </Card>
+  );
+}
+
+function FamilyMonitoringCard({ account }: { account: Account }) {
+  type Invite = {
+    token: string;
+    email: string;
+    role: "parent" | "partner";
+    createdAt: string;
+    expiresAt: string;
+    acceptedAt: string | null;
+  };
+
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"parent" | "partner">("parent");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [kind, setKind] = useState<"ok" | "err">("ok");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadInvites();
+  }, []);
+
+  async function loadInvites() {
+    try {
+      const res = await fetch("/api/account/monitor-invites");
+      if (!res.ok) return;
+      const data = await res.json();
+      setInvites(data.invites ?? []);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function sendInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/account/monitor-invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to create invite");
+      }
+      setInvites([data.invite, ...invites]);
+      setEmail("");
+      setKind("ok");
+      setMessage("Invite created. Share the link with your mentor or family member.");
+    } catch (err) {
+      setKind("err");
+      setMessage(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMessage(""), 4500);
+    }
+  }
+
+  async function copyLink(token: string) {
+    const link = `${window.location.origin}/monitor?token=${token}`;
+    await navigator.clipboard.writeText(link);
+    setCopiedToken(token);
+    window.setTimeout(() => setCopiedToken((current) => (current === token ? null : current)), 1500);
+  }
+
+  return (
+    <Card title="Family & mentor monitoring">
+      <p className="text-sm text-ink-dim">
+        Invite a parent or partner to monitor your roadmap progress with read-only access.
+      </p>
+      <form onSubmit={sendInvite} className="mt-4 space-y-4">
+        <div className="grid sm:grid-cols-[1fr_auto] gap-3">
+          <label className="block">
+            <div className="text-[12.5px] font-medium text-ink mb-1">Invite email</div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={inputCls}
+              placeholder="mentor@example.com"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["parent", "partner"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setRole(option)}
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-sm capitalize transition-colors duration-150",
+                  role === option
+                    ? "bg-polaris-100 border-polaris-400 text-ink"
+                    : "bg-paper border-polaris-200/50 text-ink-dim hover:border-polaris-300/60",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <button type="submit" disabled={busy} className={btnPrimary}>
+            {busy ? "Creating invite…" : "Create invite"}
+          </button>
+          <span className="text-[12px] text-ink-muted">Invites expire in 7 days.</span>
+        </div>
+      </form>
+      <Status msg={message} kind={kind} />
+
+      <div className="mt-6 space-y-3">
+        {invites.length === 0 ? (
+          <div className="rounded-2xl border border-polaris-200/70 bg-paper-card p-4 text-sm text-ink-dim">
+            No invites yet. Create one to share a secure monitoring link.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {invites.map((invite) => (
+              <div key={invite.token} className="rounded-2xl border border-polaris-200/70 bg-paper-card p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-ink">{invite.email}</div>
+                    <div className="text-[12.5px] text-ink-muted">
+                      {invite.role.charAt(0).toUpperCase() + invite.role.slice(1)} invite • created {new Date(invite.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-polaris-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink">
+                      {invite.acceptedAt ? "Accepted" : "Pending"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyLink(invite.token)}
+                      className="rounded-full border border-polaris-300 px-3 py-1 text-[12px] text-ink transition-colors hover:bg-polaris-50"
+                    >
+                      {copiedToken === invite.token ? "Copied" : "Copy link"}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 text-[12px] text-ink-muted">
+                  Link expires {new Date(invite.expiresAt).toLocaleDateString()}.
+                  {invite.acceptedAt ? ` Accepted ${new Date(invite.acceptedAt).toLocaleDateString()}.` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }

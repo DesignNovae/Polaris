@@ -16,7 +16,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
 import { nodeProgressFromTasks, recomputeStatuses, type RoadmapDoc, type RoadmapNode } from "@/lib/roadmap/types";
-import { isYouTubeId } from "@/lib/roadmap/resources";
+import { isYouTubeId, resourcesForTask } from "@/lib/roadmap/resources";
 import { roadmapStore, nodeTip } from "@/lib/roadmap/store";
 
 const TYPE_LABEL: Record<RoadmapNode["type"], string> = {
@@ -46,6 +46,8 @@ export function RoadmapNodeModal({
   const [noteDraft, setNoteDraft] = useState("");
   const [scoreKey, setScoreKey] = useState<string | null>(null);
   const [scoreVal, setScoreVal] = useState("");
+  const [evidenceDraft, setEvidenceDraft] = useState("");
+  const [evidenceRef, setEvidenceRef] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [adaptMsg, setAdaptMsg] = useState<string | null>(null);
 
@@ -54,6 +56,9 @@ export function RoadmapNodeModal({
   const locked = node.status === "locked";
   const phase = doc.phases[node.phase] ?? `Phase ${node.phase + 1}`;
   const tip = nodeTip(doc, node);
+  const gapLabel = (id: string) => doc.planning?.gaps.find((gap) => gap.id === id)?.label ?? id;
+  const targetLabel = (id: string) => doc.planning?.targets.find((target) => target.id === id)?.title ?? id;
+  const taskResources = [...new Map(node.tasks.flatMap((task) => task.resources ?? resourcesForTask(task.text, node.topics)).map((resource) => [resource.ref, resource])).values()].slice(0, 8);
 
   // Next unlock = first non-done node after this one in the branch.
   const ordered = [...branch.nodes].sort((a, b) => a.phase - b.phase);
@@ -73,6 +78,10 @@ export function RoadmapNodeModal({
           nextNode.progress = nodeProgressFromTasks(nextNode.tasks);
         }
         if (typeof body.note === "string") nextNode.notes.push({ id: crypto.randomUUID(), text: body.note, at: new Date() });
+        if (body.evidence && typeof body.evidence === "object") {
+          const item = body.evidence as { label: string; ref?: string };
+          nextNode.evidence = [...(nextNode.evidence ?? []), { id: crypto.randomUUID(), label: item.label, kind: "document", ...(item.ref ? { ref: item.ref } : {}), verified: false, at: new Date() }];
+        }
         if (body.score && typeof body.score === "object") {
           const score = body.score as { key: string; value: number };
           next.scores.push({ key: score.key, label: score.key, value: score.value, max: 1600, nodeId: nextNode.id, at: new Date() });
@@ -98,6 +107,7 @@ export function RoadmapNodeModal({
         // Feed the shared event stream so the Strategist sees what happened.
         if (body.markDone) roadmapStore.emit("ROADMAP_NODE_COMPLETED", `Completed "${node.title}"`, node.id);
         else if (body.toggleTask) roadmapStore.emit("TASK_MARKED_DONE", `Updated checklist on "${node.title}" (${node.progress}%)`, node.id);
+        else if (body.evidence) roadmapStore.emit("EVIDENCE_ADDED", `Added evidence to "${node.title}"`, node.id);
         else if (body.score) {
           const s = body.score as { key: string; value: number };
           roadmapStore.emit("SCORE_SUBMITTED", `Score logged on "${node.title}": ${s.key} = ${s.value}${d.adaptation ? ` → ${d.adaptation}` : ""}`, node.id);
@@ -131,6 +141,15 @@ export function RoadmapNodeModal({
     if (!Number.isFinite(v)) return;
     const ok = await patch({ score: { key: scoreKey, value: v } }, "score");
     if (ok) { setScoreVal(""); setScoreKey(null); }
+  }
+
+  async function saveEvidence() {
+    if (!evidenceDraft.trim()) return;
+    const ok = await patch({ evidence: { label: evidenceDraft.trim(), ref: evidenceRef.trim() || undefined, kind: "document" } }, "evidence");
+    if (ok) {
+      setEvidenceDraft("");
+      setEvidenceRef("");
+    }
   }
 
   return (
@@ -273,12 +292,49 @@ export function RoadmapNodeModal({
             </ul>
           </section>
 
+          {/* ─── Evidence ─── */}
+          <section>
+            <Label>Evidence produced</Label>
+            <p className="text-[11.5px] text-ink-muted mb-2">Attach proof when it exists. Evidence is optional; action-only missions can still be completed normally.</p>
+            {node.evidence && node.evidence.length > 0 && (
+              <ul className="space-y-1.5 mb-2">
+                {node.evidence.map((item) => (
+                  <li key={item.id} className="rounded-xl bg-paper-soft px-3 py-2 text-[12px] text-ink">
+                    <span className="font-medium">{item.label}</span>
+                    {item.ref && <span className="block text-[11px] text-ink-muted truncate">{item.ref}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="space-y-1.5">
+              <input value={evidenceDraft} onChange={(e) => setEvidenceDraft(e.target.value)} maxLength={180} placeholder="e.g. GitHub repository, certificate, score report" className="w-full rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-[12.5px] text-ink placeholder:text-ink-muted/60 focus:border-polaris-400 focus:outline-none dark:border-white/[0.14] dark:bg-paper-deep" />
+              <div className="flex items-center gap-2">
+                <input value={evidenceRef} onChange={(e) => setEvidenceRef(e.target.value)} maxLength={500} placeholder="Optional link or reference" className="flex-1 rounded-xl border border-polaris-200 bg-paper-card px-3 py-2 text-[12.5px] text-ink placeholder:text-ink-muted/60 focus:border-polaris-400 focus:outline-none dark:border-white/[0.14] dark:bg-paper-deep" />
+                <button onClick={() => void saveEvidence()} disabled={busy !== null || !evidenceDraft.trim()} className="rounded-xl bg-ink text-paper h-9 px-3.5 text-[12px] font-semibold hover:bg-polaris-700 transition-colors disabled:opacity-40">{busy === "evidence" ? "…" : "Add"}</button>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Why this? ─── */}
+          {(node.gapIds?.length || node.targetIds?.length || node.strategicReason || node.valueScore !== undefined) ? (
+            <section className="rounded-xl bg-polaris-100/40 dark:bg-polaris-400/10 ring-1 ring-inset ring-polaris-400/25 px-4 py-3">
+              <Label>Why this?</Label>
+              <p className="text-[12.5px] text-ink leading-relaxed">{node.strategicReason ?? "This mission is linked to the active admissions strategy."}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[10.5px] text-ink-muted">
+                {node.gapIds?.map((id) => <span key={id} className="rounded-full bg-paper-card px-2 py-1 ring-1 ring-inset ring-polaris-500/10">Addresses {gapLabel(id)}</span>)}
+                {node.targetIds?.map((id) => <span key={id} className="rounded-full bg-paper-card px-2 py-1 ring-1 ring-inset ring-polaris-500/10">Relevant to {targetLabel(id)}</span>)}
+                {node.valueScore !== undefined && <span className="rounded-full bg-paper-card px-2 py-1 ring-1 ring-inset ring-polaris-500/10">Value {node.valueScore}/100</span>}
+              </div>
+              {node.expectedEvidence && node.expectedEvidence.length > 0 && <div className="mt-2 text-[11.5px] text-ink-dim">Expected outcome: {node.expectedEvidence.map((item) => item.claim).join("; ")}</div>}
+            </section>
+          ) : null}
+
           {/* ─── Resource pack ─── */}
-          {node.resources.length > 0 && (
+          {taskResources.length > 0 && (
             <section>
-              <Label>Resource pack</Label>
+              <Label>Resources for these tasks</Label>
               <div className="space-y-2">
-                {node.resources.map((r) => (
+                {taskResources.map((r) => (
                   <ResourceRow key={r.ref} r={r} />
                 ))}
               </div>

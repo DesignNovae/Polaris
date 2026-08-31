@@ -84,6 +84,11 @@ export const linkAcceptSchema = z.object({
   token: z.string().min(1),
 });
 
+export const inviteSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["parent", "partner"]),
+});
+
 export const benchmarkBodySchema = z.object({
   profile: studentProfileSchema,
 });

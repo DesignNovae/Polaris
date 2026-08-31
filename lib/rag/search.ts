@@ -200,6 +200,37 @@ export type SearchHit = {
   similarity: number | null;
 };
 
+export type SearchConstraints = {
+  source?: RagDoc["source"];
+  country?: string;
+  degreeLevel?: "undergrad" | "masters" | "phd" | "general";
+  program?: string;
+};
+
+function matchesConstraints(row: RagChunk, constraints: SearchConstraints): boolean {
+  if (constraints.source && row.source !== constraints.source) return false;
+  const metadata = row.metadata;
+  if (
+    constraints.country
+    && typeof metadata.country === "string"
+    && metadata.country.toLowerCase() !== constraints.country.toLowerCase()
+  ) return false;
+  if (constraints.degreeLevel) {
+    const levels = Array.isArray(metadata.degreeLevels)
+      ? metadata.degreeLevels.map(String).map((value) => value.toLowerCase())
+      : [];
+    if (levels.length && !levels.includes(constraints.degreeLevel.toLowerCase()) && !levels.includes("general")) return false;
+  }
+  if (constraints.program) {
+    const programs = Array.isArray(metadata.programs)
+      ? metadata.programs.map(String).join(" ").toLowerCase()
+      : "";
+    const terms = constraints.program.toLowerCase().split(/\W+/).filter((word) => word.length > 2);
+    if (programs && !terms.some((word) => programs.includes(word))) return false;
+  }
+  return true;
+}
+
 function toQueryList(query: string | string[]): string[] {
   const list = (Array.isArray(query) ? query : [query])
     .map((q) => q.trim())
@@ -214,19 +245,25 @@ function toQueryList(query: string | string[]): string[] {
 export async function hybridSearch(
   query: string | string[],
   topK = 6,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; constraints?: SearchConstraints } = {},
 ): Promise<SearchHit[]> {
   const queries = toQueryList(query);
   if (queries.length === 0) return [];
 
   // Retrieve deeper than we return, so fusion has something to agree on.
   const depth = Math.max(topK * 3, 12);
-  const index = await kbLexicalIndex();
+  const baseIndex = await kbLexicalIndex();
+  const constrainedRows = options.constraints
+    ? baseIndex.rows.filter((row) => matchesConstraints(row, options.constraints!))
+    : baseIndex.rows;
+  const index = constrainedRows === baseIndex.rows ? baseIndex : buildLexicalIndex(constrainedRows);
   const lexicalLists = queries.map((q) => bm25(index, q, depth));
 
   const [vectors, rows] = await Promise.all([
     embedQueries(queries, options.signal),
-    loadKbVectors(),
+    loadKbVectors().then((vectorRows) => options.constraints
+      ? vectorRows.filter((row) => matchesConstraints(row, options.constraints!))
+      : vectorRows),
   ]);
 
   const vectorLists: Array<Array<{ chunkId: string; score: number }>> = [];
@@ -300,8 +337,9 @@ export async function searchDocs(
   queryText: string,
   _queryVector: number[] | null = null,
   topK = 6,
+  constraints: SearchConstraints = {},
 ): Promise<SearchHit[]> {
-  return hybridSearch(queryText, topK);
+  return hybridSearch(queryText, topK, { constraints });
 }
 
 export type KbHit = {

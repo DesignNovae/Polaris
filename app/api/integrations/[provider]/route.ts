@@ -45,12 +45,12 @@ export const POST = withErrorHandling(async (req, ctx: { params: Promise<{ provi
   try {
     if (provider === "codeforces") {
       const body = cfSchema.parse(await parseJson(req));
-      const row = await importCodeforces(session.id, body.handle);
+      const row = await importCodeforces(session.id, body.handle, session.plan);
       return ok({ row });
     }
     if (provider === "github") {
       const body = ghSchema.parse(await parseJson(req));
-      const row = await importGitHub(session.id, body.username, body.token);
+      const row = await importGitHub(session.id, body.username, body.token, session.plan);
       return ok({ row });
     }
   } catch (e) {

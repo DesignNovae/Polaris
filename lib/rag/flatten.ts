@@ -43,7 +43,15 @@ function universityDoc(u: Row): RagDoc {
       `Differentiators: ${u.requirements?.differentiators}.`,
       `Summary: ${u.summary}`,
     ].join(" "),
-    metadata: { universityId: u.id, country: u.country, tier: u.tier, tags: u.tags },
+    metadata: {
+      universityId: u.id,
+      country: u.country,
+      tier: u.tier,
+      tags: u.tags,
+      programs: u.topPrograms,
+      degreeLevels: ["general"],
+      verificationStatus: "unverified",
+    },
   };
 }
 
@@ -59,7 +67,13 @@ function scholarshipDoc(s: Row): RagDoc {
       `Tags: ${(s.tags ?? []).join(", ")}.`,
       `Summary: ${s.summary}`,
     ].join(" "),
-    metadata: { scholarshipId: s.id, level: s.level, tags: s.tags },
+    metadata: {
+      scholarshipId: s.id,
+      level: s.level,
+      tags: s.tags,
+      degreeLevels: [s.level],
+      verificationStatus: "unverified",
+    },
   };
 }
 
@@ -76,7 +90,13 @@ function caseStudyDoc(c: Row): RagDoc {
       `Tier: ${c.profile?.tier}.`,
       `What worked: ${c.whatWorked}`,
     ].join(" "),
-    metadata: { caseId: c.id, country: c.profile?.country, tier: c.profile?.tier, tags: c.tags },
+    metadata: {
+      caseId: c.id,
+      country: c.profile?.country,
+      tier: c.profile?.tier,
+      tags: c.tags,
+      verificationStatus: "unverified",
+    },
   };
 }
 

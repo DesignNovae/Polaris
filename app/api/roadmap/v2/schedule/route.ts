@@ -1,7 +1,7 @@
 /**
  * POST /api/roadmap/v2/schedule
  *
- * Explicitly upgrades a legacy flat roadmap or expands a deferred year.
+ * Explicitly upgrades a legacy flat roadmap or expands one deferred unit/year.
  * Nothing is saved until the requested schedule has been fully built, so a
  * failed upgrade cannot damage the user's existing roadmap.
  */
@@ -12,7 +12,7 @@ import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
 import { getProfile, getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
-import { buildLegacySchedule, generateDeferredSchedule } from "@/lib/roadmap/schedule";
+import { buildLegacySchedule, generateDeferredSchedule, generateDeferredUnit } from "@/lib/roadmap/schedule";
 import { requestLanguage, BN_ERRORS } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
@@ -22,6 +22,7 @@ export const maxDuration = 300;
 const BodySchema = z.object({
   upgradeLegacy: z.boolean().optional(),
   yearIndex: z.number().int().min(1).max(9).optional(),
+  unitIndex: z.number().int().min(0).max(364).optional(),
 });
 
 export const POST = withErrorHandling(async (req) => {
@@ -43,9 +44,10 @@ export const POST = withErrorHandling(async (req) => {
 
   const next = body.upgradeLegacy
     ? await buildLegacySchedule(profile, previous, { userId: session.id, language })
-    : await generateDeferredSchedule(profile, previous, body.yearIndex ?? 1, { userId: session.id, language });
+    : body.unitIndex !== undefined
+      ? await generateDeferredUnit(profile, previous, body.unitIndex, { userId: session.id, language })
+      : await generateDeferredSchedule(profile, previous, body.yearIndex ?? 1, { userId: session.id, language });
 
   await saveRoadmapV2(session.id, next);
   return ok({ doc: next });
 });
-

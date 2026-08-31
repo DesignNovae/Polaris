@@ -10,6 +10,8 @@
  */
 
 import { getDb } from "@/lib/db/mongodb";
+import { HttpError } from "@/lib/api/respond";
+import { planDef, type PlanId } from "@/lib/billing/plans";
 import { integrationDef, envReady, INTEGRATIONS, type IntegrationStatus } from "./registry";
 
 export type IntegrationRow = {
@@ -47,9 +49,23 @@ export async function removeIntegrationRow(userId: string, provider: string): Pr
   await db.collection<IntegrationRow>(COLL).deleteOne({ userId, provider });
 }
 
+export async function assertCanConnect(userId: string, plan: PlanId): Promise<void> {
+  const limit = planDef(plan).limits.maxConnections;
+  if (limit < 1) {
+    throw new HttpError(403, "Connections are available on Polaris Pro and Elite.");
+  }
+
+  const rows = await listIntegrationRows(userId);
+  const connectedCount = rows.filter((row) => row.status === "connected").length;
+  if (connectedCount >= limit) {
+    throw new HttpError(403, `Your ${planDef(plan).name} plan supports up to ${limit} connected tools.`);
+  }
+}
+
 /* ─── Codeforces (official public API) ─── */
 
-export async function importCodeforces(userId: string, handle: string): Promise<IntegrationRow> {
+export async function importCodeforces(userId: string, handle: string, plan?: PlanId): Promise<IntegrationRow> {
+  if (plan) await assertCanConnect(userId, plan);
   const clean = handle.trim();
   if (!/^[\w.-]{2,30}$/.test(clean)) throw new Error("That doesn't look like a valid Codeforces handle.");
 
@@ -113,7 +129,8 @@ export async function importCodeforces(userId: string, handle: string): Promise<
 
 /* ─── GitHub (public REST; optional transient PAT) ─── */
 
-export async function importGitHub(userId: string, username: string, token?: string): Promise<IntegrationRow> {
+export async function importGitHub(userId: string, username: string, token?: string, plan?: PlanId): Promise<IntegrationRow> {
+  if (plan) await assertCanConnect(userId, plan);
   const clean = username.trim().replace(/^@/, "");
   if (!/^[A-Za-z0-9-]{1,39}$/.test(clean)) throw new Error("That doesn't look like a valid GitHub username.");
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { SettingsShell, type SettingsSectionId } from "@/components/app/SettingsShell";
 import { SettingsAppearance, SettingsMarketplace, SettingsNotifications } from "@/components/app/SettingsTogglePanels";
 import { Card, Pill, Tag } from "@/components/app/ui";
-import { GemmaKeyCard } from "@/components/app/GemmaStudioPanels";
+import { GemmaKeyCard } from "@/components/app/GemmaKeyCard";
 import { DEMO_USER } from "@/lib/demo/polaris";
 import { clearDemoStrategistHistory, listDemoStrategistThreads } from "@/lib/demo/strategist-history";
 import { cn } from "@/lib/cn";

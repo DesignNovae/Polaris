@@ -69,6 +69,16 @@ export type PracticeQuestion = {
   difficulty: "Foundation" | "Medium" | "Advanced";
 };
 
+export type PublicPracticeQuestion = Omit<PracticeQuestion, "answer" | "explanation">;
+
+export type PracticeReviewItem = {
+  id: string;
+  selectedAnswer?: number;
+  correctAnswer: number;
+  correct: boolean;
+  explanation: string;
+};
+
 export type WritingTask = {
   id: string;
   title: string;

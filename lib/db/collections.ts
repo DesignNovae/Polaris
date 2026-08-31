@@ -6,6 +6,22 @@ import type { RoadmapMilestone, RoadmapResponse } from "@/lib/llm/gemma";
 export type UserRole = "student" | "parent" | "partner" | "admin";
 export type Plan = "free" | "pro" | "elite";
 
+export type ViewerRole = "parent" | "partner";
+
+export type DbMonitorInvite = {
+  _id?: ObjectId;
+  token: string;
+  email: string;
+  role: ViewerRole;
+  studentId: string;
+  studentName: string;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedAt?: Date;
+  viewerId?: string;
+  acceptedEmail?: string;
+};
+
 export type Subscription = {
   lsCustomerId?: string;
   lsSubscriptionId?: string;
@@ -1150,4 +1166,63 @@ export async function listMockAttempts(userId: string, limit = 50): Promise<DbMo
   const db = await getDb();
   return db.collection<DbMockAttempt>("mock_attempts")
     .find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
+}
+
+/* ─── Monitor invitations (new viewer dashboard) ─── */
+
+export async function createMonitorInvite(
+  studentId: string,
+  studentName: string,
+  email: string,
+  role: ViewerRole,
+): Promise<DbMonitorInvite> {
+  const db = await getDb();
+  const invite: DbMonitorInvite = {
+    token: crypto.randomUUID(),
+    email: email.toLowerCase(),
+    role,
+    studentId,
+    studentName,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  };
+  await db.collection<DbMonitorInvite>("monitorInvites").insertOne(invite);
+  return invite;
+}
+
+export async function getMonitorInvitesByStudent(studentId: string): Promise<DbMonitorInvite[]> {
+  const db = await getDb();
+  return db.collection<DbMonitorInvite>("monitorInvites").find({ studentId }).sort({ createdAt: -1 }).toArray();
+}
+
+export async function getMonitorInviteByStudentAndEmail(studentId: string, email: string): Promise<DbMonitorInvite | null> {
+  const db = await getDb();
+  return db.collection<DbMonitorInvite>("monitorInvites").findOne({ studentId, email: email.toLowerCase() });
+}
+
+export async function getMonitorInviteByToken(tokenValue: string): Promise<DbMonitorInvite | null> {
+  const db = await getDb();
+  return db.collection<DbMonitorInvite>("monitorInvites").findOne({ token: tokenValue });
+}
+
+export async function acceptMonitorInvite(
+  tokenValue: string,
+  viewerId: string,
+  acceptedEmail: string,
+): Promise<DbMonitorInvite | null> {
+  const db = await getDb();
+  const result = await db.collection<DbMonitorInvite>("monitorInvites").updateOne(
+    { token: tokenValue, acceptedAt: { $exists: false } },
+    { $set: { acceptedAt: new Date(), viewerId, acceptedEmail: acceptedEmail.toLowerCase() } },
+  );
+  if (result.matchedCount === 0) return null;
+  return db.collection<DbMonitorInvite>("monitorInvites").findOne({ token: tokenValue });
+}
+
+export async function getMonitorConnectionsForViewer(viewerId: string): Promise<DbMonitorInvite[]> {
+  const db = await getDb();
+  return db.collection<DbMonitorInvite>("monitorInvites")
+    .find({ viewerId, acceptedAt: { $exists: true } })
+    .sort({ acceptedAt: -1 })
+    .toArray();
 }

@@ -18,12 +18,14 @@ const decisionSchema = z.object({
   budgetBdt: z.number().min(0).max(10_000_000),
   targetCountry: z.string().trim().min(2).max(60),
 });
+
 const evidenceSchema = z.object({
   kind: z.literal("evidence"),
   claim: z.string().trim().min(3).max(500),
   proofType: z.string().trim().min(2).max(80),
   proofDetail: z.string().trim().max(700).default(""),
 });
+
 const routineSchema = z.object({
   kind: z.literal("routine"),
   instruction: z.string().trim().min(3).max(500),
@@ -34,6 +36,7 @@ const routineSchema = z.object({
     title: z.string().max(100),
   })).max(40).default([]),
 });
+
 const examSchema = z.object({
   kind: z.literal("exam-review"),
   exam: z.enum(["IELTS", "SAT"]),
@@ -41,6 +44,7 @@ const examSchema = z.object({
   total: z.number().int().min(1).max(50),
   weakSkills: z.array(z.string().max(80)).max(12),
 });
+
 const bodySchema = z.discriminatedUnion("kind", [decisionSchema, evidenceSchema, routineSchema, examSchema]);
 
 const decisionOutputSchema = {
@@ -57,6 +61,7 @@ const decisionOutputSchema = {
   },
   required: ["summary", "probability_after", "risk", "focus1", "focus2", "focus3", "next_action", "evidence_to_collect"],
 } as const;
+
 const evidenceOutputSchema = {
   type: "object",
   properties: {
@@ -67,6 +72,7 @@ const evidenceOutputSchema = {
   },
   required: ["signal", "gap", "next_action", "verification"],
 } as const;
+
 const routineOutputSchema = {
   type: "object",
   properties: {
@@ -94,6 +100,20 @@ function parseObject(text: string): Record<string, unknown> {
 
 function localize(value: unknown, lang: "en" | "bn"): string {
   return finalizeGeneratedLanguage(String(value ?? ""), lang);
+}
+
+async function safeGemmaText(
+  request: Parameters<typeof generateGemmaText>[0],
+): Promise<string | null> {
+  try {
+    return await generateGemmaText(request);
+  } catch (error) {
+    console.warn(
+      "[action-lab] Gemma request failed; using deterministic fallback:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
 }
 
 function decisionChanges(body: z.infer<typeof decisionSchema>, focuses: string[], lang: "en" | "bn") {
@@ -177,14 +197,21 @@ function routineFallback(body: z.infer<typeof routineSchema>): RoutineSuggestion
   };
 }
 
+function applyRateLimitHeaders(response: Response, limit: Awaited<ReturnType<typeof rateLimit>>): Response {
+  for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
+  return response;
+}
+
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const lang = requestLanguage(req);
   const limit = await rateLimit(clientId(req), "free", "public-action-lab");
   if (!limit.allowed) {
-    const response = fail(429, lang === "bn" ? "অ্যাকশন ল্যাবের সীমা পূর্ণ হয়েছে। কয়েক মিনিট পর আবার চেষ্টা করুন।" : "Action Lab limit reached. Please retry in a few minutes.");
-    for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
-    return response;
+    return applyRateLimitHeaders(
+      fail(429, lang === "bn" ? "অ্যাকশন ল্যাবের সীমা পূর্ণ হয়েছে। কয়েক মিনিট পর আবার চেষ্টা করুন।" : "Action Lab limit reached. Please retry in a few minutes."),
+      limit,
+    );
   }
+
   const parsed = bodySchema.safeParse(await parseJson(req));
   if (!parsed.success) return fail(400, lang === "bn" ? "অনুরোধের তথ্য সঠিক নয়।" : "Invalid Action Lab request.");
   const body = parsed.data;
@@ -193,7 +220,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (body.kind === "decision") {
     let result = decisionFallback(body, lang);
     if (hasGemmaKey(overrideKey)) {
-      const text = await generateGemmaText({
+      const text = await safeGemmaText({
         system: `You are the compact decision engine inside Polaris. ${generationLanguageInstruction(lang)} Return short fields only. Each focus field must be under 14 words. Never promise admission. Gemma 4 is the only generative model used.`,
         contents: `Baseline: SAT ${body.currentScore}, target ${body.targetScore}, ${body.weeklyHours} hours/week, budget BDT ${body.budgetBdt}, country ${body.targetCountry}. Change: ${body.event}. Current planning indicator: 41. Give three terse planning focuses.`,
         responseJsonSchema: decisionOutputSchema,
@@ -219,18 +246,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
             source: "gemma4",
             model: getGemmaModelId(),
           };
-        } catch {}
+        } catch {
+          // Keep the deterministic result if Gemma returns malformed JSON.
+        }
       }
     }
-    const response = Response.json(result);
-    for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
-    return response;
+    return applyRateLimitHeaders(Response.json(result), limit);
   }
 
   if (body.kind === "evidence") {
     let result = evidenceFallback(body, lang);
     if (hasGemmaKey(overrideKey)) {
-      const text = await generateGemmaText({
+      const text = await safeGemmaText({
         system: `You are the evidence auditor inside Polaris. ${generationLanguageInstruction(lang)} Return short fields only. Do not mark an unsupported claim as verified. Gemma 4 is the only generative model used.`,
         contents: `Claim: ${body.claim}\nProof type: ${body.proofType}\nProof detail: ${body.proofDetail || "Not supplied"}`,
         responseJsonSchema: evidenceOutputSchema,
@@ -252,18 +279,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
             source: "gemma4",
             model: getGemmaModelId(),
           };
-        } catch {}
+        } catch {
+          // Keep the deterministic result if Gemma returns malformed JSON.
+        }
       }
     }
-    const response = Response.json(result);
-    for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
-    return response;
+    return applyRateLimitHeaders(Response.json(result), limit);
   }
 
   if (body.kind === "routine") {
     let result = routineFallback(body);
     if (hasGemmaKey(overrideKey)) {
-      const text = await generateGemmaText({
+      const text = await safeGemmaText({
         system: "Convert one instruction into one weekly schedule block. Use 24-hour HH:MM time. Keep the title under five English words. Gemma 4 is the only generative model used.",
         contents: `Instruction: ${body.instruction}\nExisting:\n${body.existing.map((item) => `${item.day} ${item.start}-${item.end}: ${item.title}`).join("\n") || "None"}`,
         responseJsonSchema: routineOutputSchema,
@@ -284,17 +311,17 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
               end: String(data.end).slice(0, 5),
               title: String(data.title).slice(0, 80),
               category,
-              rationale: "Polaris converted the request into an editable block.",
+              rationale: "Polaris AI converted the request into an editable block.",
               source: "gemma4",
               model: getGemmaModelId(),
             };
           }
-        } catch {}
+        } catch {
+          // Keep the deterministic result if Gemma returns malformed JSON.
+        }
       }
     }
-    const response = Response.json(result);
-    for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
-    return response;
+    return applyRateLimitHeaders(Response.json(result), limit);
   }
 
   let feedback = body.exam === "SAT"
@@ -302,7 +329,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     : "Review the missed skill, record why each distractor was wrong, and repeat a short timed set tomorrow.";
   let source: "gemma4" | "deterministic-fallback" = "deterministic-fallback";
   if (hasGemmaKey(overrideKey)) {
-    const generated = await generateGemmaText({
+    const generated = await safeGemmaText({
       system: "You are a precise exam coach. Respond in clear English in under 80 words with a three-step prescription. This is unofficial practice. Gemma 4 is the only generative model used.",
       contents: `${body.exam} practice: ${body.score}/${body.total}. Weak skills: ${body.weakSkills.join(", ") || "none"}.`,
       temperature: 0.2,
@@ -315,7 +342,5 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       source = "gemma4";
     }
   }
-  const response = Response.json({ feedback, source, model: source === "gemma4" ? getGemmaModelId() : "none" });
-  for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
-  return response;
+  return applyRateLimitHeaders(Response.json({ feedback, source, model: source === "gemma4" ? getGemmaModelId() : "none" }), limit);
 });

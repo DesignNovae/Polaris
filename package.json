@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
+    "benchmark:roadmap": "node scripts/roadmap-v3-benchmark.mjs",
+    "test": "node --import ./tests/register.mjs --test \"tests/**/*.test.ts\"",
     "rag:ingest": "tsx scripts/rag-ingest.ts",
     "rag:eval": "tsx scripts/rag-eval.ts",
     "rag:faith": "tsx scripts/rag-faithfulness.ts",

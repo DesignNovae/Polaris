@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Btn, Card, Icon, Pill, Progress, RingMini, Tag } from "@/components/app/ui";
 import { MarkdownMessage } from "@/components/app/MarkdownMessage";
 import { LEARNING_VIDEOS } from "@/lib/action-lab/data";
-import type { LearningVideo, PracticeQuestion, WritingTask } from "@/lib/action-lab/types";
-import { gemmaHeaders, getBrowserGemmaKey, setBrowserGemmaKey } from "@/lib/gemma/browser-key";
+import type { LearningVideo, PracticeReviewItem, PublicPracticeQuestion, WritingTask } from "@/lib/action-lab/types";
+import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import { cn } from "@/lib/cn";
 import { translateUiText } from "@/lib/i18n/bengali";
 import { InterpreterPanel } from "@/components/interpreter/InterpreterPanel";
@@ -21,7 +21,53 @@ import { SpeechClockSource } from "@/lib/interpreter/synchronization/clocks/Spee
 import type { YouTubeClockSource } from "@/lib/interpreter/synchronization/clocks/YouTubeClockSource";
 
 type Lang = "en" | "bn";
-type Trace = { source: "gemma4" | "deterministic-fallback"; model: string };
+type Trace = {
+  source: "gemma4" | "hybrid" | "deterministic-fallback";
+  model: string;
+  activity?: "generation" | "scoring" | "coaching" | "writing-submission" | "writing-feedback";
+  generationId?: string;
+  attemptId?: string;
+  validation?: { attempts: number; rejectedCount: number };
+};
+
+type WritingPracticePayload = {
+  id: string;
+  task: WritingTask;
+  status: "ready" | "in_progress" | "submitted";
+  response: string;
+  revision: number;
+  remainingSeconds: number;
+  expiresAt?: string;
+  elapsedSeconds?: number;
+  wordCount: number;
+  feedback?: string;
+  source: Trace["source"];
+  model: string;
+  feedbackSource?: Trace["source"];
+  feedbackModel?: string;
+};
+
+type PracticeBatch = {
+  index: number;
+  count: number;
+  focus: string;
+  status: "pending" | "generating" | "complete" | "error";
+  attempts: number;
+  source?: Trace["source"];
+  error?: string;
+};
+
+type PracticeGenerationPayload = {
+  id: string;
+  input: { exam: "IELTS" | "SAT"; section: string; difficulty: "Foundation" | "Medium" | "Advanced"; targetCount: number; targetSkill?: string; sourceSessionId?: string };
+  questions: PublicPracticeQuestion[];
+  status: "planning" | "generating" | "complete" | "error";
+  plan?: { title: string; coverageSummary: string; batchSize: number; batches: PracticeBatch[] };
+  progress: { generated: number; target: number };
+  source: Trace["source"];
+  model: string;
+  error?: string;
+};
 
 async function studioPost<T>(body: Record<string, unknown>, lang: Lang): Promise<T> {
   const response = await fetch("/api/gemma-studio", {
@@ -38,7 +84,52 @@ async function studioPost<T>(body: Record<string, unknown>, lang: Lang): Promise
   return data;
 }
 
-const IELTS_SECTIONS = ["Listening", "Reading", "Writing", "Speaking"] as const;
+async function finishPracticeBatches(
+  initial: PracticeGenerationPayload,
+  lang: Lang,
+  onProgress: (payload: PracticeGenerationPayload) => void,
+): Promise<PracticeGenerationPayload> {
+  const pending = (initial.plan?.batches ?? []).filter((batch) => batch.status !== "complete").map((batch) => batch.index);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < pending.length) {
+      const batchIndex = pending[cursor++];
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const payload = await studioPost<PracticeGenerationPayload>({ kind: "exam-generate-batch", generationId: initial.id, batchIndex }, lang);
+          onProgress(payload);
+          lastError = undefined;
+          break;
+        } catch (cause) {
+          lastError = cause;
+          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+        }
+      }
+      if (lastError) throw lastError;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, pending.length) }, () => worker()));
+  const response = await fetch(`/api/exams/practice/${initial.id}`, { cache: "no-store" });
+  const final = await response.json() as PracticeGenerationPayload & { error?: string };
+  if (!response.ok) throw new Error(final.error || "The completed practice set could not be loaded.");
+  onProgress(final);
+  return final;
+}
+
+async function writingPracticeRequest<T>(practiceId: string, method: "GET" | "PATCH", body?: Record<string, unknown>): Promise<T> {
+  const response = await fetch(`/api/exams/writing/${practiceId}`, {
+    method,
+    cache: "no-store",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({})) as T & { error?: string };
+  if (!response.ok) throw new Error(data.error || "Writing practice could not be updated.");
+  return data;
+}
+
+const IELTS_SECTIONS = ["Listening", "Reading", "Writing"] as const;
 const SAT_SECTIONS = ["Reading and Writing", "Math"] as const;
 const DIFFICULTIES = ["Foundation", "Medium", "Advanced"] as const;
 
@@ -272,7 +363,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-faint/10 px-4 py-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink-muted">{bn ? "অ্যাক্সেসিবিলিটি" : "Accessibility"}</p>
-          <p className="mt-0.5 text-[11px] text-ink-dim">{bn ? "Polaris-এর তৈরি স্ক্রিপ্টের ভিজ্যুয়াল বক্তা" : "Visual speaker for the AI-generated script"}</p>
+          <p className="mt-0.5 text-[11px] text-ink-dim">{bn ? "Polaris AI-এর তৈরি স্ক্রিপ্টের ভিজ্যুয়াল বক্তা" : "Visual speaker for the Polaris AI-generated script"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <InterpreterToggle
@@ -338,7 +429,7 @@ function ListeningExamPlayer({ script, questionId, lang }: { script: string; que
                 <div className="h-full w-full"><VisemeMouth viseme={viseme} /></div>
               </foreignObject>
             </motion.svg>
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-white/65 backdrop-blur">Polaris visual speech</div>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-white/65 backdrop-blur">Polaris AI visual speech</div>
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2"><Pill tone="aurora">{bn ? "৮টি ভিসিম" : "8 visemes"}</Pill><Tag tone="ink">{bn ? "শব্দের সীমার সঙ্গে সিঙ্ক" : "word-boundary synced"}</Tag></div>
@@ -408,19 +499,22 @@ function wordCount(value: string) {
   return value.trim() ? value.trim().split(/\s+/).filter(Boolean).length : 0;
 }
 
-export function GemmaExamStudio({ lang }: { lang: Lang }) {
+export function AIPracticeStudio({ lang }: { lang: Lang }) {
   const bn = lang === "bn";
   const [exam, setExam] = useState<"IELTS" | "SAT">("IELTS");
   const sections = exam === "IELTS" ? IELTS_SECTIONS : SAT_SECTIONS;
   const [section, setSection] = useState<string>("Listening");
   const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("Medium");
-  const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
+  const [questions, setQuestions] = useState<PublicPracticeQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [finished, setFinished] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [trace, setTrace] = useState<Trace | null>(null);
   const [busy, setBusy] = useState(false);
+  const [objectiveBusy, setObjectiveBusy] = useState<"generate" | "grade" | null>(null);
+  const [writingBusy, setWritingBusy] = useState<"generate" | "start" | "submit" | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState("");
   const [writingTask, setWritingTask] = useState<WritingTask | null>(null);
   const [writingResponse, setWritingResponse] = useState("");
@@ -428,26 +522,144 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
   const [writingRunning, setWritingRunning] = useState(false);
   const [writingSubmitted, setWritingSubmitted] = useState(false);
   const [writingFeedback, setWritingFeedback] = useState("");
+  const [writingPracticeId, setWritingPracticeId] = useState<string | undefined>();
+  const [writingExpiresAt, setWritingExpiresAt] = useState<string | undefined>();
+  const [writingSavedAt, setWritingSavedAt] = useState<string | undefined>();
+  const [writingSaving, setWritingSaving] = useState(false);
+  const [writingCoaching, setWritingCoaching] = useState(false);
+  const writingRevisionRef = useRef(0);
+  const writingLastSavedRef = useRef("");
+  const writingSavePromiseRef = useRef<Promise<void>>(Promise.resolve());
+  const writingAutoSubmitRef = useRef(false);
+  const [targetSkill, setTargetSkill] = useState("");
+  const [sourceSessionId, setSourceSessionId] = useState<string | undefined>();
+  const [generationId, setGenerationId] = useState<string | undefined>();
+  const [gradedScore, setGradedScore] = useState<number | null>(null);
+  const [review, setReview] = useState<PracticeReviewItem[]>([]);
+  const [attemptId, setAttemptId] = useState<string | undefined>();
+  const [coachingBusy, setCoachingBusy] = useState(false);
+  const [practicePlan, setPracticePlan] = useState<PracticeGenerationPayload["plan"]>();
+  const [practiceStatus, setPracticeStatus] = useState<PracticeGenerationPayload["status"]>();
+  const [practiceProgress, setPracticeProgress] = useState({ generated: 0, target: 0 });
+  const generationRunRef = useRef(0);
+
+  const applyPracticePayload = useCallback((payload: PracticeGenerationPayload, runId?: number) => {
+    if (runId !== undefined && generationRunRef.current !== runId) return;
+    setGenerationId(payload.id);
+    setPracticePlan(payload.plan);
+    setPracticeStatus(payload.status);
+    setPracticeProgress(payload.progress);
+    setQuestions((current) => {
+      const merged = new Map(current.map((item) => [item.id, item]));
+      payload.questions.forEach((item) => merged.set(item.id, item));
+      const incomingIds = new Set(payload.questions.map((item) => item.id));
+      return [...payload.questions.map((item) => merged.get(item.id)!), ...current.filter((item) => !incomingIds.has(item.id))];
+    });
+    setTrace({ source: payload.source, model: payload.model, generationId: payload.id });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("practice") !== "1") return;
+    const requestedExam = params.get("exam");
+    const requestedSection = params.get("section");
+    const requestedDifficulty = params.get("difficulty");
+    const requestedSkill = params.get("skill") || "";
+    const requestedSource = params.get("source") || undefined;
+    const requestedGeneration = params.get("generation") || undefined;
+    const requestedWriting = params.get("writing") || undefined;
+    if (requestedExam === "SAT" || requestedExam === "IELTS") {
+      setExam(requestedExam);
+      const allowedSections = requestedExam === "SAT" ? SAT_SECTIONS : IELTS_SECTIONS;
+      setSection(allowedSections.includes(requestedSection as never) ? String(requestedSection) : allowedSections[0]);
+    }
+    if (DIFFICULTIES.includes(requestedDifficulty as never)) setDifficulty(requestedDifficulty as (typeof DIFFICULTIES)[number]);
+    setTargetSkill(requestedSkill.slice(0, 100));
+    setSourceSessionId(requestedSource);
+    if (requestedWriting) {
+      setExam("IELTS");
+      setSection("Writing");
+      setRestoring(true);
+      writingPracticeRequest<WritingPracticePayload>(requestedWriting, "GET")
+        .then((body) => {
+          setWritingPracticeId(body.id);
+          setWritingTask(body.task);
+          setDifficulty(body.task.difficulty);
+          setWritingResponse(body.response);
+          writingLastSavedRef.current = body.response;
+          writingRevisionRef.current = body.revision;
+          setWritingExpiresAt(body.expiresAt);
+          setWritingSeconds(body.remainingSeconds);
+          setWritingRunning(body.status === "in_progress" && body.remainingSeconds > 0);
+          setWritingSubmitted(body.status === "submitted");
+          setWritingFeedback(body.feedback || "");
+          setTrace(body.status === "submitted" && !body.feedback
+            ? { source: "deterministic-fallback", model: "none", activity: "writing-submission", attemptId: body.id }
+            : { source: body.feedbackSource || body.source, model: body.feedbackModel || body.model, activity: body.feedback ? "writing-feedback" : "generation", ...(body.feedback ? { attemptId: body.id } : { generationId: body.id }) });
+        })
+        .catch((cause) => setError(cause instanceof Error ? cause.message : "The saved writing practice could not be loaded."))
+        .finally(() => setRestoring(false));
+      return;
+    }
+    if (!requestedGeneration) return;
+    setRestoring(true);
+    fetch(`/api/exams/practice/${requestedGeneration}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json() as PracticeGenerationPayload;
+        if (!response.ok || !body.id || !body.input || !body.questions) throw new Error(body.error || "The saved practice set could not be loaded.");
+        setExam(body.input.exam);
+        setSection(body.input.section);
+        setDifficulty(body.input.difficulty);
+        setTargetSkill(body.input.targetSkill || "");
+        setSourceSessionId(body.input.sourceSessionId || undefined);
+        applyPracticePayload(body);
+        if (body.status === "generating") {
+          const runId = ++generationRunRef.current;
+          return finishPracticeBatches(body, lang, (payload) => applyPracticePayload(payload, runId));
+        }
+      })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "The saved practice set could not be loaded."))
+      .finally(() => setRestoring(false));
+  }, [applyPracticePayload, lang]);
 
   const question = questions[index];
-  const score = questions.filter((item) => answers[item.id] === item.answer).length;
+  const score = gradedScore ?? 0;
   const listening = exam === "IELTS" && section === "Listening";
   const writing = exam === "IELTS" && section === "Writing";
   const responseWords = wordCount(writingResponse);
 
   useEffect(() => {
-    if (!writingRunning || writingSubmitted) return;
+    if (!writingRunning || writingSubmitted || !writingExpiresAt) return;
     const timer = window.setInterval(() => {
-      setWritingSeconds((value) => {
-        if (value <= 1) {
-          setWritingRunning(false);
-          return 0;
-        }
-        return value - 1;
-      });
+      const remaining = Math.max(0, Math.ceil((new Date(writingExpiresAt).getTime() - Date.now()) / 1000));
+      setWritingSeconds(remaining);
+      if (remaining === 0) setWritingRunning(false);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [writingRunning, writingSubmitted]);
+  }, [writingExpiresAt, writingRunning, writingSubmitted]);
+
+  useEffect(() => {
+    if (!writingPracticeId || !writingRunning || writingSubmitted || writingResponse === writingLastSavedRef.current) return;
+    const timer = window.setTimeout(() => {
+      const responseToSave = writingResponse;
+      setWritingSaving(true);
+      writingSavePromiseRef.current = writingSavePromiseRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          const saved = await writingPracticeRequest<{ revision: number; savedAt: string }>(writingPracticeId, "PATCH", {
+            action: "save",
+            response: responseToSave,
+            revision: writingRevisionRef.current,
+          });
+          writingRevisionRef.current = saved.revision;
+          writingLastSavedRef.current = responseToSave;
+          setWritingSavedAt(saved.savedAt);
+        })
+        .catch((cause) => setError(cause instanceof Error ? cause.message : "The writing draft could not be saved."))
+        .finally(() => setWritingSaving(false));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [writingPracticeId, writingResponse, writingRunning, writingSubmitted]);
 
   const resetWriting = () => {
     setWritingTask(null);
@@ -456,6 +668,12 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
     setWritingRunning(false);
     setWritingSubmitted(false);
     setWritingFeedback("");
+    setWritingPracticeId(undefined);
+    setWritingExpiresAt(undefined);
+    setWritingSavedAt(undefined);
+    writingRevisionRef.current = 0;
+    writingLastSavedRef.current = "";
+    writingAutoSubmitRef.current = false;
   };
 
   const changeExam = (next: "IELTS" | "SAT") => {
@@ -466,121 +684,278 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
     setFinished(false);
     setFeedback("");
     setTrace(null);
+    setTargetSkill("");
+    setSourceSessionId(undefined);
+    setGenerationId(undefined);
+    setGradedScore(null);
+    setReview([]);
+    setAttemptId(undefined);
+    setPracticePlan(undefined);
+    setPracticeStatus(undefined);
+    setPracticeProgress({ generated: 0, target: 0 });
+    generationRunRef.current += 1;
     resetWriting();
+    const url = new URL(window.location.href);
+    ["generation", "writing", "source", "skill", "exam", "section"].forEach((key) => url.searchParams.delete(key));
+    window.history.replaceState(null, "", `${url.pathname}${url.search}#exam`);
+  };
+
+  const changeSection = (next: string) => {
+    if (next === section) return;
+    generationRunRef.current += 1;
+    setSection(next);
+    setQuestions([]);
+    setAnswers({});
+    setFeedback("");
+    setFinished(false);
+    setTrace(null);
+    setTargetSkill("");
+    setSourceSessionId(undefined);
+    setGenerationId(undefined);
+    setGradedScore(null);
+    setReview([]);
+    setPracticePlan(undefined);
+    setPracticeStatus(undefined);
+    setPracticeProgress({ generated: 0, target: 0 });
+    resetWriting();
+    const url = new URL(window.location.href);
+    ["generation", "writing", "source", "skill", "exam", "section"].forEach((key) => url.searchParams.delete(key));
+    window.history.replaceState(null, "", `${url.pathname}${url.search}#exam`);
   };
 
   const generate = async () => {
+    setObjectiveBusy(writing ? null : "generate");
+    setWritingBusy(writing ? "generate" : null);
     setBusy(true);
     setError("");
     try {
       if (writing) {
-        const result = await studioPost<{ task: WritingTask } & Trace>({
+        const result = await studioPost<{ practiceId: string; task: WritingTask } & Trace>({
           kind: "writing-generate",
           difficulty,
         }, lang);
         setWritingTask(result.task);
+        setWritingPracticeId(result.practiceId);
         setWritingResponse("");
         setWritingSeconds(result.task.timeLimitMinutes * 60);
         setWritingRunning(false);
         setWritingSubmitted(false);
         setWritingFeedback("");
+        setWritingExpiresAt(undefined);
+        setWritingSavedAt(undefined);
+        writingRevisionRef.current = 0;
+        writingLastSavedRef.current = "";
+        writingAutoSubmitRef.current = false;
         setTrace(result);
         setQuestions([]);
+        const url = new URL(window.location.href);
+        url.searchParams.set("practice", "1");
+        url.searchParams.set("writing", result.practiceId);
+        url.searchParams.delete("generation");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}#exam`);
         return;
       }
-      const result = await studioPost<{ questions: PracticeQuestion[] } & Trace>({
-        kind: "exam-generate",
+      const runId = ++generationRunRef.current;
+      setQuestions([]);
+      setPracticePlan(undefined);
+      setPracticeStatus("planning");
+      setPracticeProgress({ generated: 0, target: 0 });
+      const result = await studioPost<PracticeGenerationPayload>({
+        kind: "exam-generate-plan",
         exam,
         section,
         difficulty,
-        count: 3,
+        targetSkill: targetSkill.trim() || undefined,
+        sourceSessionId,
       }, lang);
-      setQuestions(result.questions);
-      setTrace(result);
+      applyPracticePayload(result, runId);
+      if (result.id) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("practice", "1");
+        url.searchParams.set("generation", result.id);
+        url.searchParams.delete("writing");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}#exam`);
+      }
       setIndex(0);
       setAnswers({});
       setFinished(false);
       setFeedback("");
+      setGradedScore(null);
+      setReview([]);
+      setAttemptId(undefined);
+      await finishPracticeBatches(result, lang, (payload) => applyPracticePayload(payload, runId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : writing
         ? (bn ? "রচনার বিষয় তৈরি করা যায়নি।" : "The writing task could not be generated.")
         : (bn ? "প্রশ্ন তৈরি করা যায়নি।" : "Questions could not be generated."));
     } finally {
       setBusy(false);
+      setObjectiveBusy(null);
+      setWritingBusy(null);
     }
   };
 
-  const submitWriting = async () => {
-    if (!writingTask || writingSubmitted || writingResponse.trim().length < 20) return;
-    setWritingRunning(false);
-    setWritingSubmitted(true);
+  const submitWriting = useCallback(async (expired = false) => {
+    if (!writingTask || !writingPracticeId || writingSubmitted || (!expired && writingResponse.trim().length < 20)) return;
+    setWritingBusy("submit");
     setBusy(true);
     setError("");
     try {
-      const result = await studioPost<{ wordCount: number; feedback: string } & Trace>({
-        kind: "writing-grade",
-        task: writingTask,
+      await writingSavePromiseRef.current.catch(() => undefined);
+      const result = await writingPracticeRequest<WritingPracticePayload>(writingPracticeId, "PATCH", {
+        action: "submit",
         response: writingResponse,
-        elapsedSeconds: (writingTask.timeLimitMinutes * 60) - writingSeconds,
-      }, lang);
-      setWritingFeedback(result.feedback);
-      setTrace(result);
+        revision: writingRevisionRef.current,
+      });
+      writingRevisionRef.current = result.revision;
+      writingLastSavedRef.current = result.response;
+      setWritingResponse(result.response);
+      setWritingRunning(false);
+      setWritingSubmitted(true);
+      setWritingSeconds(result.remainingSeconds);
+      const elapsedMinutes = Math.max(1, Math.round((result.elapsedSeconds || 0) / 60));
+      setWritingFeedback(result.feedback || `### Submission saved\n\n${result.wordCount} words submitted in ${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"}. Request Polaris AI feedback when you are ready for a detailed review.`);
+      setTrace({ source: "deterministic-fallback", model: "none", activity: "writing-submission", attemptId: result.id });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : (bn ? "রচনাটি মূল্যায়ন করা যায়নি।" : "The response could not be evaluated."));
     } finally {
       setBusy(false);
     }
-  };
+  }, [bn, writingPracticeId, writingResponse, writingSubmitted, writingTask]);
 
   const grade = async () => {
-    setFinished(true);
+    if (!generationId) {
+      setError(bn ? "সংরক্ষিত প্রশ্নসেটটি আবার তৈরি করুন।" : "Please generate a saved practice set before grading.");
+      return;
+    }
+    setObjectiveBusy("grade");
     setBusy(true);
     setError("");
     try {
-      const result = await studioPost<{ score: number; feedback: string } & Trace>({
+      const result = await studioPost<{ score: number; feedback: string; review: PracticeReviewItem[]; attemptId: string } & Trace>({
         kind: "exam-grade",
         exam,
-        questions,
+        generationId,
+        answers,
+      }, lang);
+      setFeedback(result.feedback);
+      setTrace(result);
+      setGradedScore(result.score);
+      setReview(result.review);
+      setAttemptId(result.attemptId);
+      setFinished(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : (bn ? "উত্তর যাচাই করা যায়নি।" : "Answers could not be graded."));
+    } finally {
+      setBusy(false);
+      setWritingBusy(null);
+      setObjectiveBusy(null);
+    }
+  };
+
+  const requestCoaching = async () => {
+    if (!generationId || !attemptId) return;
+    setCoachingBusy(true);
+    setError("");
+    try {
+      const result = await studioPost<{ feedback: string } & Trace>({
+        kind: "exam-coach",
+        exam,
+        generationId,
+        attemptId,
         answers,
       }, lang);
       setFeedback(result.feedback);
       setTrace(result);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : (bn ? "উত্তর যাচাই করা যায়নি।" : "Answers could not be graded."));
+      setError(cause instanceof Error ? cause.message : (bn ? "AI কোচিং তৈরি করা যায়নি।" : "AI coaching could not be generated."));
     } finally {
-      setBusy(false);
+      setCoachingBusy(false);
     }
   };
 
+  const startWriting = async () => {
+    if (!writingPracticeId) return;
+    setWritingBusy("start");
+    setBusy(true);
+    setError("");
+    try {
+      const result = await writingPracticeRequest<WritingPracticePayload>(writingPracticeId, "PATCH", { action: "start" });
+      writingRevisionRef.current = result.revision;
+      writingLastSavedRef.current = result.response;
+      setWritingExpiresAt(result.expiresAt);
+      setWritingSeconds(result.remainingSeconds);
+      setWritingRunning(result.remainingSeconds > 0);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Writing practice could not be started.");
+    } finally {
+      setBusy(false);
+      setWritingBusy(null);
+    }
+  };
+
+  const requestWritingCoaching = async () => {
+    if (!writingPracticeId || !writingSubmitted) return;
+    setWritingCoaching(true);
+    setError("");
+    try {
+      const result = await studioPost<{ feedback: string } & Trace>({ kind: "writing-coach", practiceId: writingPracticeId }, lang);
+      setWritingFeedback(result.feedback);
+      setTrace({ ...result, activity: "writing-feedback", attemptId: writingPracticeId });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Writing feedback could not be generated.");
+    } finally {
+      setWritingCoaching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!writingPracticeId || !writingTask || writingSubmitted || writingRunning || writingSeconds !== 0 || !writingExpiresAt || writingAutoSubmitRef.current) return;
+    writingAutoSubmitRef.current = true;
+    void submitWriting(true);
+  }, [submitWriting, writingExpiresAt, writingPracticeId, writingRunning, writingSeconds, writingSubmitted, writingTask]);
+
   if (finished) {
     return (
-      <div className="grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
-        <Card className="border border-aurora-500/20 bg-aurora-500/[0.05] p-6 text-center">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(250px,0.72fr)_minmax(0,1.28fr)]">
+        <Card className="flex min-w-0 flex-col border border-aurora-500/20 bg-aurora-500/[0.05] p-6 text-center">
           <RingMini value={Math.round((score / questions.length) * 100)} size={94} stroke={7} tone="aurora" label={<span className="text-[17px] font-bold">{score}/{questions.length}</span>} />
-          <h2 className="mt-4 font-serif text-[24px] font-bold text-ink">{bn ? "Polaris মূল্যায়ন সম্পন্ন" : "Polaris review complete"}</h2>
+          <h2 className="mt-4 font-serif text-[24px] font-bold text-ink">{bn ? "অনুশীলনের ফলাফল" : "Practice result"}</h2>
           <p className="mt-2 text-[11.5px] text-ink-muted">{exam} · {section} · {difficulty}</p>
-          <Btn className="mt-5" variant="outline" onClick={() => { setFinished(false); setAnswers({}); setIndex(0); }}>{bn ? "আরেকবার চেষ্টা করুন" : "Try this set again"}</Btn>
-          <Btn className="mt-2" variant="accent" onClick={() => void generate()} disabled={busy}>{bn ? "নতুন সেট তৈরি করুন" : "Generate a new set"}</Btn>
+          <div className="mt-5 flex w-full flex-col gap-2">
+            <Btn className="w-full justify-center" variant="outline" onClick={() => { setFinished(false); setAnswers({}); setIndex(0); setGradedScore(null); setReview([]); }}>{bn ? "আরেকবার চেষ্টা করুন" : "Try this set again"}</Btn>
+            <Btn className="w-full justify-center" variant="accent" onClick={() => void generate()} disabled={busy}>{busy ? (bn ? "নতুন সেট তৈরি হচ্ছে…" : "Generating a new set…") : (bn ? "নতুন সেট তৈরি করুন" : "Generate a new set")}</Btn>
+          </div>
+          {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
         </Card>
-        <div className="space-y-3">
-          <Card className="border border-ink-faint/15 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <Pill tone="polaris">Polaris feedback</Pill>
-              <ModelTrace trace={trace} />
+        <div className="min-w-0 space-y-3">
+          <Card className="min-w-0 overflow-hidden border border-ink-faint/15 p-5">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+              <Pill tone="polaris">{trace?.source === "gemma4" ? "Polaris AI coaching" : (bn ? "তাৎক্ষণিক পর্যালোচনা" : "Instant review")}</Pill>
+              <span className="shrink-0"><ModelTrace trace={trace} /></span>
             </div>
-            {busy ? <p className="mt-4 text-[12.5px] text-ink-dim">{bn ? "Polaris আপনার ভুলের ধরন বিশ্লেষণ করছে…" : "Polaris is diagnosing your answer pattern…"}</p> : <MarkdownMessage className="mt-4 text-[12.5px]" text={feedback || error} theme="light" />}
+            {coachingBusy ? <p className="mt-4 break-words text-[12.5px] text-ink-dim">{bn ? "Polaris AI আপনার ভুলের ধরন বিশ্লেষণ করছে…" : "Polaris AI is diagnosing your answer pattern…"}</p> : <MarkdownMessage className="mt-4 min-w-0 break-words text-[12.5px] [overflow-wrap:anywhere]" text={feedback} theme="light" />}
+            {trace?.source !== "gemma4" && <Btn className="mt-4 max-w-full" size="sm" variant="outline" disabled={coachingBusy} onClick={() => void requestCoaching()} icon={<Icon.spark size={12} />}>{bn ? "বিস্তারিত Polaris AI কোচিং নিন" : "Get detailed Polaris AI coaching"}</Btn>}
+            {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
           </Card>
           {questions.map((item, itemIndex) => {
-            const correct = answers[item.id] === item.answer;
+            const reviewed = review.find((entry) => entry.id === item.id);
+            const correct = Boolean(reviewed?.correct);
             return (
-              <details key={item.id} className="rounded-xl border border-ink-faint/15 bg-paper-card p-3.5">
-                <summary className="cursor-pointer list-none text-[12.5px] font-semibold text-ink">
+              <details key={item.id} className="min-w-0 overflow-hidden rounded-xl border border-ink-faint/15 bg-paper-card p-3.5">
+                <summary className="cursor-pointer list-none break-words text-[12.5px] font-semibold text-ink">
                   <span className={cn("mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] text-white", correct ? "bg-aurora-500" : "bg-signal-rose")}>{correct ? "✓" : "×"}</span>
                   {bn ? "প্রশ্ন" : "Question"} {itemIndex + 1}: {item.skill}
                 </summary>
-                <p className="mt-3 pl-7 text-[11.5px] leading-relaxed text-ink-dim">{item.explanation}</p>
+                {reviewed && (
+                  <div className="mt-3 grid gap-2 pl-7 sm:grid-cols-2">
+                    <div className="min-w-0 rounded-lg border border-ink-faint/15 bg-bg/40 p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "আপনার উত্তর:" : "Your answer:"}</span> {reviewed.selectedAnswer === undefined ? (bn ? "ফাঁকা" : "Blank") : <ExamText text={item.options[reviewed.selectedAnswer] || "—"} className="mt-1 text-[10.5px]" />}</div>
+                    <div className="min-w-0 rounded-lg border border-aurora-500/20 bg-aurora-500/[0.06] p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "সঠিক উত্তর:" : "Correct answer:"}</span> <ExamText text={item.options[reviewed.correctAnswer] || "—"} className="mt-1 text-[10.5px]" /></div>
+                  </div>
+                )}
+                <div className="mt-3 min-w-0 pl-7"><ExamText text={reviewed?.explanation || (bn ? "ব্যাখ্যা পাওয়া যায়নি।" : "Explanation unavailable.")} className="text-[11.5px] text-ink-dim" /></div>
                 {item.section === "Listening" && item.passage && (
-                  <p className="mt-2 pl-7 text-[11px] leading-relaxed text-ink-muted"><span className="font-semibold text-ink-dim">{bn ? "ট্রান্সক্রিপ্ট:" : "Transcript:"}</span> {item.passage}</p>
+                  <div className="mt-2 min-w-0 pl-7 text-[11px] text-ink-muted"><span className="font-semibold text-ink-dim">{bn ? "ট্রান্সক্রিপ্ট:" : "Transcript:"}</span><ExamText text={item.passage} className="mt-1 text-[11px] text-ink-muted" /></div>
                 )}
               </details>
             );
@@ -595,44 +970,52 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
       <Card className="relative overflow-hidden border border-ink-faint/15 p-5">
         <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-polaris-500/15 blur-3xl" />
         <Pill tone="polaris"><Icon.spark size={11} /> {writing ? (bn ? "সময়বদ্ধ রচনা" : "Timed writing task") : (bn ? "চাহিদামতো প্রশ্ন" : "On-demand questions")}</Pill>
-        <h2 className="mt-3 font-serif text-[24px] font-bold text-ink">{writing ? (bn ? "Polaris IELTS রচনা পরীক্ষা" : "Polaris IELTS Writing Exam") : (bn ? "Polaris মক পরীক্ষার নির্মাতা" : "Polaris Mock Generator")}</h2>
+        <h2 className="mt-3 font-serif text-[24px] font-bold text-ink">{writing ? (bn ? "Polaris AI IELTS রচনা অনুশীলন" : "Polaris AI IELTS Writing Practice") : (bn ? "Polaris AI অনুশীলন সেট" : "Polaris AI Practice Sets")}</h2>
         <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{writing
-          ? (bn ? "Polaris একটি বাস্তবসম্মত IELTS Writing Task 2 বিষয় তৈরি করবে। ৪০ মিনিটের মধ্যে কমপক্ষে ২৫০ শব্দ লিখুন।" : "Polaris creates a realistic IELTS Writing Task 2 prompt. Write at least 250 words within 40 minutes.")
-          : (bn ? "পরীক্ষা, বিভাগ ও কঠিনতার মাত্রা বেছে নিন। প্রতিবার নতুন মৌলিক অনুশীলন সেট তৈরি হবে।" : "Choose an exam, section, and difficulty. Polaris creates a fresh original practice set every time.")}</p>
+          ? (bn ? "Polaris AI একটি বাস্তবসম্মত IELTS Writing Task 2 বিষয় তৈরি করবে। ৪০ মিনিটের মধ্যে কমপক্ষে ২৫০ শব্দ লিখুন।" : "Polaris AI creates a realistic IELTS Writing Task 2 prompt. Write at least 250 words within 40 minutes.")
+          : (bn ? "পরীক্ষা, বিভাগ ও কঠিনতার মাত্রা বেছে নিন। প্রতিবার নতুন মৌলিক অনুশীলন সেট তৈরি হবে।" : "Choose an exam, section, and difficulty. Polaris AI creates a fresh original practice set every time.")}</p>
         <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => changeExam(value as "IELTS" | "SAT")} />
-        <label className="mt-4 block text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-          {bn ? "বিভাগ" : "Section"}
-          <select value={section} onChange={(event) => { setSection(event.target.value); setQuestions([]); setAnswers({}); setFeedback(""); setFinished(false); setTrace(null); resetWriting(); }} className="mt-1.5 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] normal-case tracking-normal text-ink outline-none">
-            {sections.map((item) => <option key={item} value={item}>{bn ? translateUiText(item) : item}</option>)}
-          </select>
-        </label>
+        <div className="mt-4 block text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+          <div>{bn ? "বিভাগ" : "Section"}</div>
+          <div role="tablist" aria-label={bn ? "অনুশীলন বিভাগ" : "Practice section"} className="mt-1.5 grid gap-1 rounded-xl border border-ink-faint/20 bg-bg p-1" style={{ gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` }}>
+            {sections.map((item) => <button key={item} type="button" role="tab" aria-selected={section === item} onClick={() => changeSection(item)} className={cn("min-w-0 rounded-lg px-2 py-2 text-[11px] font-semibold transition", section === item ? "bg-paper text-ink shadow-sm" : "text-ink-muted hover:text-ink")}>{bn ? translateUiText(item) : item}</button>)}
+          </div>
+        </div>
         <label className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-ink-muted">
           {bn ? "কঠিনতার মাত্রা" : "Difficulty"}
           <select value={difficulty} onChange={(event) => setDifficulty(event.target.value as (typeof DIFFICULTIES)[number])} className="mt-1.5 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] normal-case tracking-normal text-ink outline-none">
             {DIFFICULTIES.map((item) => <option key={item} value={item}>{bn ? translateUiText(item) : item}</option>)}
           </select>
         </label>
-        <Btn className="mt-5 w-full" variant="accent" size="lg" disabled={busy} onClick={() => void generate()} icon={<Icon.spark size={13} />}>
-          {busy
-            ? (writing ? (bn ? "Polaris রচনার বিষয় তৈরি করছে…" : "Polaris is creating the writing task…") : (bn ? "Polaris প্রশ্ন তৈরি করছে…" : "Polaris is generating…"))
-            : (writing ? (bn ? "নতুন রচনার বিষয় তৈরি করুন" : "Generate writing task") : (bn ? "নতুন মক তৈরি করুন" : "Generate fresh mock"))}
+        {!writing && (
+          <label className="mt-3 block text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+            {bn ? "লক্ষ্য দক্ষতা" : "Target skill"}
+            <input value={targetSkill} onChange={(event) => setTargetSkill(event.target.value.slice(0, 100))} className="mt-1.5 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] normal-case tracking-normal text-ink outline-none focus:border-polaris-500" placeholder={bn ? "যেমন: Advanced Math" : "Optional, for example Advanced Math"} />
+          </label>
+        )}
+        <Btn className="mt-5 w-full" variant="accent" size="lg" disabled={busy || restoring} onClick={() => void generate()} icon={<Icon.spark size={13} />}>
+          {restoring
+            ? (bn ? "সংরক্ষিত সেট ফিরিয়ে আনা হচ্ছে…" : "Restoring saved set…")
+            : busy
+            ? (writing ? writingBusy === "start" ? (bn ? "রচনা অনুশীলন শুরু হচ্ছে…" : "Starting writing practice…") : writingBusy === "submit" ? (bn ? "রচনা জমা হচ্ছে…" : "Submitting writing…") : (bn ? "Polaris AI রচনার বিষয় তৈরি করছে…" : "Polaris AI is creating the writing task…") : objectiveBusy === "grade" ? (bn ? "উত্তর যাচাই হচ্ছে…" : "Checking answers…") : (bn ? "Polaris AI প্রশ্ন তৈরি করছে…" : "Polaris AI is generating…"))
+            : (writing ? (bn ? "নতুন রচনার বিষয় তৈরি করুন" : "Generate writing task") : (bn ? "নতুন অনুশীলন সেট" : "Generate practice set"))}
         </Btn>
         {error && <p className="mt-3 text-[11px] text-signal-rose">{error}</p>}
         <div className="mt-5 rounded-xl border border-aurora-500/20 bg-aurora-500/[0.06] p-3 text-[11px] leading-relaxed text-ink-dim">
           {writing
-            ? (bn ? "এটি একটি অনানুষ্ঠানিক IELTS অনুশীলন। Polaris-এর মূল্যায়ন কোনো আনুষ্ঠানিক IELTS ব্যান্ড স্কোর নয়।" : "This is unofficial IELTS practice. Polaris evaluation is not an official IELTS band score.")
+            ? (bn ? "এটি একটি অনানুষ্ঠানিক IELTS অনুশীলন। Polaris AI-এর মূল্যায়ন কোনো আনুষ্ঠানিক IELTS ব্যান্ড স্কোর নয়।" : "This is unofficial IELTS practice. Polaris AI's evaluation is not an official IELTS band score.")
             : (bn ? "এগুলো মৌলিক অনানুষ্ঠানিক অনুশীলন প্রশ্ন। এগুলো IELTS ব্যান্ড বা SAT স্কোরের আনুষ্ঠানিক পূর্বাভাস নয়।" : "These are original unofficial practice questions. They do not predict an official IELTS band or SAT score.")}
         </div>
       </Card>
 
-      <Card className="min-h-[520px] overflow-hidden border border-ink-faint/15">
+      <Card className="min-h-[520px] min-w-0 overflow-hidden border border-ink-faint/15">
         {writing ? (
           !writingTask ? (
             <div className="grid min-h-[520px] place-items-center p-8 text-center">
               <div>
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500"><Icon.spark size={25} /></div>
                 <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{bn ? "আপনার রচনার পরীক্ষা তৈরি করুন" : "Create your writing exam"}</h3>
-                <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris একটি মৌলিক IELTS Writing Task 2 বিষয় তৈরি করবে। প্রশ্ন তৈরি হলে টাইমার আলাদাভাবে শুরু করুন।" : "Polaris will create an original IELTS Writing Task 2 prompt. Start the timer separately when you are ready."}</p>
+                <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris AI একটি মৌলিক IELTS Writing Task 2 বিষয় তৈরি করবে। প্রশ্ন তৈরি হলে টাইমার আলাদাভাবে শুরু করুন।" : "Polaris AI will create an original IELTS Writing Task 2 prompt. Start the timer separately when you are ready."}</p>
               </div>
             </div>
           ) : writingSubmitted ? (
@@ -640,15 +1023,17 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <Pill tone="aurora"><Icon.check size={11} /> {bn ? "জমা হয়েছে" : "Submitted"}</Pill>
-                  <h3 className="mt-3 font-serif text-[24px] font-bold text-ink">{bn ? "Polaris রচনা পর্যালোচনা" : "Polaris writing review"}</h3>
+                  <h3 className="mt-3 font-serif text-[24px] font-bold text-ink">{bn ? "রচনা জমা হয়েছে" : "Writing submitted"}</h3>
                   <p className="mt-1 text-[11px] text-ink-muted">{responseWords} {bn ? "শব্দ" : "words"} · {writingTask.title}</p>
                 </div>
                 <ModelTrace trace={trace} />
               </div>
-              <Card className="mt-5 border border-ink-faint/15 p-5">
-                {busy
-                  ? <p className="text-[12.5px] text-ink-dim">{bn ? "Polaris Task Response, সামঞ্জস্য, শব্দভাণ্ডার ও ব্যাকরণ বিশ্লেষণ করছে…" : "Polaris is evaluating task response, coherence, vocabulary, and grammar…"}</p>
-                  : <MarkdownMessage className="text-[12.5px]" text={writingFeedback || error} theme="light" />}
+              <Card className="mt-5 min-w-0 overflow-hidden border border-ink-faint/15 p-5">
+                {writingCoaching
+                  ? <p className="text-[12.5px] text-ink-dim">{bn ? "Polaris AI Task Response, সামঞ্জস্য, শব্দভাণ্ডার ও ব্যাকরণ বিশ্লেষণ করছে…" : "Polaris AI is evaluating task response, coherence, vocabulary, and grammar…"}</p>
+                  : <MarkdownMessage className="min-w-0 break-words text-[12.5px] [overflow-wrap:anywhere]" text={writingFeedback} theme="light" />}
+                {trace?.source !== "gemma4" && <Btn className="mt-4" size="sm" variant="outline" disabled={writingCoaching} onClick={() => void requestWritingCoaching()} icon={<Icon.spark size={12} />}>{bn ? "Polaris AI রচনা মূল্যায়ন নিন" : "Get Polaris AI writing feedback"}</Btn>}
+                {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
               </Card>
               <details className="mt-4 rounded-xl border border-ink-faint/15 bg-bg/40 p-4">
                 <summary className="cursor-pointer text-[12px] font-semibold text-ink">{bn ? "জমা দেওয়া রচনা দেখুন" : "View submitted response"}</summary>
@@ -676,7 +1061,7 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
               {!writingRunning && writingSeconds === writingTask.timeLimitMinutes * 60 && !writingResponse ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-polaris-500/30 bg-polaris-500/[0.04] p-5 text-center">
                   <p className="text-[12px] leading-relaxed text-ink-dim">{bn ? "প্রস্তুত হলে পরীক্ষা শুরু করুন। শুরু করার পর টাইমার বিরতি দেওয়া যাবে না।" : "Start when you are ready. The timer cannot be paused after the exam begins."}</p>
-                  <Btn className="mt-4" variant="accent" size="lg" onClick={() => setWritingRunning(true)}>{bn ? "৪০ মিনিটের পরীক্ষা শুরু করুন" : "Start 40-minute exam"}</Btn>
+                  <Btn className="mt-4" variant="accent" size="lg" disabled={busy || !writingPracticeId} onClick={() => void startWriting()}>{busy ? (bn ? "শুরু হচ্ছে…" : "Starting…") : (bn ? "৪০ মিনিটের পরীক্ষা শুরু করুন" : "Start 40-minute exam")}</Btn>
                 </div>
               ) : (
                 <div className="mt-5">
@@ -696,8 +1081,8 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
                   />
                   {writingSeconds === 0 && <p className="mt-2 text-[11px] font-semibold text-signal-rose">{bn ? "সময় শেষ। এখন আপনার লেখা জমা দিন।" : "Time is up. Submit the response for review."}</p>}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[10.5px] text-ink-muted">{bn ? "খসড়াটি এই পরীক্ষার ভেতরেই থাকে এবং জমা দেওয়ার পর সম্পাদনা করা যায় না।" : "The response stays in this exam and cannot be edited after submission."}</p>
-                    <Btn variant="accent" disabled={busy || responseWords < 20} onClick={() => void submitWriting()}>{bn ? "জমা দিয়ে Polaris মূল্যায়ন" : "Submit for Polaris review"} <Icon.check size={13} /></Btn>
+                    <p className="text-[10.5px] text-ink-muted">{writingSaving ? (bn ? "খসড়া সংরক্ষণ হচ্ছে…" : "Saving draft…") : writingSavedAt ? (bn ? "খসড়া সংরক্ষিত" : "Draft saved") : (bn ? "খসড়া স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।" : "Your draft is saved automatically.")}</p>
+                    <Btn variant="accent" disabled={busy || writingSaving || responseWords < 20} onClick={() => void submitWriting()}>{busy ? (bn ? "জমা হচ্ছে…" : "Submitting…") : (bn ? "রচনা জমা দিন" : "Submit writing")} <Icon.check size={13} /></Btn>
                   </div>
                 </div>
               )}
@@ -706,29 +1091,37 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
         ) : !question ? (
           <div className="grid min-h-[520px] place-items-center p-8 text-center">
             <div>
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500"><Icon.spark size={25} /></div>
-              <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{bn ? "একটি নতুন মক তৈরি করুন" : "Create a fresh mock"}</h3>
-              <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris নির্বাচিত বিভাগের দক্ষতা, কঠিনতার মাত্রা ও মৌলিক বিভ্রান্তিকর উত্তর পরিকল্পনা করবে।" : "Polaris plans skill coverage, difficulty, and original distractors for the selected section."}</p>
+              <div className={cn("mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500", practiceStatus && practiceStatus !== "complete" && "animate-pulse")}><Icon.spark size={25} /></div>
+              <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{practiceStatus ? (bn ? "অনুশীলন সেট পরিকল্পনা হচ্ছে" : "Planning your full practice set") : (bn ? "একটি নতুন অনুশীলন সেট তৈরি করুন" : "Create a practice set")}</h3>
+              <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{practicePlan?.coverageSummary || (bn ? "Polaris AI নির্বাচিত বিভাগের দক্ষতা, কঠিনতার মাত্রা ও মৌলিক বিভ্রান্তিকর উত্তর পরিকল্পনা করবে।" : "Polaris AI plans skill coverage, difficulty, and original distractors for the selected section.")}</p>
+              {practiceStatus && <div className="mx-auto mt-5 w-64"><Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 4} tone="polaris" height="h-1.5" /><p className="mt-2 text-[10.5px] text-ink-muted">{practiceProgress.generated} / {practiceProgress.target || "—"} questions ready</p></div>}
             </div>
           </div>
         ) : (
           <div className="p-5 sm:p-7">
+            {practicePlan && (
+              <div className="mb-5 rounded-xl border border-polaris-500/20 bg-polaris-500/[0.05] p-3">
+                <div className="flex items-center justify-between gap-3"><span className="text-[11px] font-semibold text-ink">{practicePlan.title}</span><span className="text-[10px] text-ink-muted">{practiceProgress.generated}/{practiceProgress.target} ready</span></div>
+                <Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 0} tone="polaris" height="h-1 mt-2" />
+                {practiceStatus === "generating" && <p className="mt-2 text-[10px] text-ink-muted">You can begin now. More questions will appear as each reviewed batch is saved.</p>}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2"><Pill tone="polaris">{question.section}</Pill><Tag tone="ink">{question.difficulty}</Tag></div>
-              <span className="font-mono text-[11px] text-ink-muted">{index + 1} / {questions.length}</span>
+              <div className="flex flex-wrap items-center gap-2"><Pill tone="polaris">{question.section}</Pill><Tag tone="ink">{question.difficulty}</Tag>{targetSkill && <Pill tone="nova">Focus: {targetSkill}</Pill>}</div>
+              <span className="font-mono text-[11px] text-ink-muted">{index + 1} / {practiceProgress.target || questions.length}</span>
             </div>
-            <Progress value={((index + 1) / questions.length) * 100} tone="polaris" height="h-1 mt-4" />
+            <Progress value={((index + 1) / (practiceProgress.target || questions.length)) * 100} tone="polaris" height="h-1 mt-4" />
             {question.passage && (listening
               ? <ListeningExamPlayer key={question.id} script={question.passage} questionId={question.id} lang={lang} />
-              : <div className="mt-6 rounded-2xl border border-nova-500/20 bg-nova-500/[0.06] p-4 text-[13px] leading-[1.75] text-ink-dim">{question.passage}</div>)}
-            <h3 className="mt-6 text-[17px] font-semibold leading-relaxed text-ink">{question.prompt}</h3>
+              : <div className="mt-6 min-w-0 rounded-2xl border border-nova-500/20 bg-nova-500/[0.06] p-4"><ExamText text={question.passage} className="text-[13px] leading-[1.75] text-ink-dim" /></div>)}
+            <div className="mt-6 min-w-0"><ExamText text={question.prompt} className="text-[17px] font-semibold leading-relaxed text-ink" /></div>
             <div className="mt-4 grid gap-2.5">
               {question.options.map((option, optionIndex) => {
                 const selected = answers[question.id] === optionIndex;
                 return (
                   <button key={`${question.id}-${optionIndex}`} onClick={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))} className={cn("group flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition", selected ? "border-polaris-500 bg-polaris-500/[0.09]" : "border-ink-faint/20 bg-bg/40 hover:border-polaris-500/40")}>
                     <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold", selected ? "border-polaris-500 bg-polaris-500 text-white" : "border-ink-faint/30 text-ink-muted")}>{String.fromCharCode(65 + optionIndex)}</span>
-                    <span className="pt-0.5 text-[12.5px] leading-relaxed text-ink">{option}</span>
+                    <span className="min-w-0 flex-1"><ExamText text={option} className="pt-0.5 text-[12.5px] leading-relaxed text-ink" /></span>
                   </button>
                 );
               })}
@@ -737,7 +1130,9 @@ export function GemmaExamStudio({ lang }: { lang: Lang }) {
               <Btn variant="ghost" disabled={index === 0} onClick={() => setIndex((value) => value - 1)}>{bn ? "আগের প্রশ্ন" : "Previous"}</Btn>
               {index < questions.length - 1
                 ? <Btn variant="accent" disabled={answers[question.id] === undefined} onClick={() => setIndex((value) => value + 1)}>{bn ? "পরের প্রশ্ন" : "Next question"} <Icon.arrow size={13} /></Btn>
-                : <Btn variant="accent" disabled={answers[question.id] === undefined || busy} onClick={() => void grade()}>{bn ? "Polaris দিয়ে মূল্যায়ন করুন" : "Grade with Polaris"} <Icon.check size={13} /></Btn>}
+                : practiceStatus !== "complete"
+                  ? <Btn variant="accent" disabled>{bn ? "আরও প্রশ্ন তৈরি হচ্ছে…" : "Generating next questions…"}</Btn>
+                  : <Btn variant="accent" disabled={answers[question.id] === undefined || busy} onClick={() => void grade()}>{bn ? "উত্তর যাচাই করুন" : "Check answers"} <Icon.check size={13} /></Btn>}
             </div>
           </div>
         )}
@@ -863,10 +1258,10 @@ export function GemmaVideoLearning({ lang }: { lang: Lang }) {
       />
       <div className={cn("space-y-4", interpreterOn && "xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0")}>
         <Card className="border border-ink-faint/15 p-4">
-          <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Polaris পাঠ অনুসন্ধান" : "Polaris lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
+          <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Polaris AI পাঠ অনুসন্ধান" : "Polaris AI lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
           <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => { const next = value as "IELTS" | "SAT"; setExam(next); chooseSection(next === "IELTS" ? "Listening" : "Reading and Writing", next); }} />
           <div className="mt-3 flex flex-wrap gap-1.5">{sections.map((item) => <button key={item} onClick={() => chooseSection(item)} className={cn("rounded-full border px-3 py-1.5 text-[10.5px] font-semibold transition", item === section ? "border-polaris-500 bg-polaris-500 text-white" : "border-ink-faint/20 text-ink-dim hover:border-polaris-500/40")}>{tr(item)}</button>)}</div>
-          <Btn className="mt-4 w-full" variant="accent" disabled={busy} onClick={() => void refresh()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris খুঁজছে…" : "Polaris is searching…") : (bn ? "Polaris দিয়ে হালনাগাদ করুন" : "Refresh with Polaris")}</Btn>
+          <Btn className="mt-4 w-full" variant="accent" disabled={busy} onClick={() => void refresh()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris AI খুঁজছে…" : "Polaris AI is searching…") : (bn ? "Polaris AI দিয়ে হালনাগাদ করুন" : "Refresh with Polaris AI")}</Btn>
         </Card>
         <Card className="max-h-[390px] space-y-2 overflow-y-auto border border-ink-faint/15 p-3">
           {visibleVideos.map((item, index) => (
@@ -919,13 +1314,13 @@ export function GemmaNotesStudio({ lang }: { lang: Lang }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[0.78fr_1.22fr]">
       <Card className="border border-ink-faint/15 p-5">
-        <Pill tone="nova"><Icon.spark size={11} /> {bn ? "Polaris জ্ঞানভান্ডার" : "Polaris knowledge memory"}</Pill>
+        <Pill tone="nova"><Icon.spark size={11} /> {bn ? "Polaris AI জ্ঞানভান্ডার" : "Polaris AI knowledge memory"}</Pill>
         <h2 className="mt-3 font-serif text-[23px] font-bold text-ink">{bn ? "প্রতিক্রিয়া থেকে নোট তৈরি করুন" : "Turn feedback into a reusable note"}</h2>
-        <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "আপনার নোট এই ব্রাউজারে থাকে। Polaris এটিকে সারাংশ, মূল ধারণা ও পরবর্তী কাজে সাজায়।" : "Your notes stay in this browser. Polaris turns them into a summary, key concepts, and next actions."}</p>
+        <p className="mt-2 text-[12px] leading-relaxed text-ink-dim">{bn ? "আপনার নোট এই ব্রাউজারে থাকে। Polaris AI এটিকে সারাংশ, মূল ধারণা ও পরবর্তী কাজে সাজায়।" : "Your notes stay in this browser. Polaris AI turns them into a summary, key concepts, and next actions."}</p>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={bn ? "নোটের শিরোনাম" : "Note title"} className="mt-4 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] text-ink outline-none focus:border-polaris-500" />
         <textarea value={content} onChange={(event) => setContent(event.target.value)} rows={6} placeholder={bn ? "যা শিখলেন বা মনে রাখতে চান…" : "What did you learn or want to remember?"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12.5px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-        <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={3} placeholder={bn ? "Polaris-এর প্রতিক্রিয়া এখানে দিন (ঐচ্ছিক)" : "Paste Polaris feedback (optional)"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-        <Btn className="mt-3 w-full" variant="accent" disabled={busy || title.trim().length < 2 || content.trim().length < 5} onClick={() => void save()}>{busy ? (bn ? "Polaris সাজাচ্ছে…" : "Polaris is structuring…") : (bn ? "নোট সংরক্ষণ ও বিশ্লেষণ করুন" : "Save and analyze note")}</Btn>
+        <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={3} placeholder={bn ? "AI প্রতিক্রিয়া এখানে দিন (ঐচ্ছিক)" : "Paste AI feedback (optional)"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
+        <Btn className="mt-3 w-full" variant="accent" disabled={busy || title.trim().length < 2 || content.trim().length < 5} onClick={() => void save()}>{busy ? (bn ? "Polaris AI সাজাচ্ছে…" : "Polaris AI is structuring…") : (bn ? "নোট সংরক্ষণ ও বিশ্লেষণ করুন" : "Save and analyze note")}</Btn>
       </Card>
       <div className="grid content-start gap-3 md:grid-cols-2">
         {notes.length === 0 && <Card className="col-span-full grid min-h-[260px] place-items-center border border-dashed border-ink-faint/25 p-8 text-center"><div><h3 className="font-serif text-[21px] font-bold text-ink">{bn ? "জ্ঞানভান্ডার এখন খালি" : "Your knowledge vault is empty"}</h3><p className="mt-2 text-[12px] text-ink-dim">{bn ? "মক পরীক্ষার প্রতিক্রিয়া, রচনার অন্তর্দৃষ্টি বা রোডম্যাপ গবেষণা থেকে প্রথম নোট তৈরি করুন।" : "Create the first note from mock feedback, essay insight, or roadmap research."}</p></div></Card>}
@@ -1192,7 +1587,7 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
       setTranslation("");
       setResponse("");
     } catch (cause) {
-      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris হাতের লেখা পড়তে পারেনি।" : "Polaris could not read the handwriting."));
+      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris AI হাতের লেখা পড়তে পারেনি।" : "Polaris AI could not read the handwriting."));
     } finally {
       setScanBusy(false);
     }
@@ -1210,7 +1605,7 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
       }, lang);
       setTranslation(result.text);
     } catch (cause) {
-      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris অনুবাদ করতে পারেনি।" : "Polaris could not translate the essay."));
+      setScanError(cause instanceof Error ? cause.message : (bn ? "Polaris AI অনুবাদ করতে পারেনি।" : "Polaris AI could not translate the essay."));
     } finally {
       setTranslationBusy(false);
     }
@@ -1249,16 +1644,16 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
         <div className="pointer-events-none absolute -right-14 -top-20 h-52 w-52 rounded-full bg-aurora-500/10 blur-3xl" />
         <div className="relative grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
           <div>
-            <Pill tone="aurora"><Icon.spark size={11} /> {bn ? "Polaris হাতের লেখা স্ক্যানার" : "Polaris handwriting scanner"}</Pill>
+            <Pill tone="aurora"><Icon.spark size={11} /> {bn ? "Polaris AI হাতের লেখা স্ক্যানার" : "Polaris AI handwriting scanner"}</Pill>
             <h2 className="mt-3 font-serif text-[23px] font-bold text-ink">{bn ? "ছবি থেকে সম্পাদনাযোগ্য রচনা" : "From handwriting to an editable essay"}</h2>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-dim">{bn ? "বাংলা, ইংরেজি বা মিশ্র হাতের লেখা ছবি তুলুন বা আপলোড করুন। Polaris মূল ভাষা ও অনুচ্ছেদ ঠিক রেখে লেখাটি তুলবে।" : "Capture or upload Bengali, English, or mixed handwriting. Polaris preserves the original language, wording, and paragraphs."}</p>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-ink-dim">{bn ? "বাংলা, ইংরেজি বা মিশ্র হাতের লেখা ছবি তুলুন বা আপলোড করুন। Polaris AI মূল ভাষা ও অনুচ্ছেদ ঠিক রেখে লেখাটি তুলবে।" : "Capture or upload Bengali, English, or mixed handwriting. Polaris AI preserves the original language, wording, and paragraphs."}</p>
             <label className="mt-4 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-aurora-500/35 bg-bg/45 p-4 text-center transition hover:border-aurora-500/70 hover:bg-aurora-500/[0.05]">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-aurora-500/15 text-lg text-aurora-600">↑</span>
               <span className="mt-2 text-[12px] font-semibold text-ink">{scan ? (bn ? "অন্য ছবি বেছে নিন" : "Choose another image") : (bn ? "স্ক্যান করুন বা ছবি আপলোড করুন" : "Scan or upload a page")}</span>
               <span className="mt-1 text-[9.5px] text-ink-muted">JPEG, PNG, WebP</span>
               <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={(event) => void chooseImage(event.target.files?.[0])} />
             </label>
-            <p className="mt-2 text-[9.5px] leading-relaxed text-ink-muted">{bn ? "ছবি সংরক্ষণ করা হয় না। সক্রিয় extraction অনুরোধে এটি শুধু AI প্রক্রিয়ায় পাঠানো হয়।" : "The image is not stored. It is used only for the active AI extraction request."}</p>
+            <p className="mt-2 text-[9.5px] leading-relaxed text-ink-muted">{bn ? "ছবি সংরক্ষণ করা হয় না। এটি শুধু সক্রিয় extraction অনুরোধে প্রসেস করা হয়।" : "The image is not stored. It is processed only for the active extraction request."}</p>
           </div>
           <div className="rounded-2xl border border-ink-faint/15 bg-bg/50 p-4">
             {scan ? (
@@ -1282,9 +1677,9 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
                     <Tag tone="aurora">{sourceLanguage === "bn" ? "বাংলা" : sourceLanguage === "mixed" ? (bn ? "মিশ্র ভাষা" : "Mixed") : "English"}</Tag>
                     {uncertainText && <Tag tone="nova">{bn ? "অস্পষ্ট অংশ চিহ্নিত" : "Unclear text marked"}</Tag>}
                   </div>
-                  <Btn className="mt-3 w-full" variant="accent" disabled={scanBusy} onClick={() => void extractHandwriting()} icon={<Icon.spark size={13} />}>{scanBusy ? (bn ? "Polaris পড়ছে…" : "Polaris is reading…") : (bn ? "Polaris দিয়ে লেখা তুলুন" : "Extract with Polaris")}</Btn>
+                  <Btn className="mt-3 w-full" variant="accent" disabled={scanBusy} onClick={() => void extractHandwriting()} icon={<Icon.spark size={13} />}>{scanBusy ? (bn ? "Polaris AI পড়ছে…" : "Polaris AI is reading…") : (bn ? "Polaris AI দিয়ে লেখা তুলুন" : "Extract with Polaris AI")}</Btn>
                   {(sourceLanguage === "bn" || sourceLanguage === "mixed") && draft.trim() && (
-                    <Btn className="mt-2 w-full" variant="outline" disabled={translationBusy} onClick={() => void translateToEnglish()}>{translationBusy ? (bn ? "ইংরেজিতে অনুবাদ হচ্ছে…" : "Translating to English…") : (bn ? "Polaris দিয়ে ইংরেজিতে রূপান্তর" : "Convert to English with Polaris")}</Btn>
+                    <Btn className="mt-2 w-full" variant="outline" disabled={translationBusy} onClick={() => void translateToEnglish()}>{translationBusy ? (bn ? "ইংরেজিতে অনুবাদ হচ্ছে…" : "Translating to English…") : (bn ? "Polaris AI দিয়ে ইংরেজিতে রূপান্তর" : "Convert to English with Polaris AI")}</Btn>
                   )}
                   {uncertainText && <p className="mt-3 rounded-xl bg-nova-500/[0.08] p-2.5 text-[10.5px] leading-relaxed text-ink-dim">{uncertainText}</p>}
                   {scanError && <p className="mt-3 text-[10.5px] text-signal-rose">{scanError}</p>}
@@ -1292,14 +1687,14 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
               </div>
             ) : (
               <div className="grid min-h-64 place-items-center text-center">
-                <div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-aurora-500/[0.09] text-aurora-600"><Icon.spark size={22} /></div><p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-ink-dim">{bn ? "পরিষ্কার আলোতে পুরো পৃষ্ঠা সোজা করে ছবি তুলুন। Polaris বাংলা অক্ষর, ইংরেজি লেখা ও মিশ্র ভাষা শনাক্ত করবে।" : "Photograph the full page straight-on in clear light. Polaris detects Bengali script, English writing, and mixed-language essays."}</p></div>
+                <div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-aurora-500/[0.09] text-aurora-600"><Icon.spark size={22} /></div><p className="mt-3 max-w-sm text-[11.5px] leading-relaxed text-ink-dim">{bn ? "পরিষ্কার আলোতে পুরো পৃষ্ঠা সোজা করে ছবি তুলুন। Polaris AI বাংলা অক্ষর, ইংরেজি লেখা ও মিশ্র ভাষা শনাক্ত করবে।" : "Photograph the full page straight-on in clear light. Polaris AI detects Bengali script, English writing, and mixed-language essays."}</p></div>
               </div>
             )}
           </div>
         </div>
         {translation && (
           <div className="relative mt-4 rounded-2xl border border-polaris-500/20 bg-bg/55 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[12.5px] font-semibold text-ink">{bn ? "Polaris-এর ইংরেজি অনুবাদ" : "Polaris English translation"}</h3><div className="flex gap-2"><Btn size="sm" variant="outline" onClick={() => { setDraft(translation); setSourceLanguage("en"); }}>{bn ? "বর্তমান খসড়ায় ব্যবহার" : "Use in current draft"}</Btn><Btn size="sm" variant="primary" onClick={saveEnglishCopy}>{bn ? "নতুন কপি হিসেবে সংরক্ষণ" : "Save as a new copy"}</Btn></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[12.5px] font-semibold text-ink">{bn ? "Polaris AI-এর ইংরেজি অনুবাদ" : "Polaris AI English translation"}</h3><div className="flex gap-2"><Btn size="sm" variant="outline" onClick={() => { setDraft(translation); setSourceLanguage("en"); }}>{bn ? "বর্তমান খসড়ায় ব্যবহার" : "Use in current draft"}</Btn><Btn size="sm" variant="primary" onClick={saveEnglishCopy}>{bn ? "নতুন কপি হিসেবে সংরক্ষণ" : "Save as a new copy"}</Btn></div></div>
             <textarea value={translation} onChange={(event) => setTranslation(event.target.value)} rows={8} className="mt-3 w-full resize-y rounded-xl border border-ink-faint/15 bg-bg px-3 py-3 text-[12.5px] leading-[1.7] text-ink outline-none focus:border-polaris-500" />
           </div>
         )}
@@ -1314,16 +1709,16 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
           </div>
           <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={bn ? "খসড়ার শিরোনাম" : "Draft title"} className="mt-3 h-10 w-full rounded-xl border border-ink-faint/20 bg-bg px-3 text-[12.5px] font-semibold text-ink outline-none focus:border-polaris-500" />
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={2} placeholder={bn ? "রচনার বিষয় বা প্রশ্ন" : "Essay prompt or question"} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[12px] leading-relaxed text-ink outline-none focus:border-polaris-500" />
-          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={16} placeholder={bn ? "নিজের ভাষায় খসড়া লিখুন। Polaris আপনার কণ্ঠ ও তথ্য বজায় রেখে সাহায্য করবে।" : "Write in your own voice. Polaris will help while preserving your facts and authorship."} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[13px] leading-[1.75] text-ink outline-none focus:border-polaris-500" />
+          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={16} placeholder={bn ? "নিজের ভাষায় খসড়া লিখুন। Polaris AI আপনার কণ্ঠ ও তথ্য বজায় রেখে সাহায্য করবে।" : "Write in your own voice. Polaris AI will help while preserving your facts and authorship."} className="mt-2 w-full resize-y rounded-xl border border-ink-faint/20 bg-bg px-3 py-3 text-[13px] leading-[1.75] text-ink outline-none focus:border-polaris-500" />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><p className="text-[10.5px] leading-relaxed text-ink-muted">{bn ? "প্রতিটি খসড়া এই ব্রাউজারে আলাদাভাবে স্বয়ংক্রিয়ভাবে সংরক্ষিত হয়।" : "Every draft autosaves separately in this browser."}</p><Btn size="sm" variant="outline" onClick={saveDraft}>{bn ? "এখন সংরক্ষণ করুন" : "Save now"}</Btn></div>
           {savedAt && <p className="mt-1 text-right text-[9px] text-aurora-600">{bn ? "সংরক্ষিত" : "Saved"} · {new Date(savedAt).toLocaleTimeString(lang === "bn" ? "bn-BD" : "en-US", { hour: "2-digit", minute: "2-digit" })}</p>}
         </Card>
         <Card className="border border-ink-faint/15 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "নৈতিক Polaris পরামর্শক" : "Ethical Polaris coach"}</div><h3 className="mt-1 font-serif text-[21px] font-bold text-ink">{bn ? "আপনার কণ্ঠ, আরও পরিষ্কার" : "Your voice, made clearer"}</h3></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "নৈতিক Polaris AI পরামর্শক" : "Ethical Polaris AI coach"}</div><h3 className="mt-1 font-serif text-[21px] font-bold text-ink">{bn ? "আপনার কণ্ঠ, আরও পরিষ্কার" : "Your voice, made clearer"}</h3></div></div>
           <Segmented value={mode} options={["feedback", "refine", "outline"]} labels={bn ? ["প্রতিক্রিয়া", "পরিমার্জন", "রূপরেখা"] : undefined} onChange={(value) => setMode(value as typeof mode)} />
-          <Btn className="mt-4 w-full" variant="accent" disabled={busy || draft.trim().length < 20} onClick={() => void run()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris বিশ্লেষণ করছে…" : "Polaris is reviewing…") : (bn ? "Polaris দিয়ে উন্নত করুন" : "Improve with Polaris")}</Btn>
+          <Btn className="mt-4 w-full" variant="accent" disabled={busy || draft.trim().length < 20} onClick={() => void run()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris AI বিশ্লেষণ করছে…" : "Polaris AI is reviewing…") : (bn ? "Polaris AI দিয়ে উন্নত করুন" : "Improve with Polaris AI")}</Btn>
           <div className="mt-4 min-h-[420px] rounded-2xl border border-ink-faint/15 bg-bg/35 p-4">
-            {response ? <MarkdownMessage className="text-[12.5px]" text={response} theme="light" /> : <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-polaris-500/[0.08] text-polaris-500"><Icon.spark size={22} /></div><p className="mt-4 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris আপনার সংরক্ষিত নোটের সঙ্গে খসড়া মিলিয়ে নির্দিষ্টতা, আত্মবিশ্লেষণ, কাঠামো ও নিজস্ব কণ্ঠ উন্নত করবে।" : "Polaris can connect your saved knowledge notes with the draft to improve specificity, reflection, structure, and voice."}</p></div></div>}
+            {response ? <MarkdownMessage className="text-[12.5px]" text={response} theme="light" /> : <div className="grid min-h-[380px] place-items-center text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-polaris-500/[0.08] text-polaris-500"><Icon.spark size={22} /></div><p className="mt-4 max-w-sm text-[12px] leading-relaxed text-ink-dim">{bn ? "Polaris AI আপনার সংরক্ষিত নোটের সঙ্গে খসড়া মিলিয়ে নির্দিষ্টতা, আত্মবিশ্লেষণ, কাঠামো ও নিজস্ব কণ্ঠ উন্নত করবে।" : "Polaris AI can connect your saved knowledge notes with the draft to improve specificity, reflection, structure, and voice."}</p></div></div>}
           </div>
         </Card>
       </div>
@@ -1331,21 +1726,23 @@ export function GemmaEssayStudio({ lang }: { lang: Lang }) {
   );
 }
 
-export function GemmaKeyCard({ lang, compact = false }: { lang: Lang; compact?: boolean }) {
-  const bn = lang === "bn";
-  const [value, setValue] = useState("");
-  const [saved, setSaved] = useState(false);
-  useEffect(() => { setSaved(Boolean(getBrowserGemmaKey())); }, []);
-  const save = () => { setBrowserGemmaKey(value); setSaved(Boolean(value.trim())); setValue(""); };
-  return (
-    <Card className={cn("border border-aurora-500/20 bg-aurora-500/[0.045]", compact ? "p-3.5" : "p-5")}>
-      <div className="flex items-start gap-3"><span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-aurora-500/15 text-aurora-600">✦</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[12.5px] font-semibold text-ink">{bn ? "নিজের AI API key" : "Use your AI API key"}</h3><Pill tone={saved ? "aurora" : "ink"}>{saved ? (bn ? "এই সেশনে সক্রিয়" : "Active this session") : (bn ? "ঐচ্ছিক" : "Optional")}</Pill></div><p className="mt-1 text-[10.5px] leading-relaxed text-ink-muted">{bn ? "শুধু এই ব্রাউজার ট্যাবের সেশন স্টোরেজে থাকে। সার্ভারে সংরক্ষণ বা লগ করা হয় না।" : "Stored only in this browser tab's session storage. It is never saved or logged by Polaris."}</p><div className="mt-3 flex gap-2"><input type="password" autoComplete="off" value={value} onChange={(event) => setValue(event.target.value)} placeholder={saved ? "••••••••••••••••" : "Optional AI API key"} className="h-9 min-w-0 flex-1 rounded-lg border border-ink-faint/20 bg-bg px-3 text-[11.5px] text-ink outline-none focus:border-aurora-500" /><Btn size="sm" variant="outline" onClick={save}>{value.trim() ? (bn ? "ব্যবহার করুন" : "Use key") : (bn ? "মুছুন" : "Clear")}</Btn></div></div></div>
-    </Card>
-  );
+function ExamText({ text, className }: { text: string; className?: string }) {
+  return <MarkdownMessage text={text} theme="light" className={cn("[&>p]:m-0", className)} />;
 }
 
 function ModelTrace({ trace }: { trace: Trace | null }) {
-  return <span className="rounded-full border border-ink-faint/15 bg-bg/50 px-2 py-1 text-[9px] font-semibold text-ink-muted">{trace?.source === "gemma4" ? "Polaris AI · Live" : "Polaris AI ready"}</span>;
+  const label = !trace
+    ? "Polaris AI ready"
+    : trace.activity === "writing-submission"
+      ? "Writing submitted · saved"
+      : trace.activity === "writing-feedback"
+        ? trace.source === "gemma4" ? "Polaris AI writing feedback · saved" : "Writing guidance · saved"
+    : trace.source === "gemma4"
+      ? trace.attemptId ? "Polaris AI coaching · saved" : trace.generationId ? "Polaris AI · validated · saved" : "Polaris AI · live"
+      : trace.source === "hybrid"
+        ? "Polaris AI + validated fallback · saved"
+        : trace.attemptId ? "Instant scoring · saved" : trace.generationId ? "Validated backup · saved" : "Instant review";
+  return <span title={trace?.generationId ? `Saved set ${trace.generationId}` : undefined} className="rounded-full border border-ink-faint/15 bg-bg/50 px-2 py-1 text-[9px] font-semibold text-ink-muted">{label}</span>;
 }
 
 function Segmented({ value, options, labels, onChange }: { value: string; options: readonly string[]; labels?: readonly string[]; onChange: (value: string) => void }) {
