@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
   applicationName: "Polaris",
   title: {
-    default: "Polaris — Your Academic North Star",
+    default: "Polaris: Your Academic North Star",
     template: "%s | Polaris",
   },
   description:
@@ -56,12 +56,12 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Polaris",
-    title: "Polaris — Your Academic North Star",
+    title: "Polaris: Your Academic North Star",
     description: "One clear strategy for ambitious students: goals, evidence, deadlines, and daily action.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Polaris — Your Academic North Star",
+    title: "Polaris: Your Academic North Star",
     description: "One clear strategy for ambitious students: goals, evidence, deadlines, and daily action.",
   },
 };

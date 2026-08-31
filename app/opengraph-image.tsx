@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Polaris — Your Academic North Star";
+export const alt = "Polaris: Your Academic North Star";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -28,7 +28,7 @@ export default function OpenGraphImage() {
             Your academic north star.
           </div>
           <div style={{ marginTop: 30, maxWidth: 700, color: "#E7CCB4", fontSize: 28, lineHeight: 1.4 }}>
-            Goals, evidence, deadlines, and daily action—directed in one clear strategy.
+            Goals, evidence, deadlines, and daily action, directed in one clear strategy.
           </div>
         </div>
 
@@ -37,7 +37,7 @@ export default function OpenGraphImage() {
           <div style={{ position: "absolute", inset: 34, border: "2px solid rgba(196,125,78,.65)", borderRadius: 999 }} />
           <div style={{ position: "absolute", width: 4, height: 238, background: "rgba(244,215,188,.18)" }} />
           <div style={{ position: "absolute", width: 238, height: 4, background: "rgba(244,215,188,.18)" }} />
-          <div style={{ position: "absolute", top: 38, width: 0, height: 0, borderLeft: "25px solid transparent", borderRight: "25px solid transparent", borderBottom: "96px solid #F4D7BC" }} />
+          <div style={{ position: "absolute", top: 38, width: 50, height: 96, background: "#F4D7BC", clipPath: "polygon(50% 0, 100% 100%, 50% 83%, 0 100%)" }} />
           <div style={{ width: 34, height: 34, borderRadius: 999, background: "#F4D7BC", border: "10px solid #2C1810", zIndex: 2 }} />
         </div>
       </div>

@@ -949,8 +949,8 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
                 </summary>
                 {reviewed && (
                   <div className="mt-3 grid gap-2 pl-7 sm:grid-cols-2">
-                    <div className="min-w-0 rounded-lg border border-ink-faint/15 bg-bg/40 p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "আপনার উত্তর:" : "Your answer:"}</span> {reviewed.selectedAnswer === undefined ? (bn ? "ফাঁকা" : "Blank") : <ExamText text={item.options[reviewed.selectedAnswer] || "—"} className="mt-1 text-[10.5px]" />}</div>
-                    <div className="min-w-0 rounded-lg border border-aurora-500/20 bg-aurora-500/[0.06] p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "সঠিক উত্তর:" : "Correct answer:"}</span> <ExamText text={item.options[reviewed.correctAnswer] || "—"} className="mt-1 text-[10.5px]" /></div>
+                    <div className="min-w-0 rounded-lg border border-ink-faint/15 bg-bg/40 p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "আপনার উত্তর:" : "Your answer:"}</span> {reviewed.selectedAnswer === undefined ? (bn ? "ফাঁকা" : "Blank") : <ExamText text={item.options[reviewed.selectedAnswer] || "-"} className="mt-1 text-[10.5px]" />}</div>
+                    <div className="min-w-0 rounded-lg border border-aurora-500/20 bg-aurora-500/[0.06] p-2.5 text-[10.5px] text-ink-dim"><span className="font-semibold text-ink">{bn ? "সঠিক উত্তর:" : "Correct answer:"}</span> <ExamText text={item.options[reviewed.correctAnswer] || "-"} className="mt-1 text-[10.5px]" /></div>
                   </div>
                 )}
                 <div className="mt-3 min-w-0 pl-7"><ExamText text={reviewed?.explanation || (bn ? "ব্যাখ্যা পাওয়া যায়নি।" : "Explanation unavailable.")} className="text-[11.5px] text-ink-dim" /></div>
@@ -1094,7 +1094,7 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
               <div className={cn("mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-polaris-500/20 bg-polaris-500/[0.07] text-polaris-500", practiceStatus && practiceStatus !== "complete" && "animate-pulse")}><Icon.spark size={25} /></div>
               <h3 className="mt-4 font-serif text-[22px] font-bold text-ink">{practiceStatus ? (bn ? "অনুশীলন সেট পরিকল্পনা হচ্ছে" : "Planning your full practice set") : (bn ? "একটি নতুন অনুশীলন সেট তৈরি করুন" : "Create a practice set")}</h3>
               <p className="mx-auto mt-2 max-w-sm text-[12px] leading-relaxed text-ink-dim">{practicePlan?.coverageSummary || (bn ? "Polaris AI নির্বাচিত বিভাগের দক্ষতা, কঠিনতার মাত্রা ও মৌলিক বিভ্রান্তিকর উত্তর পরিকল্পনা করবে।" : "Polaris AI plans skill coverage, difficulty, and original distractors for the selected section.")}</p>
-              {practiceStatus && <div className="mx-auto mt-5 w-64"><Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 4} tone="polaris" height="h-1.5" /><p className="mt-2 text-[10.5px] text-ink-muted">{practiceProgress.generated} / {practiceProgress.target || "—"} questions ready</p></div>}
+              {practiceStatus && <div className="mx-auto mt-5 w-64"><Progress value={practiceProgress.target ? (practiceProgress.generated / practiceProgress.target) * 100 : 4} tone="polaris" height="h-1.5" /><p className="mt-2 text-[10.5px] text-ink-muted">{practiceProgress.generated} / {practiceProgress.target || "-"} questions ready</p></div>}
             </div>
           </div>
         ) : (

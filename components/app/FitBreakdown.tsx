@@ -133,7 +133,7 @@ export function FitBreakdown({
       </div>
 
       <p className="text-[11px] text-ink-muted leading-relaxed">
-        Based on your academic profile only — no demographic data. An estimate, not an official prediction.
+        Based on your academic profile only. No demographic data. An estimate, not an official prediction.
       </p>
     </div>
   );

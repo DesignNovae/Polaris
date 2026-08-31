@@ -27,7 +27,11 @@ export default function SignInForm() {
       });
 
       if (res?.error) {
-        setError("Invalid email or password");
+        setError(
+          res.error === "CredentialsSignin"
+            ? "Invalid email or password."
+            : "Sign-in is temporarily unavailable. Please try again later.",
+        );
         setLoading(false);
         return;
       }

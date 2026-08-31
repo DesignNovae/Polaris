@@ -1173,7 +1173,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const generatedText = live
       ? await generateGemmaText({
           system: `You are a fast, constructive exam coach. ${languageRule} Keep IELTS, SAT, and official skill names in English. Use only the supplied attempt evidence; do not invent a skill gap, question detail, or distractor rationale. Give: result summary, two diagnosed skill gaps when evidence supports them, why the supplied distractors were tempting, and a three-step practice plan tied to this attempt. Use clean Markdown and under 220 words. Gemma 4 is the only generative model.`,
-          contents: `EXAM: ${persisted.generation.input.exam}\nSECTION: ${persisted.generation.input.section}\nDIFFICULTY: ${persisted.generation.input.difficulty}\nTARGET SKILL: ${persisted.generation.input.targetSkill || "none"}\nSCORE: ${score}/${questions.length}\nMISSED ITEMS (evidence from this completed attempt):\n${misses || "None — the student answered every item correctly."}`,
+          contents: `EXAM: ${persisted.generation.input.exam}\nSECTION: ${persisted.generation.input.section}\nDIFFICULTY: ${persisted.generation.input.difficulty}\nTARGET SKILL: ${persisted.generation.input.targetSkill || "none"}\nSCORE: ${score}/${questions.length}\nMISSED ITEMS (evidence from this completed attempt):\n${misses || "None: the student answered every item correctly."}`,
           temperature: 0.3,
           maxOutputTokens: 850,
           thinkingLevel: "minimal",
