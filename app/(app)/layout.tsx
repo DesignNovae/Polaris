@@ -74,7 +74,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <div className="flex-1 min-w-0 flex flex-col h-full">
         <TopBar/>
-        <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
+        <main className="polaris-scrollbar flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</main>
       </div>
 
       {user.plan === "free" ? (

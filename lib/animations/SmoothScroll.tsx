@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger);
 // stay OUT of these pages because it hijacks wheel events globally and would
 // break native scrolling inside <main>, the strategist rail, and the left nav.
 const APP_PREFIX_RE =
-  /^\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo)(\/|$)/;
+  /^\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab|exams)(\/|$)/;
 
 /**
  * SmoothScroll - wraps children in a Lenis smooth-scroll context
@@ -55,4 +55,3 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
-
