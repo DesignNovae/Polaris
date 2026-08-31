@@ -55,7 +55,14 @@ export function CommunityClient({
   const [railOpen, setRailOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
 
-  const channel = getChannel(channelId)!;
+const channel = getChannel(channelId)!;
+
+  /* Load messages*/
+  useEffect(() => {
+    fetch("/api/community?channel=" + channelId)
+      .then((res) => res.json())
+      .then((data) => setMessages(data));
+  }, [channelId]);
 
   const grouped = useMemo(() => {
     const out = new Map<ChannelKind, Channel[]>();
