@@ -50,8 +50,10 @@ export const metadata: Metadata = {
     "Polaris turns academic goals, evidence, deadlines, and daily work into one clear, bilingual strategy.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icon.svg",
-    apple: "/apple-icon.svg",
+    // Versioned URLs force browsers to refresh the previous white favicon
+    // that was cached before the Polaris compass mark was introduced.
+    icon: "/icon.svg?v=2",
+    apple: "/apple-icon.svg?v=2",
   },
   openGraph: {
     type: "website",
