@@ -55,7 +55,7 @@ export default async function StrategistPage() {
       signal: "Original research / shipped work",
       you: String(inputs.research),
       reference: "Not measured",
-      move: profile?.ecs.includes("Research") ? "Keep shipping and document the outcome" : "Land a verifiable research or project outcome",
+      move: profile?.ecs?.includes("Research") ? "Keep shipping and document the outcome" : "Land a verifiable research or project outcome",
     },
   ];
 
