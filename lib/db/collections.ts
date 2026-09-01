@@ -325,8 +325,10 @@ export async function deleteWeeklyTasks(userId: string): Promise<void> {
 export async function updateWeeklyTask(
   userId: string,
   taskId: string,
+  // "week" is included so a task can be rescheduled in place; the Strategist
+  // moves work between weeks rather than deleting and regenerating it.
   patch: Partial<
-    Pick<DbWeeklyTask, "status" | "progress" | "submission" | "feedback" | "feedbackAt" | "completedAt">
+    Pick<DbWeeklyTask, "status" | "progress" | "submission" | "feedback" | "feedbackAt" | "completedAt" | "week">
   >,
 ): Promise<boolean> {
   const db = await getDb();

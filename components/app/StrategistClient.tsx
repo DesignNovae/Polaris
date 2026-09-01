@@ -29,6 +29,12 @@ import type { StrategistChunk } from "@/lib/strategist/schemas";
 import { Card, Pill, Tag, Avatar, Icon } from "./ui";
 import { QuotaModal, resetHintFrom, type QuotaState } from "./QuotaModal";
 import { roadmapStore, strategistContextPayload } from "@/lib/roadmap/store";
+import {
+  isPlanMutation,
+  refreshRoadmapAfterMutation,
+  toolDoneLabel,
+  toolRunningLabel,
+} from "@/lib/strategist/tool-ui";
 import { MarkdownMessage, type CitationSource } from "./MarkdownMessage";
 import { ChatHistoryRail } from "./ChatHistoryRail";
 import { CompactModelPicker, type CmpRouteMode } from "./CompactModelPicker";
@@ -569,6 +575,15 @@ export function StrategistClient({
                 ? `Read ${r.sources} source${r.sources === 1 ? "" : "s"} - synthesizing…`
                 : null,
             );
+          } else if (chunk.status === "start") {
+            setThinking(toolRunningLabel(chunk.name));
+          } else if (chunk.status === "done") {
+            setThinking(toolDoneLabel(chunk.name));
+            // The Strategist just changed the plan; pull the tree back in sync
+            // so both surfaces show the same state without a reload.
+            if (isPlanMutation(chunk.name)) {
+              void refreshRoadmapAfterMutation("Strategist updated your plan");
+            }
           } else if (chunk.status === "error") {
             setThinking(null);
           }

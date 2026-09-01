@@ -5,9 +5,38 @@
 
 export type ChatRole = "system" | "user" | "assistant";
 
+/** One function the model may call, declared in JSON-Schema shape. */
+export type ToolDeclaration = {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+};
+
+/** A call the model asked for. `id` correlates the result back to it. */
+export type ToolCall = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+};
+
+/** The value a tool returned, sent back on the next turn. */
+export type ToolResult = {
+  id: string;
+  name: string;
+  result: unknown;
+};
+
 export type ChatMessage = {
   role: ChatRole;
   content: string;
+  /** Calls this assistant turn requested. Replayed so the model sees its own move. */
+  toolCalls?: ToolCall[];
+  /** Results answering the previous assistant turn's calls. */
+  toolResults?: ToolResult[];
 };
 
 /** A single chunk emitted by `streamChat`. */
@@ -19,6 +48,11 @@ export type LLMStreamChunk =
       uri: string;
       title: string;
     }
+  /**
+   * Emitted once at the end of a turn in which the model requested tools.
+   * The caller runs them and sends the results back as a follow-up turn.
+   */
+  | { kind: "tool_call"; calls: ToolCall[] }
   /** Emitted exactly once when the stream ends. */
   | {
       kind: "done";
@@ -80,6 +114,8 @@ export type StreamRequest = {
   thinkingLevel?: "minimal" | "high";
   /** When true and provider supports it, enable the native web-search/grounding tool. */
   webSearch?: boolean;
+  /** Functions the model may call. Omit or leave empty to disable tool use. */
+  tools?: ToolDeclaration[];
   abortSignal?: AbortSignal;
 };
 

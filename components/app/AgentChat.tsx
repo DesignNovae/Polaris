@@ -21,6 +21,12 @@ import {
   deriveInsight, deriveQuickPrompts, strategistContextPayload,
   type RoadmapDoc,
 } from "@/lib/roadmap/store";
+import {
+  isPlanMutation,
+  refreshRoadmapAfterMutation,
+  toolDoneLabel,
+  toolRunningLabel,
+} from "@/lib/strategist/tool-ui";
 import { cn } from "@/lib/cn";
 import {
   appendDemoStrategistMessage,
@@ -569,6 +575,15 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
                 ? `Read ${r.sources} source${r.sources === 1 ? "" : "s"} - synthesizing…`
                 : null,
             );
+          } else if (chunk.status === "start") {
+            setThinking(toolRunningLabel(chunk.name));
+          } else if (chunk.status === "done") {
+            setThinking(toolDoneLabel(chunk.name));
+            // The Strategist just changed the plan; pull the tree back in sync
+            // so both surfaces show the same state without a reload.
+            if (isPlanMutation(chunk.name)) {
+              void refreshRoadmapAfterMutation("Strategist updated your plan");
+            }
           } else if (chunk.status === "error") {
             setThinking(null);
           }

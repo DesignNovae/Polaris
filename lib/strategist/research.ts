@@ -23,13 +23,44 @@ import {
   type StrategistMode,
 } from "./profiles";
 import { chooseModel, pickFallback, type RouteResult } from "@/lib/llm/router";
-import type { RouteMode } from "@/lib/llm/providers/types";
+import {
+  MUTATING_TOOLS,
+  STRATEGIST_TOOLS,
+  isToolName,
+  runTool,
+} from "./tools";
+import type {
+  ChatMessage,
+  RouteMode,
+  ToolCall,
+  ToolResult,
+} from "@/lib/llm/providers/types";
 import { recordUsage } from "@/lib/db/collections";
 import type { StrategistChunk } from "./schemas";
 import type { StudentProfile } from "@/lib/profile";
 import type { UserMemoryFact } from "@/lib/db/collections";
 import type { Lang } from "@/lib/i18n/strings";
 import { BN_ERRORS } from "@/lib/i18n/server";
+
+/**
+ * Ceilings for one answer. Rounds bound latency; calls bound cost. The final
+ * round is served without tools, so the model always closes with prose rather
+ * than an unresolved branch.
+ */
+const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_CALLS = 8;
+/** Tool output is truncated before it re-enters the context window. */
+const MAX_TOOL_RESULT_CHARS = 6000;
+
+function clampToolResult(value: unknown): unknown {
+  const json = JSON.stringify(value ?? null);
+  if (json !== undefined && json.length <= MAX_TOOL_RESULT_CHARS) return value;
+  return {
+    truncated: true,
+    note: "Result was too large to return in full. Narrow the query and call again.",
+    preview: (json ?? "").slice(0, MAX_TOOL_RESULT_CHARS),
+  };
+}
 
 export type ResearchInput = {
   userId: string;
@@ -269,6 +300,11 @@ export async function* deepResearch(
   ].join("\n");
 
   // 5. Stream from the chosen provider, walking fallbacks on failure.
+  //
+  //    Each attempt runs a tool loop: the model streams, may request tools, we
+  //    execute them and hand the results back, and it continues. Iterative
+  //    research falls out of this - a follow-up search_kb is simply another
+  //    round, driven by what the model found rather than by a fixed threshold.
   const startedAt = Date.now();
   let answerText = "";
   let webSources: Array<{ uri: string; title: string }> = [...preFetchedSources];
@@ -276,51 +312,156 @@ export async function* deepResearch(
   let tokensOut = 0;
   let fallbackUsed = false;
   let lastError: Error | null = null;
+  const emittedKbIds = new Set(kbHits.map((hit) => hit.id));
+  const baseMessages: ChatMessage[] = [{ role: "user", content: userPrompt }];
+  // Tool output is evidence the model was legitimately given, so the numeric
+  // guard below must see it too. Without this a probability returned by
+  // compute_probability is flagged as unsupported - the exact opposite of the
+  // truth, and it teaches students to distrust the most reliable figure there.
+  let toolEvidence = "";
 
   while (route) {
-    const attemptStart = Date.now();
     let attemptOk = false;
+    let toolCallsUsed = 0;
+    // A model whose tool calls keep failing will happily spend every round
+    // retrying, and each round is a full generation against a per-minute
+    // quota. Two fruitless rounds is enough evidence that more tools will not
+    // help; the rounds that remain answer from what we already have.
+    let barrenRounds = 0;
+    const messages: ChatMessage[] = [...baseMessages];
     try {
-      for await (const chunk of route.chosen.provider.streamChat({
-        model: route.chosen.model.id,
-        system: fullSystem,
-        messages: [{ role: "user", content: userPrompt }],
-        temperature: input.mode === "coding" ? 0.3 : 0.55,
-        maxOutputTokens: 1800,
-        thinkingLevel:
-          input.routeMode === "reasoning" || input.routeMode === "advanced"
-            ? "high" : "minimal",
-        webSearch: wantsSearch && providerHasSearch,
-        abortSignal: input.abortSignal,
-      })) {
-        if (input.abortSignal?.aborted) {
-          attemptOk = true;
+      for (let round = 1; round <= MAX_TOOL_ROUNDS; round += 1) {
+        let pendingCalls: ToolCall[] = [];
+        let sawDone = false;
+        const toolsAllowed =
+          round < MAX_TOOL_ROUNDS && toolCallsUsed < MAX_TOOL_CALLS && barrenRounds < 2;
+
+        for await (const chunk of route.chosen.provider.streamChat({
+          model: route.chosen.model.id,
+          system: fullSystem,
+          messages,
+          temperature: input.mode === "coding" ? 0.3 : 0.55,
+          maxOutputTokens: 1800,
+          thinkingLevel:
+            input.routeMode === "reasoning" || input.routeMode === "advanced"
+              ? "high" : "minimal",
+          webSearch: wantsSearch && providerHasSearch,
+          ...(toolsAllowed ? { tools: STRATEGIST_TOOLS } : {}),
+          abortSignal: input.abortSignal,
+        })) {
+          if (input.abortSignal?.aborted) {
+            attemptOk = true;
+            break;
+          }
+          if (chunk.kind === "text") {
+            answerText += chunk.delta;
+            yield { kind: "text", delta: chunk.delta };
+          } else if (chunk.kind === "web_source") {
+            if (!webSources.find((s) => s.uri === chunk.uri)) {
+              webSources.push({ uri: chunk.uri, title: chunk.title });
+              yield { kind: "source", label: chunk.title, uri: chunk.uri, source: "web" };
+            }
+          } else if (chunk.kind === "tool_call") {
+            pendingCalls = chunk.calls;
+          } else if (chunk.kind === "done") {
+            // Rounds accumulate: one answer can span several generations.
+            tokensIn += chunk.tokensIn ?? 0;
+            tokensOut += chunk.tokensOut ?? 0;
+            if (wantsSearch && providerHasSearch) {
+              yield {
+                kind: "tool",
+                name: "web_search",
+                status: "done",
+                result: {
+                  sources: webSources.length,
+                  queries: chunk.searchQueries ?? [],
+                },
+              };
+            }
+            sawDone = true;
+          }
+        }
+
+        if (input.abortSignal?.aborted) break;
+        if (!pendingCalls.length) {
+          attemptOk = sawDone;
           break;
         }
-        if (chunk.kind === "text") {
-          answerText += chunk.delta;
-          yield { kind: "text", delta: chunk.delta };
-        } else if (chunk.kind === "web_source") {
-          if (!webSources.find((s) => s.uri === chunk.uri)) {
-            webSources.push({ uri: chunk.uri, title: chunk.title });
-            yield { kind: "source", label: chunk.title, uri: chunk.uri, source: "web" };
+
+        const results: ToolResult[] = [];
+        let roundFailures = 0;
+        for (const call of pendingCalls) {
+          if (toolCallsUsed >= MAX_TOOL_CALLS) {
+            results.push({
+              id: call.id,
+              name: call.name,
+              result: { error: "Tool budget for this answer is spent. Answer with what you already have." },
+            });
+            continue;
           }
-        } else if (chunk.kind === "done") {
-          tokensIn = chunk.tokensIn ?? tokensIn;
-          tokensOut = chunk.tokensOut ?? tokensOut;
-          if (wantsSearch && providerHasSearch) {
-            yield {
-              kind: "tool",
-              name: "web_search",
-              status: "done",
-              result: {
-                sources: webSources.length,
-                queries: chunk.searchQueries ?? [],
-              },
-            };
+          toolCallsUsed += 1;
+          yield {
+            kind: "tool",
+            name: call.name,
+            status: "start",
+            result: { args: call.args, mutating: MUTATING_TOOLS.has(call.name) },
+          };
+
+          let value: unknown;
+          let failed = false;
+          if (!isToolName(call.name)) {
+            value = { error: 'Unknown tool "' + call.name + '".' };
+            failed = true;
+          } else {
+            try {
+              value = clampToolResult(
+                await runTool(call.name, call.args, {
+                  userId: input.userId,
+                  profile: input.profile,
+                }),
+              );
+            } catch (err) {
+              // A tool failure is data for the model, not a dead stream.
+              value = { error: err instanceof Error ? err.message : String(err) };
+              failed = true;
+            }
           }
-          attemptOk = true;
+
+          // Passages pulled mid-answer are citable like first-pass ones, so
+          // surface them as sources too.
+          if (!failed && call.name === "search_kb" && Array.isArray(value)) {
+            for (const hit of value as KbHit[]) {
+              if (!hit?.id || emittedKbIds.has(hit.id)) continue;
+              emittedKbIds.add(hit.id);
+              yield { kind: "source", label: hit.title, uri: "kb://" + hit.id, source: "kb" };
+            }
+          }
+
+          if (!failed) {
+            try {
+              toolEvidence += " " + JSON.stringify(value);
+            } catch {
+              // Unserialisable results contribute nothing to the guard.
+            }
+          }
+
+          if (failed) roundFailures += 1;
+
+          yield {
+            kind: "tool",
+            name: call.name,
+            status: failed ? "error" : "done",
+            result: value,
+          };
+          results.push({ id: call.id, name: call.name, result: value });
         }
+
+        // Every call this round failed - count it, and stop offering tools once
+        // that has happened twice in a row.
+        barrenRounds = roundFailures === pendingCalls.length ? barrenRounds + 1 : 0;
+
+        messages.push({ role: "assistant", content: "", toolCalls: pendingCalls });
+        messages.push({ role: "user", content: "", toolResults: results });
       }
       if (attemptOk) break;
     } catch (err) {
@@ -328,6 +469,7 @@ export async function* deepResearch(
       const next = pickFallback(route);
       // Reset partial answer state for the next attempt.
       answerText = "";
+      toolEvidence = "";
       webSources = [...preFetchedSources];
       tokensIn = 0;
       tokensOut = 0;
@@ -363,6 +505,10 @@ export async function* deepResearch(
     const isQuota =
       e.status === 429 ||
       /quota|rate.?limit|too many requests|\b429\b/i.test(e.message ?? "");
+    // The classified code alone cannot separate a real quota rejection from an
+    // error that merely matches the pattern, and the usage row written below
+    // keeps no message. Log the cause once so a failed answer stays diagnosable.
+    console.error("[strategist] stream failed (quota=%s):", isQuota, e);
     yield {
       kind: "error",
       code: isQuota ? "AI_QUOTA" : "STREAM_FAILED",
@@ -409,6 +555,7 @@ export async function* deepResearch(
     answerText,
     `${fullSystem}
 ${userPrompt}
+${toolEvidence}
 ${webSources.map((s) => s.title).join(" ")}`,
   );
   if (unsupportedFigures.length > 0) {
