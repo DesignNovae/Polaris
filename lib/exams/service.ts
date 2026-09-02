@@ -39,7 +39,15 @@ const RESPONSES = "exam_responses";
 const RESULTS = "exam_results";
 const EVENTS = "exam_session_events";
 const STIMULI = "exam_stimuli";
+const REVIEW_LATER = "exam_review_later";
 let seedPromise: Promise<void> | null = null;
+
+type DbExamReviewLater = {
+  userId: string;
+  sessionId: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 function requireObjectId(id: string): ObjectId {
   if (!ObjectId.isValid(id)) throw new HttpError(400, "Invalid exam session id");
@@ -190,15 +198,19 @@ export async function getExamCatalog(userId: string) {
   const db = await getDb();
   // Wide enough that every one of the six modes can still resolve its active,
   // completed, and restartable attempt; the response itself is trimmed below.
-  const recent = await db.collection<DbExamSession>(SESSIONS)
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .limit(60)
-    .toArray();
+  const [recent, reviewLater] = await Promise.all([
+    db.collection<DbExamSession>(SESSIONS)
+      .find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(60)
+      .toArray(),
+    db.collection<DbExamReviewLater>(REVIEW_LATER).findOne({ userId }),
+  ]);
   const attempt = (session: DbExamSession): ExamCatalogAttempt => ({
     id: session._id!.toHexString(),
     mode: session.mode,
     status: session.status,
+    reviewLater: Boolean(reviewLater?.sessionId.equals(session._id!)),
     startedAt: session.startedAt.toISOString(),
     completedAt: session.completedAt?.toISOString(),
     resultId: session.resultId?.toHexString(),
@@ -225,6 +237,44 @@ export async function getExamCatalog(userId: string) {
     upcoming: [],
     recent: recent.filter((session) => session.status !== "abandoned").slice(0, 8).map(attempt),
   };
+}
+
+/**
+ * A single user-scoped pointer makes the one-flag rule atomic: replacing the
+ * pointer automatically removes the previous attempt's Review Later state.
+ */
+export async function setExamReviewLater(
+  userId: string,
+  sessionId: string,
+  flagged: boolean,
+): Promise<{ id: string; reviewLater: boolean }> {
+  const db = await getDb();
+  const id = requireObjectId(sessionId);
+  const session = await db.collection<DbExamSession>(SESSIONS).findOne({
+    _id: id,
+    userId,
+    status: { $ne: "abandoned" },
+  });
+  if (!session) throw new HttpError(404, "Exam attempt not found");
+
+  if (flagged) {
+    const now = new Date();
+    await db.collection<DbExamReviewLater>(REVIEW_LATER).updateOne(
+      { userId },
+      {
+        $set: { sessionId: id, updatedAt: now },
+        $setOnInsert: { userId, createdAt: now },
+      },
+      { upsert: true },
+    );
+  } else {
+    await db.collection<DbExamReviewLater>(REVIEW_LATER).deleteOne({ userId, sessionId: id });
+  }
+
+  await recordEvent(id, userId, flagged ? "review_later_flagged" : "review_later_unflagged", {
+    mode: session.mode,
+  });
+  return { id: sessionId, reviewLater: flagged };
 }
 
 type CreateExamInput = { policy?: ExamStartPolicy; sourceSessionId?: string };

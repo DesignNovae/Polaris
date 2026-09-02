@@ -1,6 +1,10 @@
 "use client";
 
 import { GemmaDiscoveryRefresh } from "@/components/app/GemmaDiscoveryRefresh";
+import {
+  DiscoveryNoteField,
+  useDiscoveryNotes,
+} from "@/components/app/DiscoveryNoteField";
 
 /**
  * Resources - the Admission Knowledge Hub.
@@ -533,6 +537,7 @@ function ScholarshipExplorer({
   const defaultLevel = level === "hsc" || level === "ssc" ? "undergraduate" : "all";
   const [levelFilter, setLevelFilter] = useState<string>(defaultLevel);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const scholarshipNotes = useDiscoveryNotes("scholarship");
 
   const visible = useMemo(() => {
     return scholarships.filter((s) => levelFilter === "all" || s.level.includes(levelFilter));
@@ -643,6 +648,8 @@ function ScholarshipExplorer({
                   {meta.typicalWindow}
                 </div>
               )}
+
+              <DiscoveryNoteField entityId={s.id} controller={scholarshipNotes} />
 
               <div className="mt-auto flex items-center gap-2 pt-1">
                 {meta && (

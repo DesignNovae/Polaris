@@ -223,6 +223,7 @@ export type ExamCatalogAttempt = {
   id: string;
   mode: ExamMode;
   status: ExamSessionStatus;
+  reviewLater: boolean;
   startedAt: string;
   completedAt?: string;
   resultId?: string;
