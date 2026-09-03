@@ -2,7 +2,11 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { parseJson, withErrorHandling } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
-import { abandonExamSession, getPublicExamSession } from "@/lib/exams/service";
+import {
+  abandonExamSession,
+  getPublicExamSession,
+  setExamReviewLater,
+} from "@/lib/exams/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,11 +19,17 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Conte
   return Response.json(await getPublicExamSession(user.id, id));
 });
 
-const patchSchema = z.object({ action: z.literal("abandon") });
+const patchSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("abandon") }),
+  z.object({ action: z.literal("review-later"), flagged: z.boolean() }),
+]);
 
 export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Context) => {
   const user = await requireSession();
   const { id } = await params;
-  patchSchema.parse(await parseJson(req));
+  const body = patchSchema.parse(await parseJson(req));
+  if (body.action === "review-later") {
+    return Response.json(await setExamReviewLater(user.id, id, body.flagged));
+  }
   return Response.json(await abandonExamSession(user.id, id));
 });

@@ -61,11 +61,16 @@ async function ensureIndexes(db: Db): Promise<void> {
     db.collection("exam_blueprints").createIndex({ id: 1, version: 1 }, { unique: true }),
     db.collection("exam_sessions").createIndex({ userId: 1, createdAt: -1 }),
     db.collection("exam_sessions").createIndex({ userId: 1, status: 1, expiresAt: 1 }),
+    db.collection("exam_review_later").createIndex({ userId: 1 }, { unique: true }),
     db.collection("exam_responses").createIndex({ sessionId: 1, userId: 1, itemId: 1 }, { unique: true }),
     db.collection("exam_results").createIndex({ sessionId: 1, userId: 1 }, { unique: true }),
     db.collection("exam_session_events").createIndex({ sessionId: 1, createdAt: 1 }),
     db.collection("exam_exposures").createIndex({ userId: 1, questionId: 1 }, { unique: true }),
     db.collection("exam_exposures").createIndex({ userId: 1, lastSeenAt: -1 }),
+    db.collection("discovery_notes").createIndex(
+      { userId: 1, entityType: 1, entityId: 1 },
+      { unique: true },
+    ),
   ]).catch((err) => {
     console.error("[db] ensureIndexes failed:", err);
     ensured = false;

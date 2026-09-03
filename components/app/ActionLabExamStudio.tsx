@@ -41,6 +41,7 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
   const [selected, setSelected] = useState<ExamMode | null>(null);
   const [error, setError] = useState("");
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [flaggingId, setFlaggingId] = useState<string | null>(null);
   const bn = lang === "bn";
 
   const loadCatalog = useCallback(async () => {
@@ -66,6 +67,27 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
       .catch((cause) => active && setError(cause instanceof Error ? cause.message : "The exam catalog could not be loaded."));
     return () => { active = false; };
   }, [loadCatalog]);
+
+  async function toggleReviewLater(attempt: ExamCatalogAttempt) {
+    setFlaggingId(attempt.id);
+    try {
+      const response = await fetch(`/api/exams/sessions/${attempt.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "review-later", flagged: !attempt.reviewLater }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) {
+        setErrorStatus(response.status);
+        throw new Error(body.error || "The Review Later flag could not be updated.");
+      }
+      await loadCatalog();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The Review Later flag could not be updated.");
+    } finally {
+      setFlaggingId(null);
+    }
+  }
 
   const selectedEntry = catalog?.available.find((entry) => entry.mode === selected);
 
@@ -137,14 +159,53 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
                 <span className="text-[10px] text-ink-muted">Newest first</span>
               </div>
               <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {catalog.recent.slice(0, 4).map((attempt) => {
+                {catalog.recent.map((attempt) => {
                   const label = LABELS[attempt.mode];
                   const href = attempt.status === "completed" ? `/exams/${attempt.id}/results` : `/exams/${attempt.id}`;
                   return (
-                    <Link key={attempt.id} href={href} className="flex items-center justify-between rounded-xl border border-ink-faint/15 bg-bg/35 p-3 transition hover:border-polaris-500/35">
-                      <span><span className="block text-[11.5px] font-semibold text-ink">{label.title}</span><span className="mt-0.5 block text-[9.5px] text-ink-muted">{new Date(attempt.startedAt).toLocaleDateString()} · {attempt.status === "completed" ? "Completed" : "In progress"}</span></span>
-                      <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-polaris-600">{attempt.status === "completed" ? "Review" : "Resume"}<Icon.arrow size={11} /></span>
-                    </Link>
+                    <div
+                      key={attempt.id}
+                      className={cn(
+                        "rounded-xl border p-3 transition",
+                        attempt.reviewLater
+                          ? "border-nova-500/65 bg-nova-500/[0.10] shadow-[0_8px_24px_-18px_rgba(201,119,58,0.8)]"
+                          : "border-ink-faint/15 bg-bg/35 hover:border-polaris-500/35",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span>
+                          <span className="flex flex-wrap items-center gap-2 text-[11.5px] font-semibold text-ink">
+                            {label.title}
+                            {attempt.reviewLater ? <Pill tone="nova"><Icon.star size={10} /> Review later</Pill> : null}
+                          </span>
+                          <span className="mt-0.5 block text-[9.5px] text-ink-muted">
+                            {new Date(attempt.startedAt).toLocaleDateString()} · {attempt.status === "completed" ? "Completed" : "In progress"}
+                          </span>
+                        </span>
+                        <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-[10.5px] font-semibold text-polaris-600">
+                          {attempt.status === "completed" ? "Review" : "Resume"}<Icon.arrow size={11} />
+                        </Link>
+                      </div>
+                      <button
+                        type="button"
+                        aria-pressed={attempt.reviewLater}
+                        disabled={flaggingId !== null}
+                        onClick={() => void toggleReviewLater(attempt)}
+                        className={cn(
+                          "mt-2.5 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition disabled:opacity-50",
+                          attempt.reviewLater
+                            ? "border-nova-500/45 bg-nova-500/15 text-nova-700 dark:text-nova-100"
+                            : "border-ink-faint/20 text-ink-dim hover:border-nova-500/45 hover:text-ink",
+                        )}
+                      >
+                        <Icon.star size={10} />
+                        {flaggingId === attempt.id
+                          ? "Saving…"
+                          : attempt.reviewLater
+                            ? "Flagged for Review"
+                            : "Flag for Review"}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

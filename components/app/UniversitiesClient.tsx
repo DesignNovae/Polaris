@@ -1,9 +1,11 @@
 "use client";
 
 import { GemmaDiscoveryRefresh } from "@/components/app/GemmaDiscoveryRefresh";
-
-
-
+import {
+  DiscoveryNoteField,
+  type DiscoveryNotesController,
+  useDiscoveryNotes,
+} from "@/components/app/DiscoveryNoteField";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ProbabilityInputs } from "@/lib/ml/probability";
@@ -72,6 +74,7 @@ export function UniversitiesClient({
   const [compareOpen, setCompareOpen] = useState(false);
   const [importUni, setImportUni] = useState<UniProfile | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const universityNotes = useDiscoveryNotes("university");
 
   useEffect(() => {
     try {
@@ -306,6 +309,7 @@ export function UniversitiesClient({
               fit={fits[u.id]}
               saved={wishlist.has(u.id)}
               comparing={compareIds.includes(u.id)}
+              notes={universityNotes}
               onOpen={() => { setDetailId(u.id); roadmapStore.emit("UNIVERSITY_VIEWED", `Viewed ${u.name}`); }}
               onSave={() => toggleWishlist(u)}
               onCompare={() => toggleCompare(u.id)}
@@ -394,12 +398,13 @@ export function UniversitiesClient({
  * ════════════════════════════════════════════════════════════════════════ */
 
 function UniCard({
-  u, fit, saved, comparing, onOpen, onSave, onCompare,
+  u, fit, saved, comparing, notes, onOpen, onSave, onCompare,
 }: {
   u: UniProfile;
   fit: ReturnType<typeof computeFit>;
   saved: boolean;
   comparing: boolean;
+  notes: DiscoveryNotesController;
   onOpen: () => void;
   onSave: () => void;
   onCompare: () => void;
@@ -484,6 +489,8 @@ function UniCard({
           </span>
         )}
       </div>
+
+      <DiscoveryNoteField entityId={u.id} controller={notes} />
     </motion.div>
   );
 }
