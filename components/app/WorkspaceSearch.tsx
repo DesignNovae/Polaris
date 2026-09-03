@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { KBD } from "./ui";
@@ -23,6 +23,18 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  /**
+   * Below `sm` the field is an icon button that expands to cover the bar.
+   * As a always-visible flex-1 field it consumed the row and pushed the
+   * language, theme and account controls past the right edge of a phone
+   * viewport, where they could not be reached at all.
+   */
+  const [mobileOpen, setMobileOpen] = useState(false);
+  // Expanding the compact field should put the caret in it.
+  useEffect(() => {
+    if (mobileOpen) document.getElementById("top-search")?.focus();
+  }, [mobileOpen]);
+
   const normalized = query.trim().toLowerCase();
   const results = useMemo(() => {
     if (!normalized) return ITEMS.slice(0, 5);
@@ -31,13 +43,34 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
 
   const go = (id: string) => {
     setOpen(false);
+    setMobileOpen(false);
     setQuery("");
     router.push(`${basePath}/${id}`.replace(/\/+/g, "/"));
   };
 
   return (
-    <div className="relative flex-1 max-w-[420px] sm:ml-6">
-      <label className="flex h-9 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:bg-white/[0.09] focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]">
+    <div
+      className={cn(
+        "relative min-w-0 sm:ml-6 sm:flex-1 sm:max-w-[420px]",
+        mobileOpen ? "absolute inset-x-3 z-40 sm:static sm:inset-auto" : "shrink-0 sm:shrink",
+      )}
+    >
+      {/* Compact trigger - phones only. */}
+      {!mobileOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label={lang === "bn" ? "খুঁজুন" : "Search"}
+          className="sm:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
+        >
+          <SearchGlyph />
+        </button>
+      )}
+
+      <label className={cn(
+        "h-9 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:bg-white/[0.09] focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]",
+        mobileOpen ? "flex" : "hidden sm:flex",
+      )}>
         <SearchGlyph />
         <input
           id="top-search"
@@ -46,7 +79,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && results[0]) { event.preventDefault(); go(results[0].id); }
-            if (event.key === "Escape") setOpen(false);
+            if (event.key === "Escape") { setOpen(false); setMobileOpen(false); }
           }}
           placeholder={lang === "bn" ? "খুঁজুন বা খুলুন…" : "Search or open…"}
           className="min-w-0 flex-1 bg-transparent text-[13px] text-paper outline-none placeholder:text-paper/40"
@@ -56,7 +89,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
       <AnimatePresence>
         {open && (
           <>
-            <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
+            <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => { setOpen(false); setMobileOpen(false); }} />
             <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#1d1512]/95 p-2 shadow-2xl backdrop-blur-xl">
               <div className="px-2 pb-1.5 pt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-paper/40">{lang === "bn" ? "কর্মক্ষেত্রের ফলাফল" : "Workspace results"}</div>
               {results.map((item, index) => (

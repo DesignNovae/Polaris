@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOptionalSession } from "@/lib/authz";
 import { Icon } from "@/components/app/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExamLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
+  const session = await getOptionalSession();
   // Middleware guards /exams and attaches the real callbackUrl; this is the
   // defence-in-depth check and cannot see the requested path.
-  if (!session?.user) redirect("/signin");
+  if (!session) redirect("/signin");
 
   return (
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-bg text-ink">

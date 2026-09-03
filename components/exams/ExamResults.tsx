@@ -6,6 +6,7 @@ import { Card, Icon, Pill, Progress, RingMini } from "@/components/app/ui";
 import { cn } from "@/lib/cn";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import type { PublicExamResult } from "@/lib/exams/types";
+import { ExamReplanPanel } from "./ExamReplanPanel";
 
 const SAT_MATH_DOMAINS = new Set(["Algebra", "Advanced Math", "Problem-Solving and Data Analysis", "Geometry and Trigonometry"]);
 
@@ -259,6 +260,11 @@ export function ExamResults({ sessionId }: { sessionId: string }) {
         </div>}
         {error && <p role="alert" className="mt-3 text-[11px] text-signal-rose">{error}</p>}
       </Card>
+
+      {/* The result is only useful if it changes what happens next week. */}
+      <div className="mt-6">
+        <ExamReplanPanel sessionId={sessionId} />
+      </div>
 
       <section className="mt-6">
         <div className="mb-4">

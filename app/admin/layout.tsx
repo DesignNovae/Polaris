@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOptionalSession } from "@/lib/authz";
 import { Nav } from "@/components/Nav";
 import { AdminTabs } from "@/components/AdminTabs";
 
@@ -11,9 +10,9 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) redirect("/signin?callbackUrl=/admin");
-  if ((session.user as { role?: string }).role !== "admin") redirect("/dashboard");
+  const session = await getOptionalSession();
+  if (!session) redirect("/signin?redirect_url=/admin");
+  if (session.role !== "admin") redirect("/dashboard");
 
   return (
     <main className="min-h-screen">

@@ -6,7 +6,7 @@
  * calibrated admissions model, and the UI must present it as an estimate.
  */
 
-import type { StudentProfile } from "@/lib/profile";
+import type { StudentProfile, Tier } from "@/lib/profile";
 import { deriveEngineGpa } from "@/lib/profile";
 
 export type ProbabilityInputs = {
@@ -132,4 +132,43 @@ export function profileToInputs(profile: StudentProfile | null): ProbabilityInpu
     ecCount: profile.ecCount ?? Math.round(ecCount),
     research: profile.research ?? Math.round(research),
   };
+}
+
+/**
+ * Representative published acceptance rate for each target tier.
+ *
+ * The workspace shell knows a student's target *tier*, not a specific school,
+ * so the shell needs a baseline the model can start from. These are order-of-
+ * magnitude anchors drawn from the tier definitions used across the university
+ * data, not a claim about any one institution - which is why the shell labels
+ * the result as an estimate for the tier rather than for a named university.
+ */
+const TIER_BASELINE: Record<Tier, number> = {
+  elite: 0.05,
+  top50: 0.2,
+  top200: 0.45,
+  regional: 0.7,
+};
+
+/**
+ * Acceptance estimate for a student's declared target tier.
+ *
+ * Returns null when there is no profile to score. The app-shell used to render
+ * a hard-coded 0.41 for every user with a `TODO: pull from ML service` beside
+ * it; a fabricated figure is exactly what the rest of this product exists to
+ * catch, so absent inputs now render nothing instead of a number.
+ */
+export function scoreProbabilityForTier(
+  profile: StudentProfile | null,
+): number | null {
+  if (!profile?.targetTier) return null;
+  const acceptanceRate = TIER_BASELINE[profile.targetTier];
+  if (acceptanceRate === undefined) return null;
+
+  const { probability } = scoreProbability(profileToInputs(profile), {
+    id: `tier:${profile.targetTier}`,
+    tier: profile.targetTier === "top50" ? "top50" : profile.targetTier === "top200" ? "top200" : profile.targetTier === "elite" ? "elite" : "regional",
+    acceptanceRate,
+  });
+  return probability;
 }

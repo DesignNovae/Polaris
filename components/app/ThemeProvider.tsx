@@ -3,19 +3,19 @@
 /**
  * Workspace theme provider. A single persisted preference controls every app
  * route, while the marketing site keeps its intentional light presentation.
+ *
+ * The route split lives in lib/theme/routes so this and the pre-hydration
+ * script in the document head cannot disagree - see the note there for why
+ * that mattered.
  */
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isThemedPath, leadingSegment } from "@/lib/theme/routes";
+import { THEME_PREFERENCE_KEY, THEME_STORAGE_KEY } from "@/lib/theme/preflight";
 
 type Theme = "light" | "dark";
 export type ThemePreference = Theme | "auto";
-
-const STORAGE_KEY = "polaris.theme";
-const PREFERENCE_KEY = "polaris.theme.preference";
-
-const APP_PREFIX_RE =
-  /^\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab|exams)(\/|$)/;
 
 const ThemeCtx = createContext<{
   theme: Theme;
@@ -31,20 +31,20 @@ const ThemeCtx = createContext<{
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const isAppRoute = APP_PREFIX_RE.test(pathname);
+  const themed = isThemedPath(pathname);
   const [theme, setTheme] = useState<Theme>("light");
   const [preference, setPreference] = useState<ThemePreference>("auto");
 
   useEffect(() => {
-    if (!isAppRoute) {
+    if (!themed) {
       apply("light");
       setTheme("light");
       return;
     }
 
-    const savedPreference = localStorage.getItem(PREFERENCE_KEY) as ThemePreference | null;
-    const legacyTheme = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const demoDefault = pathname === "/demo" || pathname.startsWith("/demo/");
+    const savedPreference = readStored(THEME_PREFERENCE_KEY) as ThemePreference | null;
+    const legacyTheme = readStored(THEME_STORAGE_KEY) as Theme | null;
+    const demoDefault = leadingSegment(pathname) === "demo";
     const nextPreference: ThemePreference =
       savedPreference === "light" || savedPreference === "dark" || savedPreference === "auto"
         ? savedPreference
@@ -58,7 +58,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     apply(nextTheme);
     setTheme(nextTheme);
     setPreference(nextPreference);
-    localStorage.setItem(STORAGE_KEY, nextTheme);
+    writeStored(THEME_STORAGE_KEY, nextTheme);
 
     if (nextPreference !== "auto") return;
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -66,23 +66,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const resolved: Theme = media?.matches ? "dark" : "light";
       apply(resolved);
       setTheme(resolved);
-      localStorage.setItem(STORAGE_KEY, resolved);
+      writeStored(THEME_STORAGE_KEY, resolved);
     };
     media?.addEventListener?.("change", syncSystemTheme);
     return () => media?.removeEventListener?.("change", syncSystemTheme);
-  }, [isAppRoute, pathname]);
+  }, [themed, pathname]);
 
   const set = useCallback(
     (nextPreference: ThemePreference) => {
-      if (!isAppRoute) return;
+      if (!themed) return;
       const nextTheme = resolveTheme(nextPreference);
       apply(nextTheme);
-      localStorage.setItem(PREFERENCE_KEY, nextPreference);
-      localStorage.setItem(STORAGE_KEY, nextTheme);
+      writeStored(THEME_PREFERENCE_KEY, nextPreference);
+      writeStored(THEME_STORAGE_KEY, nextTheme);
       setPreference(nextPreference);
       setTheme(nextTheme);
     },
-    [isAppRoute],
+    [themed],
   );
 
   const toggle = useCallback(() => {
@@ -97,6 +97,26 @@ function resolveTheme(preference: ThemePreference): Theme {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/**
+ * localStorage throws, rather than returning null, in a browser configured to
+ * block site data. The preflight script guards for the same reason.
+ */
+function readStored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* preference simply will not persist */
+  }
+}
+
 function apply(t: Theme) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.theme = t;
@@ -106,27 +126,3 @@ function apply(t: Theme) {
 export function useTheme() {
   return useContext(ThemeCtx);
 }
-
-/** Set the resolved theme before hydration so app navigation never flashes. */
-export const THEME_PREFLIGHT_SCRIPT = `
-(function(){
-  try {
-    var p = location.pathname || '/';
-    var isApp = /^\\/(strategist|dashboard|account|billing|connections|deadlines|family|partners|consultants|community|bookings|resources|roadmap|settings|transactions|universities|admin|monitor|demo|action-lab|exams)(\\/|$)/.test(p);
-    var t = 'light';
-    if (isApp) {
-      var pref = localStorage.getItem('${PREFERENCE_KEY}');
-      var saved = localStorage.getItem('${STORAGE_KEY}');
-      var demoDefault = p === '/demo' || p.indexOf('/demo/') === 0;
-      if (pref === 'dark' || pref === 'light') t = pref;
-      else if (pref === 'auto') t =
-        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      else if (saved === 'dark' || saved === 'light') t = saved;
-      else t = demoDefault ? 'dark' :
-        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    }
-    document.documentElement.dataset.theme = t;
-    document.documentElement.style.colorScheme = t;
-  } catch(e) {}
-})();
-`;

@@ -82,6 +82,17 @@ textarea:focus-visible {
   border-radius: 6px;
 }
 
+/* Keep browser autofill inside the warm Polaris auth palette. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #2C1810;
+  caret-color: #B8546A;
+  -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset;
+  box-shadow: 0 0 0 1000px #FFFFFF inset;
+  transition: background-color 9999s ease-out;
+}
+
 /* Custom range slider styling for the paper theme */
 input[type="range"] {
   -webkit-appearance: none;
@@ -217,6 +228,17 @@ html.lenis body {
     --c-ink-dim:    206 196 184;
     --c-ink-muted:  160 148 132;
     --c-ink-faint:  108 98  86;
+  }
+
+  /* The document canvas, not just the body box.
+
+     `html, body { background: #FAF6F0 }` above is unconditional and the dark
+     override below only ever reached `body`, so the root element stayed cream.
+     That shows wherever the body box does not cover the paint area: overscroll
+     rubber-banding, and the frame between a navigation committing and the new
+     body painting - a light flash on an otherwise dark workspace. */
+  :root[data-theme="dark"] {
+    background-color: #0A0806;
   }
 
   /* Body canvas swaps to a true dark gradient. */

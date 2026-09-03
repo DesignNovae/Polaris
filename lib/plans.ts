@@ -1,5 +1,3 @@
-import { env } from "@/lib/env";
-import type { Plan } from "@/lib/db/collections";
 
 // Re-export client-safe feature helpers for server callers' convenience.
 export {
@@ -10,17 +8,10 @@ export {
   PLAN_LABELS,
 } from "@/lib/features";
 
-/** Map a paid tier to its configured LemonSqueezy variant id. */
-export function variantForTier(tier: "pro" | "elite"): string | undefined {
-  return tier === "pro"
-    ? env.LEMONSQUEEZY_VARIANT_PRO
-    : env.LEMONSQUEEZY_VARIANT_ELITE;
-}
-
-/** Map a LemonSqueezy variant id back to a plan (for webhooks). */
-export function tierForVariant(variantId: string): Plan {
-  if (variantId === env.LEMONSQUEEZY_VARIANT_ELITE) return "elite";
-  if (variantId === env.LEMONSQUEEZY_VARIANT_PRO) return "pro";
-  return "free";
-}
+/**
+ * SSLCommerz has no per-plan product ids: the plan and billing cycle come from
+ * the order row we wrote before redirecting, and the price from the catalog in
+ * lib/billing/plans.ts. The variant-id mapping the LemonSqueezy integration
+ * needed is gone with it.
+ */
 

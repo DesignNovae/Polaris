@@ -7,7 +7,7 @@
  */
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/SessionProvider";
 import { motion, useReducedMotion } from "framer-motion";
 import { Accent, Dot, Reveal, StarField, GArrow, GRoute, NorthStarMark } from "./shared";
 

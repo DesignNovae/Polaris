@@ -7,7 +7,7 @@ import {
 } from "@/lib/llm/gemma";
 import { summarizeProfile, type StudentProfile } from "@/lib/profile";
 import { searchDocs } from "@/lib/rag/search";
-import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { rateLimit, rateLimitHeaders, clientKey } from "@/lib/ratelimit";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
 import { studentProfileSchema } from "@/lib/validation/schemas";
 import type { Lang } from "@/lib/i18n/strings";
@@ -34,14 +34,9 @@ function promptFor(
   return `${generationLanguageInstruction(language)}\n\nSTUDENT PROFILE\n${summarizeProfile(profile)}\n\nRETRIEVED EVIDENCE\n${context}\n\nReturn a structured roadmap with 8-12 milestones, 3-5 honest profile gaps, measurable success criteria, and source-aware rationales. Keep JSON keys and enum values exactly as required, but write all human-readable content in the selected language.`;
 }
 
-function clientId(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || req.headers.get("x-real-ip") || "public-demo";
-}
-
 export const POST = withErrorHandling(async (req) => {
   const language = requestLanguage(req);
-  const limit = await rateLimit(clientId(req), "free", "public-gemma4-demo");
+  const limit = await rateLimit(clientKey(req), "free", "public-demo");
   if (!limit.allowed) {
     const response = fail(429, language === "bn" ? BN_ERRORS.demoLimit : "Demo limit reached. Please retry in a few minutes.");
     for (const [key, value] of Object.entries(rateLimitHeaders(limit))) {

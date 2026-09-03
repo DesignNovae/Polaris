@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, parseJson, withErrorHandling } from "@/lib/api/respond";
-import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { rateLimit, rateLimitHeaders, clientKey } from "@/lib/ratelimit";
 import { RoadmapConfigSchema, type EducationLevel } from "@/lib/roadmap/types";
 import { generateRoadmap } from "@/lib/roadmap/generate";
 import type { GradeLevel, StudentProfile } from "@/lib/profile";
@@ -20,11 +20,10 @@ const LEVEL_TO_GRADE: Record<EducationLevel, GradeLevel> = {
   "early-school": "middle", "middle-school": "middle", ssc: "early-hs",
   hsc: "late-hs", "gap-applicant": "recent-grad",
 };
-function clientId(req: NextRequest) { return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "public-roadmap"; }
 
 export const POST = withErrorHandling(async (req) => {
   const language = requestLanguage(req);
-  const limit = await rateLimit(clientId(req), "free", "public-gemma4-roadmap-v2");
+  const limit = await rateLimit(clientKey(req), "free", "public-demo");
   if (!limit.allowed) return Response.json({ error: language === "bn" ? BN_ERRORS.demoLimit : "Public generation limit reached. Please retry in a few minutes." }, { status: 429, headers: rateLimitHeaders(limit) });
   const body = (await parseJson(req)) as Record<string, unknown>;
   const config = RoadmapConfigSchema.parse(body);

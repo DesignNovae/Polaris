@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { generateGemmaText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
 import { searchDocs } from "@/lib/rag/search";
-import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { rateLimit, rateLimitHeaders, clientKey } from "@/lib/ratelimit";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
 import type { Lang } from "@/lib/i18n/strings";
 import {
@@ -21,12 +21,6 @@ type DemoStrategistBody = {
   roadmapSummary?: unknown;
   knowledgeNotes?: unknown;
 };
-
-function clientId(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
-    || "public-demo";
-}
 
 function fallbackReply(message: string, section: string, lang: Lang): string {
   const lower = message.toLowerCase();
@@ -56,7 +50,7 @@ function fallbackReply(message: string, section: string, lang: Lang): string {
 
 export const POST = withErrorHandling(async (req) => {
   const language = requestLanguage(req);
-  const limit = await rateLimit(clientId(req), "free", "public-gemma4-strategist");
+  const limit = await rateLimit(clientKey(req), "free", "public-demo");
   if (!limit.allowed) {
     const response = fail(429, language === "bn" ? BN_ERRORS.demoLimit : "Public Strategist limit reached. Please retry in a few minutes.");
     for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);

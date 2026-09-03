@@ -16,7 +16,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, useSignOut } from "@/components/SessionProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, Pill } from "./ui";
 import { useTheme } from "./ThemeProvider";
@@ -33,6 +33,9 @@ const TITLES: Record<string, { eyebrow: string; title: string }> = {
   universities: { eyebrow: "Workspace", title: "Universities" },
   resources:    { eyebrow: "Workspace", title: "Resources" },
   "action-lab": { eyebrow: "Workspace", title: "Action Lab" },
+  passport:     { eyebrow: "Workspace", title: "Passport" },
+  cohort:       { eyebrow: "Workspace", title: "Benchmarks" },
+  affordability:{ eyebrow: "Workspace", title: "Affordability" },
   connections:  { eyebrow: "Workspace", title: "Connections" },
   partners:     { eyebrow: "Workspace", title: "Partner offers" },
   consultants:  { eyebrow: "Workspace", title: "Consultants" },
@@ -56,6 +59,7 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
+  const signOut = useSignOut();
   const { theme, toggle: toggleTheme } = useTheme();
   const { events } = useRoadmapStrategist();
   const { lang, setLang } = useLang();
@@ -102,6 +106,23 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
       .catch(() => { if (alive) setCompletion(100); });
     return () => { alive = false; };
   }, [profileOpen, completion, demoUser]);
+
+  /**
+   * Whether anyone has shared a student with this account. A teacher or a
+   * parent who also has their own student account keeps role "student", so the
+   * portal cannot be reached by a role redirect - this link is how they find
+   * it. Resolved lazily when the menu opens, like profile completion.
+   */
+  const [sharedCount, setSharedCount] = useState<number | null>(demoUser ? 0 : null);
+  useEffect(() => {
+    if (demoUser || !profileOpen || sharedCount !== null) return;
+    let alive = true;
+    fetch("/api/monitor/view", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setSharedCount(d?.students?.length ?? 0); })
+      .catch(() => { if (alive) setSharedCount(0); });
+    return () => { alive = false; };
+  }, [profileOpen, sharedCount, demoUser]);
 
   // Strategist insight count - store events from this session.
   const insightCount = events.length;
@@ -157,7 +178,7 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
         {/* search */}
         <WorkspaceSearch basePath={basePath} lang={lang} />
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
                     <Link href={basePath || "/roadmap"} className="hidden md:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] hover:-translate-y-px transition-all">
             New task
           </Link>
@@ -182,7 +203,7 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
             onClick={toggleTheme}
             aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             title={theme === "dark" ? "Light mode" : "Dark mode"}
-            className="relative h-9 w-9 rounded-lg inline-flex items-center justify-center bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] transition-all overflow-hidden"
+            className="relative hidden sm:inline-flex h-9 w-9 rounded-lg items-center justify-center bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] transition-all overflow-hidden"
           >
             <span className={cn(
               "absolute inset-0 inline-flex items-center justify-center transition-all duration-300",
@@ -310,6 +331,25 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
                     <MenuLink href={basePath ? `${basePath}/settings?tab=appearance` : "/settings"} onClick={() => setProfileOpen(false)} icon={<CogGlyph />}>Settings</MenuLink>
                     <MenuLink href={`${basePath}/billing`} onClick={() => setProfileOpen(false)} icon={<CardGlyph />}>Billing &amp; plan</MenuLink>
                     <MenuLink href={`${basePath}/transactions`} onClick={() => setProfileOpen(false)} icon={<ReceiptGlyph />}>Transactions</MenuLink>
+                    {!demoUser && sharedCount !== null && sharedCount > 0 && (
+                      <MenuLink href="/portal" onClick={() => setProfileOpen(false)} icon={<SharedGlyph />}>
+                        Shared with you
+                        <span className="ml-auto rounded-full bg-polaris-500/15 px-1.5 text-[10px] font-bold tabular-nums text-polaris-700 dark:text-polaris-300">
+                          {sharedCount}
+                        </span>
+                      </MenuLink>
+                    )}
+                    {/* Phones only: the header has no room for the toggle. */}
+                    <li className="sm:hidden">
+                      <button
+                        onClick={toggleTheme}
+                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-ink hover:bg-paper-soft dark:hover:bg-white/[0.05] transition-colors"
+                        role="menuitem"
+                      >
+                        <span className={glyphCls}>{theme === "dark" ? <SunGlyph /> : <MoonGlyph />}</span>
+                        {theme === "dark" ? "Light mode" : "Dark mode"}
+                      </button>
+                    </li>
                     <li>
                       <button
                         onClick={openStreak}
@@ -385,7 +425,7 @@ function MenuLink({
       <Link
         href={href}
         onClick={onClick}
-        className="flex items-center gap-2.5 px-4 py-2 text-[13px] text-ink hover:bg-paper-soft dark:hover:bg-white/[0.05] transition-colors"
+        className="flex w-full items-center gap-2.5 px-4 py-2 text-[13px] text-ink hover:bg-paper-soft dark:hover:bg-white/[0.05] transition-colors"
         role="menuitem"
       >
         {icon} {children}
@@ -460,6 +500,16 @@ function FlameGlyph() {
     </svg>
   );
 }
+function SharedGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={glyphCls}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
 function SunGlyph() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

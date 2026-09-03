@@ -171,6 +171,12 @@ function NavGlyph({ id }: { id: NavItem["id"] }) {
     universities: "M2 10l10-5 10 5-10 5z M6 12v6c0 1 3 2 6 2s6-1 6-2v-6",
     resources:    "M4 4h10a4 4 0 0 1 4 4v12 M4 4v16 M4 20h10a4 4 0 0 0 4-4",
     "action-lab": "M9 3h6 M10 3v5l-5.5 9.5A2.3 2.3 0 0 0 6.5 21h11a2.3 2.3 0 0 0 2-3.5L14 8V3 M8 15h8 M9.5 12h5",
+    // a stamped seal - the passport's verification mark
+    passport:     "M12 3l7 3v6c0 4.4-2.9 8.3-7 9.5-4.1-1.2-7-5.1-7-9.5V6z M9 12l2 2 4-4",
+    // a distribution: three bars of different heights
+    cohort:       "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
+    // a coin with a gap in the ring
+    affordability:"M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
     connections:  "M10 14a5 5 0 0 1 0-7l3-3a5 5 0 0 1 7 7l-1.5 1.5 M14 10a5 5 0 0 1 0 7l-3 3a5 5 0 0 1-7-7l1.5-1.5",
     partners:     "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01",
     consultants:  "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M19 7l.9 1.9 2.1.3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.4 2.1-.3z",

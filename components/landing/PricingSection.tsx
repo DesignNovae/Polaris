@@ -11,7 +11,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/SessionProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "@/lib/i18n/LangProvider";
 import { startCheckout } from "@/components/PlanGate";

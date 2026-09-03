@@ -4,7 +4,7 @@ import type { PracticeQuestion } from "@/lib/action-lab/types";
 import { generateGemmaText, generateGemmaVisionText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
 import { LEARNING_VIDEOS } from "@/lib/action-lab/data";
 import { searchDocs } from "@/lib/rag/search";
-import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { rateLimit, rateLimitHeaders, rateLimitMessage, type LimitScope } from "@/lib/ratelimit";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
 import { queueReviewedBankCandidates } from "@/lib/exams/bank-candidates";
@@ -47,8 +47,6 @@ export const dynamic = "force-dynamic";
 // require several Gemma attempts plus validation. Keep enough server time for
 // those retries without turning the whole practice set into one request.
 export const maxDuration = 150;
-/** Batch requests per user per rate-limit window. See the exam-generate-batch branch. */
-const BATCH_BUDGET_PER_WINDOW = 120;
 
 const bodySchema = z.discriminatedUnion("kind", [
   z.object({
@@ -172,12 +170,6 @@ const DISCOVERY_JSON = {
   properties: Object.fromEntries(Array.from({ length: 3 }, (_, i) => i + 1).flatMap((index) => DISCOVERY_FIELDS.map((field) => [`d${index}_${field}`, { type: "string" }]))),
   required: Array.from({ length: 3 }, (_, i) => i + 1).flatMap((index) => DISCOVERY_FIELDS.map((field) => `d${index}_${field}`)),
 } as const;
-
-function clientId(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
-    || "public-gemma-studio";
-}
 
 function userKey(req: NextRequest): string | null {
   const value = req.headers.get("x-polaris-gemma-key")?.trim() || "";
@@ -720,16 +712,29 @@ async function gemmaJson(
   return null;
 }
 
+function scopeForKind(kind: Body["kind"]): LimitScope {
+  if (kind === "exam-generate-batch") return "exam-ai-batch";
+  if (kind === "essay-ocr" || kind === "essay-translate" || kind === "essay") return "essay";
+  return "exam-ai";
+}
+
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const lang = requestLanguage(req);
+  const user = await requireSession();
   const body = bodySchema.parse(await parseJson(req)) as Body;
-  // A master-plan request consumes the user's generation budget. Batch requests
-  // are far smaller units of work, so charging each one against the same budget
-  // would make a valid 40-question set impossible; they are metered separately
-  // per authenticated user inside the exam-generate-batch branch below.
-  const limit = body.kind === "exam-generate-batch" ? null : await rateLimit(clientId(req), "free", "gemma-studio");
-  if (limit && !limit.allowed) {
-    const response = fail(429, lang === "bn" ? "অনুরোধের সীমা শেষ হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।" : "Request limit reached. Please retry shortly.");
+
+  // Every kind here reaches a model. Six of the thirteen (videos, essay-ocr,
+  // essay-translate, essay, note, discover) had no session check at all -
+  // essay-ocr accepts an uploaded image, so an anonymous caller could push
+  // arbitrary images through the multimodal budget, metered only by a
+  // spoofable IP header. Authenticate and meter once, above the switch.
+  //
+  // Batches stay on their own scope: a 40-question set is deliberately split
+  // into many small requests, and charging each against the plan budget would
+  // make a valid set impossible to finish.
+  const limit = await rateLimit(user.id, user.plan, scopeForKind(body.kind));
+  if (!limit.allowed) {
+    const response = fail(429, rateLimitMessage(limit, lang));
     for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
     return response;
   }
@@ -739,7 +744,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const live = hasGemmaKey(apiKey);
 
   if (body.kind === "exam-generate-plan") {
-    const user = await requireSession();
     const allowedSections = body.exam === "IELTS" ? ["Listening", "Reading"] : ["Reading and Writing", "Math"];
     if (!allowedSections.includes(body.section)) return fail(400, "The selected section is not valid for objective AI practice.");
     const derived = await derivePracticeTarget(user.id, body.sourceSessionId);
@@ -794,18 +798,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "exam-generate-batch") {
-    const user = await requireSession();
-    // Generous enough for two full 40-question sets with retries, but bounded:
-    // generation runs on the deployment's Gemma key when the user has not
-    // supplied their own, so an unmetered endpoint is unmetered spend.
-    const batchLimit = await rateLimit(user.id, "free", "gemma-studio-batch", BATCH_BUDGET_PER_WINDOW);
-    if (!batchLimit.allowed) {
-      const response = fail(429, lang === "bn"
-        ? "প্রশ্ন তৈরির সীমা শেষ হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।"
-        : "Practice generation limit reached. Please retry shortly.");
-      for (const [key, value] of Object.entries(rateLimitHeaders(batchLimit))) response.headers.set(key, value);
-      return response;
-    }
     const claimed = await claimPracticeBatch(user.id, body.generationId, body.batchIndex);
     if (claimed.alreadyComplete) return Response.json(await getPracticeGeneration(user.id, body.generationId));
       const { generation, batch } = claimed;
@@ -927,7 +919,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "writing-generate") {
-    const user = await requireSession();
     const practiceId = await beginWritingPractice(user.id, body.difficulty, live ? getGemmaModelId() : "none");
     const startedAt = Date.now();
     try {
@@ -950,7 +941,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "writing-coach") {
-    const user = await requireSession();
     const practice = await writingPracticeForCoaching(user.id, body.practiceId);
     const generated = live
       ? await generateGemmaText({
@@ -980,7 +970,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "exam-generate") {
-    const user = await requireSession();
     const allowedSections = body.exam === "IELTS" ? ["Listening", "Reading", "Writing"] : ["Reading and Writing", "Math"];
     if (!allowedSections.includes(body.section)) return fail(400, "The selected section is not valid for this exam.");
     if (body.exam === "IELTS" && body.section === "Writing") return fail(400, "Use the dedicated writing practice generator for this section.");
@@ -1101,7 +1090,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "exam-grade") {
-    const user = await requireSession();
     const persisted = await gradePersistedPractice(user.id, body.generationId, body.answers);
     if (persisted.generation.input.exam !== body.exam) return fail(400, "The selected exam does not match the saved practice set.");
     const questions = persisted.generation.questions;
@@ -1141,7 +1129,6 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "exam-coach") {
-    const user = await requireSession();
     const persisted = await gradePersistedPractice(user.id, body.generationId, body.answers);
     if (persisted.generation.input.exam !== body.exam) return fail(400, "The selected exam does not match the saved practice set.");
     const questions = persisted.generation.questions;

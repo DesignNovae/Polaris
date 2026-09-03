@@ -3,7 +3,7 @@
 /**
  * Settings → Profile form. PATCH /api/account with the new display name.
  * Email is read-only (identity field, changing it would invalidate the
- * NextAuth session); same for role (controlled by admin).
+ * Clerk session); same for role (controlled by admin).
  */
 
 import { useState } from "react";

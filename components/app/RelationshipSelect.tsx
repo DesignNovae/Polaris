@@ -19,10 +19,11 @@ export function RelationshipSelect() {
         onChange={setValue}
         variant="input"
         align="right"
-        className="w-[170px] shrink-0"
+        className="w-[200px] shrink-0"
         options={[
-          { value: "parent", label: "Parent", description: "Read-only progress view" },
-          { value: "partner", label: "Partner / counselor", description: "Progress + notes access" },
+          { value: "parent", label: "Parent", description: "Academics, evidence, progress, deadlines" },
+          { value: "partner", label: "Partner / counselor", description: "Progress and deadlines only" },
+          { value: "teacher", label: "Teacher / recommender", description: "Evidence, academics and deadlines" },
         ]}
       />
     </>

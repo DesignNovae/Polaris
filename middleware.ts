@@ -1,25 +1,27 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
 /**
- * Auth gate for protected areas. We read the JWT explicitly (rather than the
- * default withAuth) so we can force `secureCookie` on HTTPS - this keeps the
- * cookie name (__Secure-next-auth.session-token) consistent with what the auth
- * callback writes, regardless of how NEXTAUTH_URL is configured. Without this,
- * a misconfigured NEXTAUTH_URL makes the middleware miss the session and bounce
- * logged-in users back to /signin.
+ * Auth gate for the protected areas.
+ *
+ * Clerk replaced the NextAuth credentials provider, which also retires the
+ * `secureCookie` workaround this file used to carry: cookie naming is handled
+ * by Clerk rather than derived from NEXTAUTH_URL, so a misconfigured origin can
+ * no longer desynchronise the session and bounce signed-in users to /signin.
+ *
+ * Everything not matched here stays public - the landing page, /demo, and the
+ * university and scholarship pages that need to be crawlable (see sitemap.ts).
  */
 
-const PROTECTED = [
+const PROTECTED_ROUTE_PREFIXES = [
   "/dashboard",
   "/onboard",
   "/billing",
   "/family",
   "/monitor",
+  "/portal",
   "/account",
   "/admin",
-  // New (app) workspace shell.
   "/roadmap",
   "/strategist",
   "/deadlines",
@@ -28,61 +30,46 @@ const PROTECTED = [
   "/connections",
   "/transactions",
   "/action-lab",
+  "/passport",
+  "/cohort",
+  "/affordability",
   "/exams",
   "/partners",
   "/consultants",
   "/community",
   "/bookings",
   "/settings",
-];
+] as const;
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const isProtected = PROTECTED.some(
-    (p) => pathname === p || pathname.startsWith(p + "/"),
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-  if (!isProtected) return NextResponse.next();
-
-  const secureCookie =
-    !!process.env.VERCEL || req.nextUrl.protocol === "https:";
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie,
-  });
-
-  if (!token) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/signin";
-    url.search = `callbackUrl=${encodeURIComponent(pathname)}`;
-    return NextResponse.redirect(url);
-  }
-
-  return NextResponse.next();
 }
+
+export default clerkMiddleware(async (auth, req) => {
+  // Resource-level checks in layouts and handlers are authoritative. This
+  // early redirect preserves a fast signed-out experience and remains a
+  // defence-in-depth layer without Clerk's deprecated path matcher.
+  if (!isProtectedPath(req.nextUrl.pathname)) return NextResponse.next();
+
+  const { userId } = await auth();
+  if (!userId) {
+    const signIn = new URL("/signin", req.url);
+    signIn.searchParams.set(
+      "redirect_url",
+      req.nextUrl.pathname + req.nextUrl.search,
+    );
+    return NextResponse.redirect(signIn);
+  }
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/onboard/:path*",
-    "/billing/:path*",
-    "/family/:path*",
-    "/monitor/:path*",
-    "/account/:path*",
-    "/admin/:path*",
-    "/roadmap/:path*",
-    "/strategist/:path*",
-    "/deadlines/:path*",
-    "/universities/:path*",
-    "/resources/:path*",
-    "/connections/:path*",
-    "/transactions/:path*",
-    "/action-lab/:path*",
-    "/exams/:path*",
-    "/partners/:path*",
-    "/consultants/:path*",
-    "/community/:path*",
-    "/bookings/:path*",
-    "/settings/:path*",
+    // Everything except Next internals and static files, so Clerk can attach
+    // the session to requests it does not gate.
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
   ],
 };

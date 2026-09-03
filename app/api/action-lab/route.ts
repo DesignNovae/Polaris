@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateGemmaText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { requireSession } from "@/lib/authz";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
 import { finalizeGeneratedLanguage, generationLanguageInstruction, requestLanguage } from "@/lib/i18n/server";
 import type { DecisionResult, EvidenceResult, RoutineCategory, RoutineSuggestion } from "@/lib/action-lab/types";
@@ -84,12 +85,6 @@ const routineOutputSchema = {
   },
   required: ["day", "start", "end", "title", "category"],
 } as const;
-
-function clientId(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
-    || "public-action-lab";
-}
 
 function parseObject(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
@@ -320,7 +315,10 @@ function applyRateLimitHeaders(response: Response, limit: Awaited<ReturnType<typ
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const lang = requestLanguage(req);
-  const limit = await rateLimit(clientId(req), "free", "public-action-lab");
+  // Action Lab is a workspace surface (/action-lab is gated in middleware); its
+  // API was reachable signed out and metered by IP. Key on the user instead.
+  const user = await requireSession();
+  const limit = await rateLimit(user.id, user.plan, "action-lab");
   if (!limit.allowed) {
     return applyRateLimitHeaders(
       fail(429, lang === "bn" ? "অ্যাকশন ল্যাবের সীমা পূর্ণ হয়েছে। কয়েক মিনিট পর আবার চেষ্টা করুন।" : "Action Lab limit reached. Please retry in a few minutes."),

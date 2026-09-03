@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, useSignOut } from "@/components/SessionProvider";
 import { useLang } from "@/lib/i18n/LangProvider";
 import { PLAN_LABELS } from "@/lib/features";
 import { cn } from "@/lib/cn";
@@ -72,6 +72,7 @@ function useNavContext(): NavCtx {
 export function Nav() {
   const { t, lang, setLang } = useLang();
   const { data: session, status } = useSession();
+  const signOut = useSignOut();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { theme, activeAnchor } = useNavContext();

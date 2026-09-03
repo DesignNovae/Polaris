@@ -1,6 +1,6 @@
 /**
  * GET    /api/links            - list invites for the signed-in student
- * POST   /api/links            - invite a parent / partner
+ * POST   /api/links            - invite a parent / partner / teacher
  * PATCH  /api/links?id=<oid>   - change a viewer relationship
  * DELETE /api/links?id=<oid>   - revoke an invite
  *
@@ -30,7 +30,9 @@ const InviteSchema = z
   .object({
     email: z.string().email().max(254).optional(),
     viewerEmail: z.string().email().max(254).optional(),
-    relationship: z.enum(["parent", "partner"]),
+    relationship: z.enum(["parent", "partner", "teacher"]),
+    // Free-text reminder of who this is - "physics teacher, Class 12".
+    note: z.string().trim().max(120).optional(),
   })
   .refine((v) => !!(v.email || v.viewerEmail), {
     message: "An invitee email is required",
@@ -60,7 +62,7 @@ export const POST = withErrorHandling(async (req) => {
     throw new HttpError(400, "You can't invite yourself.");
   }
 
-  const link = await createLink(user.id, user.name ?? undefined, email, parsed.relationship);
+  const link = await createLink(user.id, user.name ?? undefined, email, parsed.relationship, parsed.note);
 
   // TODO(email): enqueue the invite email here. The repo has no mail helper
   // yet - add lib/mail/send.ts (Resend/SES/etc.) and send `link.inviteToken`
@@ -86,7 +88,7 @@ export const PATCH = withErrorHandling(async (req) => {
   const id = new URL(req.url).searchParams.get("id");
   if (!id || !ObjectId.isValid(id)) throw new HttpError(400, "Missing or invalid id");
   const { relationship } = z
-    .object({ relationship: z.enum(["parent", "partner"]) })
+    .object({ relationship: z.enum(["parent", "partner", "teacher"]) })
     .parse(await parseJson(req));
   const updated = await updateLinkRelationship(user.id, id, relationship);
   if (!updated) throw new HttpError(404, "Viewer link not found");

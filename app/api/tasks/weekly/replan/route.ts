@@ -27,7 +27,7 @@ const schema = z.object({
 export const POST = withErrorHandling(async (req) => {
   const session = await requireSession();
 
-  const rl = await rateLimit(session.id, session.plan, "strategist");
+  const rl = await rateLimit(session.id, session.plan, "planning");
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Rate limit reached. Try the replan again in a few minutes." },

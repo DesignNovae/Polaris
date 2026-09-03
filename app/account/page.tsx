@@ -1,5 +1,7 @@
 "use client";
 
+import { SettingsPasswordForm } from "@/components/app/SettingsPasswordForm";
+
 /**
  * /account - Student Profile Settings.
  *
@@ -996,50 +998,15 @@ const optionBtnActive =
   "bg-polaris-100 border-polaris-400 text-ink dark:bg-polaris-400/20 dark:border-polaris-400/60 dark:text-polaris-100";
 
 /* ─── Password card ─── */
+/**
+ * Sign-in and security now live in Clerk: password, email addresses and MFA
+ * are managed there rather than through a form that writes to our database,
+ * because after the migration there is no credential here to write.
+ */
 function PasswordCard() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [kind, setKind] = useState<"ok" | "err">("ok");
-
-  async function save() {
-    setMsg("");
-    setBusy(true);
-    const res = await fetch("/api/account", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ currentPassword: current, newPassword: next }),
-    });
-    setBusy(false);
-    if (res.ok) {
-      setKind("ok");
-      setMsg("Password updated.");
-      setCurrent("");
-      setNext("");
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setKind("err");
-      setMsg(d.error || "Failed to update password");
-    }
-  }
-
   return (
-    <Card title="Change password">
-      <div className="space-y-4">
-        <Field label="Current password">
-          <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} />
-        </Field>
-        <Field label="New password" hint="At least 8 characters.">
-          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} className={inputCls} />
-        </Field>
-        <Status msg={msg} kind={kind} />
-        <div className="flex justify-end">
-          <button onClick={save} disabled={busy || !current || next.length < 8} className={btnPrimary}>
-            {busy ? "Updating…" : "Update password"}
-          </button>
-        </div>
-      </div>
+    <Card title="Sign-in &amp; security">
+      <SettingsPasswordForm />
     </Card>
   );
 }

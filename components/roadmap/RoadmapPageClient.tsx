@@ -21,6 +21,7 @@ import { RoadmapNodeModal } from "./RoadmapNodeModal";
 import { RoadmapScheduleWorkspace } from "./RoadmapScheduleWorkspace";
 import { RoadmapWeekModal } from "./RoadmapWeekModal";
 import { TargetPortfolioEditor } from "./TargetPortfolioEditor";
+import { track } from "@/lib/analytics";
 
 export function RoadmapPageClient({
   defaultLevel, initialProfile = null, initialDoc, apiBase = "/api/roadmap/v2", demo = false,
@@ -98,10 +99,12 @@ export function RoadmapPageClient({
       setActivePhase(0);
       roadmapStore.setDoc(d.doc as RoadmapDoc);
       roadmapStore.emit("ROADMAP_GENERATED", `Generated roadmap "${(d.doc as RoadmapDoc).title}"`);
+      // The activation moment: a student who reaches here has a real plan.
+      if (!demo) track("roadmap_generated", { level: config.educationLevel });
     } finally {
       setGenBusy(false);
     }
-  }, [apiBase]);
+  }, [apiBase, demo]);
 
   const onDocUpdated = useCallback((next: RoadmapDoc, adaptation?: string | null) => {
     setDoc(next);

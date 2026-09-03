@@ -61,10 +61,13 @@ export function PathSwitcher({
                 active.color === "nova" && "bg-nova-400",
                 active.color === "aurora" && "bg-aurora-400",
               )}
-              style={{ width: `${Math.max(2, Math.min(100, active.probability * 100))}%` }}
+              style={{ width: `${active.probability === null ? 0 : Math.max(2, Math.min(100, active.probability * 100))}%` }}
             />
           </div>
-          <span className="font-mono text-[10.5px] text-paper/65 tabular-nums">{Math.round(active.probability * 100)}%</span>
+          {/* No profile yet means no estimate - show that, don't invent one. */}
+          <span className="font-mono text-[10.5px] text-paper/65 tabular-nums">
+            {active.probability === null ? "--" : `${Math.round(active.probability * 100)}%`}
+          </span>
         </div>
       </button>
 
@@ -88,7 +91,10 @@ export function PathSwitcher({
               )}/>
               <span className="min-w-0 flex-1">
                 <span className="block font-serif text-[13.5px] font-semibold text-ink truncate">{p.name}</span>
-                <span className="block text-[11px] text-ink-dim">{p.degree} · {Math.round(p.probability * 100)}% prob.</span>
+                <span className="block text-[11px] text-ink-dim">
+                  {p.degree}
+                  {p.probability !== null && ` · ${Math.round(p.probability * 100)}% prob.`}
+                </span>
               </span>
             </button>
           ))}
