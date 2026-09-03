@@ -11,23 +11,32 @@
  */
 
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { resolveSessionOutcome } from "@/lib/authz";
+import { WorkspaceUnavailable } from "@/components/app/WorkspaceUnavailable";
 import { getProfile, getLatestRoadmap, getUserById } from "@/lib/db/collections";
 import { LeftNav } from "@/components/app/LeftNav";
 import { TopBar } from "@/components/app/TopBar";
 import { AgentChat } from "@/components/app/AgentChat";
 import { StrategistLockedRail } from "@/components/app/StrategistLocked";
 import type { PathSummary } from "@/types/app";
+import { scoreProbabilityForTier } from "@/lib/ml/probability";
 
 export const dynamic = "force-dynamic"; // session-bound - never cache the shell
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  // Repo auth route is /signin (NextAuth pages.signIn), not /login.
-  if (!session?.user) redirect("/signin?callbackUrl=%2Froadmap");
+  // Middleware already gated this path; this resolves the application user
+  // (plan, role) behind the Clerk session.
+  const outcome = await resolveSessionOutcome();
+  if (outcome.state === "signed-out") redirect("/signin?redirect_url=%2Froadmap");
+  // Signed in but unprovisioned: show the problem. Redirecting to /signin here
+  // would bounce forever, because /signin sees the Clerk session and sends
+  // them straight back.
+  if (outcome.state === "unprovisioned") {
+    return <WorkspaceUnavailable reason={outcome.reason} />;
+  }
 
-  const userId = (session.user as { id: string }).id;
+  const session = outcome.user;
+  const userId = session.id;
   const [user, profile, roadmap] = await Promise.all([
     getUserById(userId),
     getProfile(userId),
@@ -35,10 +44,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   if (!user) redirect("/signin");
-  // The (app) shell is the student workspace. Parents/partners use /monitor.
+  // The (app) shell is the student workspace. Accounts created explicitly as a
+  // parent or partner get the scoped viewer portal instead.
   // Students WITHOUT a profile are allowed in: /roadmap's first-time setup is
   // the onboarding now and creates the profile on first generation.
-  if (user.role === "parent" || user.role === "partner") redirect("/monitor");
+  if (user.role === "parent" || user.role === "partner") redirect("/portal");
 
   const initials = user.name
     .split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase() ?? "").join("");
@@ -52,7 +62,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       target: profile?.targetTier ?? "unset",
       degree: profile?.degree ?? "undecided",
       horizon: "Active",
-      probability: 0.41, // TODO: pull from ML service (lib/ml/probability.ts)
+      // Scored from the student's own profile against their target tier.
+      // Null when there is no profile yet - the switcher renders "-" rather
+      // than inventing a figure.
+      probability: scoreProbabilityForTier(profile),
       color: "polaris",
     },
   ];

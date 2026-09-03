@@ -23,7 +23,7 @@ const bodySchema = z.object({ targets: RoadmapTargetSchema.array().max(12) });
 export const PATCH = withErrorHandling(async (req) => {
   const session = await requireSession();
   const language = requestLanguage(req);
-  const rl = await rateLimit(session.id, session.plan, "strategist");
+  const rl = await rateLimit(session.id, session.plan, "planning");
   if (!rl.allowed) return NextResponse.json({ error: "Rate limit reached - try again in a few minutes." }, { status: 429, headers: rateLimitHeaders(rl) });
 
   const body = bodySchema.parse(await parseJson(req));

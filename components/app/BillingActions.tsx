@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * Client island for the (app)/billing page. Reuses the existing
- * LemonSqueezy helpers already wired in the repo: `startCheckout` from
- * components/PlanGate and the POST /api/portal customer-portal route.
+ * Client island for the (app)/billing page.
+ *
+ * SSLCommerz has no hosted customer portal to link out to - a plan is a fixed
+ * paid term rather than a recurring mandate - so "manage" is renewal: it opens
+ * a fresh checkout for the same tier, which extends the term on success.
  */
 
 import { useState } from "react";
@@ -27,20 +29,8 @@ export function BillingActions({ plan }: { plan: Plan }) {
   }
 
   async function manage() {
-    setError("");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/portal", { method: "POST" });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "Could not open billing portal");
-      }
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-      setBusy(false);
-    }
+    if (plan === "free") return;
+    await upgrade(plan as "pro" | "elite");
   }
 
   return (
@@ -62,7 +52,7 @@ export function BillingActions({ plan }: { plan: Plan }) {
         )}
         {plan !== "free" && (
           <Btn variant="outline" disabled={busy} onClick={manage}>
-            Manage billing
+            Renew {plan}
           </Btn>
         )}
       </div>

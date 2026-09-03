@@ -23,8 +23,13 @@ import {
   DEMO_BOOKINGS, DEMO_CONNECTIONS, DEMO_CONSULTANTS, DEMO_CONSULTANT_MATCHES,
   DEMO_DEADLINES, DEMO_TRANSACTIONS, DEMO_USER,
 } from "@/lib/demo/polaris";
+import { PassportClient } from "@/components/app/PassportClient";
+import { CohortClient } from "@/components/app/CohortClient";
+import { AffordabilityClient } from "@/components/app/AffordabilityClient";
+import { supportedCountries } from "@/lib/affordability/model";
+import { DEMO_PASSPORT, DEMO_COHORT, DEMO_SCHOLARSHIPS } from "@/lib/demo/new-surfaces";
 
-const SECTIONS = new Set(["strategist", "deadlines", "universities", "resources", "action-lab", "connections", "partners", "consultants", "community", "family", "bookings", "billing", "transactions", "settings"]);
+const SECTIONS = new Set(["strategist", "deadlines", "universities", "resources", "action-lab", "passport", "cohort", "affordability", "connections", "partners", "consultants", "community", "family", "bookings", "billing", "transactions", "settings"]);
 const VALID_TIERS: UniversityForModel["tier"][] = ["elite", "top10", "top50", "top100", "top200"];
 
 export function generateStaticParams() { return [...SECTIONS].map((section) => ({ section })); }
@@ -38,6 +43,11 @@ export default async function DemoSectionPage({ params }: { params: Promise<{ se
   if (section === "universities") return <UniversitiesClient universities={universities.filter((item) => item.id && VALID_TIERS.includes(item.tier))} initialInputs={{ gpa: 3.8, testPercentile: 84, ecCount: 3, research: 1 }} />;
   if (section === "resources") return <ResourcesClient caseStudies={caseStudiesJson as HubCaseStudy[]} scholarships={scholarshipsJson as HubScholarship[]} universities={universities.filter((item) => item.admissions !== null)} level="hsc" />;
   if (section === "action-lab") return <ActionLabClient />;
+  // The three newest surfaces run from seeded data - the demo has no database,
+  // and the affordability model is pure so it recomputes live in the browser.
+  if (section === "passport") return <PassportClient origin="https://polaris.app" demoPassport={DEMO_PASSPORT} />;
+  if (section === "cohort") return <CohortClient demoCohort={DEMO_COHORT} />;
+  if (section === "affordability") return <AffordabilityClient countries={supportedCountries()} defaultCountry="USA" demoScholarships={DEMO_SCHOLARSHIPS} />;
   if (section === "partners") return <PartnersClient level="hsc" roadmapTopics={["SAT", "IELTS", "research", "portfolio", "essays", "scholarships"]} weakScores={[{ key: "research", label: "Research evidence", ratio: 0.2 }, { key: "testing", label: "Testing", ratio: 0.48 }]} deadlineTypesSoon={["test-exam", "scholarship", "essay"]} eliteUniIds={universities.filter((item) => item.tier === "elite" || item.tier === "top10").map((item) => item.id)} />;
   if (section === "deadlines") return <DeadlinesClient initial={DEMO_DEADLINES} demo />;
   if (section === "connections") return <ConnectionsClient initial={DEMO_CONNECTIONS} demo />;

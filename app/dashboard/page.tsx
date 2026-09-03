@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/SessionProvider";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { useLang } from "@/lib/i18n/LangProvider";

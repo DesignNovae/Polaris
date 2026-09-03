@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateGemmaText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
-import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { rateLimit, rateLimitHeaders, rateLimitMessage } from "@/lib/ratelimit";
+import { requireSession } from "@/lib/authz";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
 import { stabilizeGeneratedText } from "@/lib/gemma/output-quality";
 
@@ -57,12 +58,6 @@ const bodySchema = z.discriminatedUnion("kind", [
 ]);
 
 type Body = z.infer<typeof bodySchema>;
-
-function clientId(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
-    || "public-interpreter";
-}
 
 function userKey(req: NextRequest): string | null {
   const value = req.headers.get("x-polaris-gemma-key")?.trim() || "";
@@ -313,9 +308,10 @@ async function gemmaJson(
 }
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const limit = await rateLimit(clientId(req), "free", "interpreter");
+  const user = await requireSession();
+  const limit = await rateLimit(user.id, user.plan, "interpreter");
   if (!limit.allowed) {
-    const response = fail(429, "Request limit reached. Please retry shortly.");
+    const response = fail(429, rateLimitMessage(limit, "en"));
     for (const [key, value] of Object.entries(rateLimitHeaders(limit))) response.headers.set(key, value);
     return response;
   }

@@ -5,6 +5,7 @@ import { finalizeGeneratedLanguage, generationLanguageInstruction, requestLangua
 import { generateGemmaText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
 import { tavilySearch, shortDomain, type WebSearchResult } from "@/lib/llm/web-search";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
+import { requirePlan } from "@/lib/authz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,12 +45,6 @@ const outputSchema = {
   },
   required: ["message", "offers"],
 } as const;
-
-function clientId(req: NextRequest): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || req.headers.get("x-real-ip")
-    || "public-partner-refresh";
-}
 
 function parseObject(text: string): Record<string, unknown> {
   const start = text.indexOf("{");
@@ -140,7 +135,10 @@ async function officialOfferEvidence(): Promise<WebSearchResult[]> {
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const lang = requestLanguage(req);
-  const limit = await rateLimit(clientId(req), "free", "public-partner-refresh");
+  // FEATURE_ACCESS.partners declares minPlan "pro" - enforce it here, not by
+  // hiding the button.
+  const user = await requirePlan("pro");
+  const limit = await rateLimit(user.id, user.plan, "partner-refresh");
   if (!limit.allowed) {
     const response = fail(
       429,

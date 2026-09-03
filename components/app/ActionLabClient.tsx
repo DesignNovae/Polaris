@@ -18,6 +18,7 @@ import type {
 import { cn } from "@/lib/cn";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import { GemmaKeyCard } from "@/components/app/GemmaKeyCard";
+import { track } from "@/lib/analytics";
 
 const ActionLabExamStudio = dynamic(() => import("@/components/app/ActionLabExamStudio").then((module) => module.ActionLabExamStudio), { loading: PanelLoading });
 const GemmaEssayStudio = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaEssayStudio), { loading: PanelLoading });
@@ -100,6 +101,11 @@ const INITIAL_EVIDENCE: EvidenceResult = {
 };
 
 function postAction<T>(body: Record<string, unknown>): Promise<T> {
+  // Which of the seven tools actually gets used is the retention question the
+  // roadmap needs answered.
+  if (typeof body.kind === "string") {
+    track("action_lab_tool_used", { tool: body.kind });
+  }
   return fetch("/api/action-lab", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...gemmaHeaders() },

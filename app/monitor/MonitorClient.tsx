@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { CompassLogo } from "@/components/Nav";
 
 const MOCK_MILESTONES = [
@@ -127,9 +126,10 @@ export default function MonitorClient() {
     }
   }
 
-  async function signInWithCallback() {
+  function signInWithCallback() {
     if (!token) return;
-    await signIn("credentials", { callbackUrl: `/monitor?token=${encodeURIComponent(token)}` });
+    const back = `/monitor?token=${encodeURIComponent(token)}`;
+    window.location.href = `/signin?redirect_url=${encodeURIComponent(back)}`;
   }
 
   return (

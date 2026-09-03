@@ -28,6 +28,7 @@ import { getDb } from "@/lib/db/mongodb";
 import { Card, Pill, Tag } from "@/components/app/ui";
 import { SettingsProfileForm } from "@/components/app/SettingsProfileForm";
 import { SettingsPasswordForm } from "@/components/app/SettingsPasswordForm";
+import { SettingsReminders } from "@/components/app/SettingsReminders";
 import {
   SettingsNotifications,
   SettingsAppearance,
@@ -79,8 +80,8 @@ export default async function SettingsPage() {
     ),
     security: (
       <Section
-        title="Password & security"
-        desc="Change your password. Sessions persist via secure HTTP-only cookies; sign out from any device with the menu in the top bar."
+        title="Sign-in & security"
+        desc="Password, email addresses and two-factor authentication are managed in your Polaris account security panel."
       >
         <SettingsPasswordForm />
       </Section>
@@ -104,6 +105,11 @@ export default async function SettingsPage() {
     notifications: (
       <Section title="Notifications" desc="What you want Polaris to ping you about.">
         <SettingsNotifications initial={profile?.preferences?.notifications} />
+        {/* Reminders that leave the app - a deadline has to reach you when you
+            are not looking at Polaris, which is exactly when you forget. */}
+        <div className="mt-8 border-t border-polaris-500/10 pt-8">
+          <SettingsReminders />
+        </div>
       </Section>
     ),
     appearance: (

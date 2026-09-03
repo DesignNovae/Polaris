@@ -17,6 +17,9 @@ export const POST = withErrorHandling(async (req) => {
       "Invite not found, already accepted, or not addressed to your email",
     );
   }
-  return ok({ ok: true });
+  // A viewer's role is deliberately not rewritten here: the same person can be
+  // a student and someone else's parent or teacher. The portal is reachable by
+  // link instead, which keeps both hats working.
+  return ok({ ok: true, redirectTo: "/portal" });
 });
 

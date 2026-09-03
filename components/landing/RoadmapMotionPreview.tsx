@@ -189,9 +189,12 @@ function GrowingTree() {
         {BRANCHES.map((b, i) => (
           <g key={`leaf-${i}`}>
             {b.done && !reduce && (
+              /* Animated `r` needs a numeric `initial`, not the r="10"
+                 attribute - see the same fix in LandingHero's MiniTree. */
               <motion.circle
-                cx={b.leaf.x} cy={b.leaf.y} r="10"
-                fill="none" stroke="#8FB89A" strokeWidth="1" opacity="0.35"
+                cx={b.leaf.x} cy={b.leaf.y}
+                fill="none" stroke="#8FB89A" strokeWidth="1"
+                initial={{ r: 7, opacity: 0.45 }}
                 animate={{ r: [7, 13, 7], opacity: [0.45, 0.05, 0.45] }}
                 transition={{ duration: 3.2, delay: i * 0.4, repeat: Infinity, ease: "easeInOut" }}
               />

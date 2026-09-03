@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/SessionProvider";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/cn";
 import {
@@ -339,9 +339,15 @@ function MiniTree() {
       {leaves.map((l, i) => (
         <g key={i}>
           {l.done && (
+            /* `r` is animated, so its starting value has to come from
+               `initial` as a number. Declaring it as the attribute r="7"
+               instead left Motion with nothing to read on the first frame and
+               it wrote the string "undefined" into the SVG - three console
+               errors per landing-page load, one per completed leaf. */
             <motion.circle
-              cx={l.cx} cy={l.cy} r="7"
-              fill="none" stroke="#8FB89A" strokeWidth="0.8" opacity="0.4"
+              cx={l.cx} cy={l.cy}
+              fill="none" stroke="#8FB89A" strokeWidth="0.8"
+              initial={{ r: 5, opacity: 0.5 }}
               animate={{ r: [5, 9, 5], opacity: [0.5, 0.08, 0.5] }}
               transition={{ duration: 3, delay: i * 0.5, repeat: Infinity, ease: "easeInOut" }}
             />

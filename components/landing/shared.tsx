@@ -7,7 +7,7 @@
  * stays smooth on low-end devices.
  */
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   motion,
   useMotionValue,
@@ -318,3 +318,123 @@ export function NorthStarMark({ s = 28 }: { s?: number }) {
   );
 }
 
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ambient motion budget
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Fourteen sections each running their own `repeat: Infinity` loop, on top of
+   Lenis and GSAP ScrollTrigger, is real work for the mid-range Android this
+   page is mostly read on. Ambient motion - the decorative, never-ending kind -
+   is therefore gated on three things at once:
+
+     1. `prefers-reduced-motion`, which is a request, not a preference.
+     2. `navigator.connection.saveData`, where the visitor has told the browser
+        they are paying for data.
+     3. Whether the section is actually on screen. An off-screen orbit is pure
+        battery drain.
+
+   Meaningful motion - a reveal on scroll, a state change the reader triggered -
+   is not covered by this. Only the loops.
+*/
+
+function prefersReducedData(): boolean {
+  const connection = (
+    navigator as Navigator & { connection?: { saveData?: boolean } }
+  ).connection;
+  return Boolean(connection?.saveData);
+}
+
+/**
+ * Attach `ref` to a section; `active` is true only while ambient loops should
+ * run inside it.
+ */
+export function useAmbient<T extends Element = HTMLDivElement>(): {
+  ref: React.RefObject<T | null>;
+  active: boolean;
+} {
+  const ref = useRef<T>(null);
+  const reduce = useReducedMotion();
+  const [allowed, setAllowed] = useState(true);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setAllowed(!prefersReducedData());
+  }, []);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    // No IntersectionObserver (very old browsers): assume visible rather than
+    // leaving the section frozen.
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "120px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, active: !reduce && allowed && visible };
+}
+
+/* ─── Count-up ─────────────────────────────────────────────────────────────
+
+   Animates to `value` the first time it is seen, starting from a resting value
+   that is already legible - never from zero while off screen, which would make
+   a shared link or a thumbnail show a wall of noughts.
+*/
+
+export function CountUp({
+  value,
+  decimals = 0,
+  suffix = "",
+  className,
+}: {
+  value: number;
+  decimals?: number;
+  suffix?: string;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const [shown, setShown] = useState(value);
+  const played = useRef(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || reduce || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || played.current) return;
+      played.current = true;
+      observer.disconnect();
+
+      const from = value * 0.72; // a plausible resting figure, not 0
+      const start = performance.now();
+      const duration = 1100;
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setShown(from + (value - from) * eased);
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, { threshold: 0.4 });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [value, reduce]);
+
+  return (
+    <span ref={ref} className={className} data-no-translate>
+      {shown.toFixed(decimals)}
+      {suffix}
+    </span>
+  );
+}

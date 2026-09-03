@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import {
   Hind_Siliguri,
   Inter,
@@ -9,8 +10,12 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 import { LangProvider } from "@/lib/i18n/LangProvider";
 import { SessionProvider } from "@/components/SessionProvider";
+import { AnalyticsBoundary } from "@/components/AnalyticsBoundary";
+import { OfflineProvider } from "@/components/OfflineProvider";
 import { SmoothScroll } from "@/lib/animations/SmoothScroll";
-import { ThemeProvider, THEME_PREFLIGHT_SCRIPT } from "@/components/app/ThemeProvider";
+import { ThemeProvider } from "@/components/app/ThemeProvider";
+import { THEME_PREFLIGHT_SCRIPT } from "@/lib/theme/preflight";
+import { appOrigin } from "@/lib/env";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,7 +45,7 @@ const banglaSerif = Noto_Serif_Bengali({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(appOrigin()),
   applicationName: "Polaris",
   title: {
     default: "Polaris: Your Academic North Star",
@@ -93,6 +98,11 @@ export default function RootLayout({
             <SmoothScroll>
               <LangProvider>{children}</LangProvider>
             </SmoothScroll>
+            {/* useSearchParams needs a Suspense boundary in the app router. */}
+            <Suspense fallback={null}>
+              <AnalyticsBoundary />
+            </Suspense>
+            <OfflineProvider />
           </ThemeProvider>
         </SessionProvider>
       </body>

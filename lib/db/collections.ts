@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { getDb } from "./mongodb";
 import { ObjectId } from "mongodb";
 import type { StudentProfile } from "@/lib/profile";
@@ -23,10 +24,21 @@ export type DbMonitorInvite = {
 };
 
 export type Subscription = {
-  lsCustomerId?: string;
-  lsSubscriptionId?: string;
-  variantId?: string;
-  status?: string; // active, canceled, expired, past_due, etc.
+  /** Payment gateway that produced this subscription. */
+  provider?: "sslcommerz" | "manual";
+  /** SSLCommerz transaction id of the payment that activated the term. */
+  tranId?: string;
+  /** SSLCommerz validation id, kept for reconciliation against their portal. */
+  valId?: string;
+  /** SSLCommerz bank transaction id, shown on receipts. */
+  bankTranId?: string;
+  status?: string; // active, expired, cancelled
+  /**
+   * End of the paid term, ISO-8601. SSLCommerz does not bill recurrently, so
+   * this - not a gateway event - is what ends paid access. `effectivePlan()`
+   * reads it on every session.
+   */
+  expiresAt?: string;
   renewsAt?: string;
   /* Sandbox-billing fields - written by /api/transactions/[id]/confirm. */
   planId?: Plan;
@@ -42,7 +54,19 @@ export type DbUser = {
   _id?: ObjectId;
   name: string;
   email: string;
-  password: string;
+  /**
+   * Clerk user id. The system of record for credentials, email verification and
+   * sessions is Clerk; this row holds the application data (plan, role,
+   * profile) keyed to it. Optional only so rows created before the migration
+   * can be adopted on their owner's next sign-in.
+   */
+  clerkId?: string;
+  /**
+   * Legacy bcrypt hash from the retired credentials provider. Never read - kept
+   * so a migration can verify a row was matched to the right Clerk account
+   * before it is dropped.
+   */
+  password?: string;
   role: UserRole;
   plan: Plan;
   subscription?: Subscription;
@@ -265,6 +289,13 @@ export type DbWeeklyTask = {
   /** Strategist's review of the submission. */
   feedback?: string;
   feedbackAt?: Date;
+  /**
+   * Provenance for tasks created from an exam result (lib/exams/replan-bridge).
+   * `sourceExamChangeId` is the proposal's own change id and makes accepting
+   * the same proposal twice a no-op.
+   */
+  sourceExamSessionId?: string;
+  sourceExamChangeId?: string;
   source: "generated" | "replanned";
   createdAt: Date;
   updatedAt: Date;
@@ -359,6 +390,69 @@ export async function getUserById(userId: string): Promise<DbUser | null> {
   const db = await getDb();
   if (!ObjectId.isValid(userId)) return null;
   return db.collection<DbUser>("users").findOne({ _id: new ObjectId(userId) });
+}
+
+export async function getUserByClerkId(clerkId: string): Promise<DbUser | null> {
+  const db = await getDb();
+  return db.collection<DbUser>("users").findOne({ clerkId });
+}
+
+/**
+ * Resolve the application row for a Clerk account, creating or adopting one.
+ *
+ * Adoption matters for the migration: an existing row is matched by email and
+ * stamped with the Clerk id, so a student who signed up under the credentials
+ * provider keeps their roadmap, exams and billing history.
+ *
+ * The upsert is keyed on the unique `clerkId` index, so two concurrent first
+ * requests cannot create two rows.
+ */
+export async function upsertClerkUser(input: {
+  clerkId: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}): Promise<DbUser> {
+  const db = await getDb();
+  const users = db.collection<DbUser>("users");
+  const email = input.email.toLowerCase();
+
+  const existing = await users.findOne({ clerkId: input.clerkId });
+  if (existing) return existing;
+
+  // Adopt a pre-migration row with the same email.
+  const byEmail = await users.findOne({ email });
+  if (byEmail) {
+    await users.updateOne(
+      { _id: byEmail._id },
+      { $set: { clerkId: input.clerkId, name: input.name || byEmail.name } },
+    );
+    return { ...byEmail, clerkId: input.clerkId };
+  }
+
+  const doc: DbUser = {
+    name: input.name || email.split("@")[0],
+    email,
+    clerkId: input.clerkId,
+    role: "student",
+    plan: "free",
+    avatarUrl: input.avatarUrl,
+    createdAt: new Date(),
+  };
+  try {
+    const res = await users.insertOne(doc);
+    return { ...doc, _id: res.insertedId };
+  } catch {
+    // Lost a race against a concurrent first request - read the winner.
+    const winner = await users.findOne({ clerkId: input.clerkId });
+    if (winner) return winner;
+    throw new Error("Failed to provision user");
+  }
+}
+
+export async function deleteUserByClerkId(clerkId: string): Promise<void> {
+  const user = await getUserByClerkId(clerkId);
+  if (user?._id) await deleteUserCascade(user._id.toString());
 }
 
 export async function getUserByEmail(email: string): Promise<DbUser | null> {
@@ -833,15 +927,6 @@ export async function getUsageSummary(
   return { totalCalls, totalTokensIn, totalTokensOut, byProvider, recent };
 }
 
-/** Find a user by their LemonSqueezy subscription id (for update/cancel webhooks). */
-export async function getUserBySubscriptionId(
-  lsSubscriptionId: string,
-): Promise<DbUser | null> {
-  const db = await getDb();
-  return db
-    .collection<DbUser>("users")
-    .findOne({ "subscription.lsSubscriptionId": lsSubscriptionId });
-}
 
 /* ─── Admin ─── */
 
@@ -981,9 +1066,15 @@ export async function deleteRoadmap(roadmapId: string) {
   await db.collection("roadmaps").deleteOne({ _id: new ObjectId(roadmapId) });
 }
 
-/* ─── Parent/partner links ─── */
+/* ─── Viewer links (parent / partner / teacher) ─── */
 
-export type LinkRelationship = "parent" | "partner";
+/**
+ * "teacher" is a distinct relationship rather than a reused "partner" because
+ * it grants a different, narrower view: the evidence relevant to writing a
+ * recommendation and the deadlines that constrain it - not the student's whole
+ * workspace. See `lib/links/scope.ts`.
+ */
+export type LinkRelationship = "parent" | "partner" | "teacher";
 export type LinkStatus = "pending" | "accepted";
 
 export type DbLink = {
@@ -997,12 +1088,14 @@ export type DbLink = {
   inviteToken: string;
   createdAt: Date;
   acceptedAt?: Date;
+  /** Free-text note from the student ("my physics teacher, Class 12"). */
+  viewerNote?: string;
 };
 
 function token(): string {
-  return (
-    Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-  );
+  // Cryptographically random: this token is the sole credential on the invite
+  // URL, and Math.random is predictable enough to enumerate.
+  return randomBytes(24).toString("base64url");
 }
 
 export async function createLink(
@@ -1010,6 +1103,7 @@ export async function createLink(
   studentName: string | undefined,
   viewerEmail: string,
   relationship: LinkRelationship,
+  viewerNote?: string,
 ): Promise<DbLink> {
   const db = await getDb();
   const link: DbLink = {
@@ -1020,6 +1114,7 @@ export async function createLink(
     status: "pending",
     inviteToken: token(),
     createdAt: new Date(),
+    viewerNote,
   };
   await db.collection<DbLink>("links").insertOne(link);
   return link;

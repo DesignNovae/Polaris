@@ -67,7 +67,7 @@ export const POST = withErrorHandling(async (req) => {
   const language = requestLanguage(req);
   const session = await requireSession();
 
-  const rl = await rateLimit(session.id, session.plan, "strategist");
+  const rl = await rateLimit(session.id, session.plan, "planning");
   if (!rl.allowed) {
     return NextResponse.json(
       { error: language === "bn" ? BN_ERRORS.rateLimit : "Rate limit reached - try again in a few minutes." },

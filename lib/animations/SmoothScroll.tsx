@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 import { gsap } from "gsap";
@@ -24,11 +24,33 @@ const APP_PREFIX_RE =
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const enabled = !APP_PREFIX_RE.test(pathname);
+  const routeAllows = !APP_PREFIX_RE.test(pathname);
   const lenisRef = useRef<Lenis | null>(null);
+  /**
+   * Smooth scrolling is momentum applied to the whole document, which is
+   * exactly what `prefers-reduced-motion: reduce` asks us not to do - and it
+   * was previously applied to every visitor unconditionally. Tracked as state
+   * (rather than read once) so a visitor who changes the OS setting gets the
+   * native scroll back without a reload.
+   */
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    if (!enabled) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduceMotion(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const enabled = routeAllows && !reduceMotion;
+
+  useEffect(() => {
+    if (!enabled) {
+      // ScrollTrigger still needs to track the native scroller.
+      ScrollTrigger.refresh();
+      return;
+    }
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),

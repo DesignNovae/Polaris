@@ -71,9 +71,10 @@ cp .env.local.example .env.local     # PowerShell: Copy-Item .env.local.example 
 Set at minimum:
 
 ```bash
-MONGODB_URI=...        # authenticated features
-NEXTAUTH_SECRET=...    # openssl rand -base64 32
-GEMMA_API_KEY=...      # AI features + embeddings
+MONGODB_URI=...                          # authenticated features
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...    # Clerk dashboard -> API keys
+CLERK_SECRET_KEY=...                     # server-side, never exposed
+GEMMA_API_KEY=...                        # AI features + embeddings
 ```
 
 Then ingest the retrieval corpus and start:
@@ -136,6 +137,36 @@ The **Evidence Graph** maps a claim to the artifact that proves it, then names t
 **Video Learning** collects vetted official lessons for the current section, with an AI lesson finder that refreshes the list. A sign language interpreter track can be toggled on for the player.
 
 ![Polaris Action Lab Video Learning](docs/screenshots/action-lab-video.png)
+
+### Verified Student Passport
+
+One permalinked page a student can send to a teacher, a consultant, or a scholarship committee. Each claim sits beside the artifact that proves it and the date it was verified - and the claims with nothing behind them are listed as unevidenced rather than quietly dropped. That last rule is the point: a page that only shows the good half is a CV with extra steps.
+
+Published passports are unlisted (`noindex`, random slug) and excluded from the sitemap. `/passport` builds it; `/p/<slug>` is the public view.
+
+### Cohort benchmarking
+
+Where a student stands against anonymised students targeting the same tier, as a distribution rather than a leaderboard. A cohort under **20 students never renders** - not blurred, not approximated. In a group that small a percentile tells you someone else's score, so the API returns `suppressed` and the UI explains the rule. The aggregation projects four numbers per profile and no identifiers.
+
+### Affordability planner
+
+The question that actually decides a Bangladeshi family's list, answered in taka: total cost after aid, the funding gap named as a figure, and the scholarships ranked by how much of that gap they would close. Living costs are the official visa and maintenance figures with their source links; tuition is a published-range estimate and is labelled `estimate` everywhere it appears. The two are never blurred together.
+
+### Exam results rewrite the plan
+
+Finishing a mock now proposes a change to next week's blocks - which to add, which to deprioritise, and the arithmetic behind each ("48% on Heart of Algebra vs 71% overall"). It is deterministic, it proposes rather than applies, and accepting the same proposal twice is a no-op.
+
+### Teacher and recommender portal
+
+The link model extends to teachers, with a **narrower** scope than a parent: the evidence behind each claim, the academic record, and the deadlines that constrain the letter - and nothing else. Scope is enforced once on the server (`lib/links/scope.ts`), so a component cannot widen it by forgetting. Strategist conversations are never shared with anyone, in any role.
+
+### Deadline reminders that leave the app
+
+Risk-scored deadlines reach students by email and SMS rather than only in a tab they have to remember to open. Each (user, deadline, channel, day-offset) fires exactly once, enforced by a unique index rather than a flag - and the log row is claimed *before* the send, because a duplicate text at 6am is worse than a missed one when the deadline is visible in the app anyway.
+
+### Works on a bad connection
+
+A service worker caches the workspace shell and the read APIs a student needs offline; anything authenticated and mutating, anything from the model, and anything to do with payments is never cached. Exam answers written offline queue in IndexedDB and replay on reconnect. `/changelog` records what shipped.
 
 ### Knowledge hub
 
@@ -247,13 +278,13 @@ Full design, failure behaviour, and the measurement caveats are in **[docs/RAG.m
 | --- | --- |
 | Application | Next.js 15 App Router, React 19, TypeScript 5 |
 | Styling and motion | Tailwind CSS, Framer Motion, GSAP, Lenis |
-| Authentication | NextAuth v4, credentials provider with bcryptjs; JWT sessions |
+| Authentication | Clerk (hosted sign-in, enforced email verification, MFA); application role and plan resolved in `lib/authz.ts` |
 | Data | MongoDB 7 driver |
 | Validation | Zod 4 on API input |
 | Generation | Gemma 4 (`gemma-4-26b-a4b-it` default, `gemma-4-31b-it`) via Google AI Studio, streamed over SSE |
 | Retrieval | `gemini-embedding-001` @ 768 dims + BM25, fused with weighted RRF |
 | Rate limiting | Upstash Redis sliding window, with a lossy in-process fallback |
-| Payments | LemonSqueezy subscriptions and signed webhooks (optional) |
+| Payments | SSLCommerz hosted checkout with server-side validation and IPN (optional) |
 | Content | react-markdown, GFM, KaTeX |
 
 **On model policy:** Gemma 4 is the only model that generates language. The embedding model is a non-generative retriever and the web-search provider returns documents, not prose. Both are retrieval components, not second authors.
@@ -282,7 +313,13 @@ lib/
   i18n/                 English / Bengali localization
   integrations/         External provider registry and OAuth flows
   llm/                  Model routing, provider adapters, web search
+  affordability/        Cost model + scholarship gap ranking
+  cohort/               k-anonymous benchmarking statistics
+  links/                Viewer scope policy (parent / partner / teacher)
   ml/                   Acceptance-probability model
+  notifications/        Reminder channels, scheduling, dispatch
+  passport/             Verified Student Passport
+  payments/             SSLCommerz gateway + order settlement
   rag/                  Chunking, embeddings, hybrid search, eval, guards
   roadmap/              Planning, templates, scheduling, telemetry
   strategist/           Research orchestration, prompts, tools, memory, streaming
@@ -301,8 +338,10 @@ tests/                  Node test-runner suites
 | Variable | Required for | Purpose |
 | --- | --- | --- |
 | `MONGODB_URI` | Workspace | Connection string. `/demo` works without it. |
-| `NEXTAUTH_SECRET` | Workspace | Signs session JWTs. Generate with `openssl rand -base64 32`. |
-| `NEXTAUTH_URL` | Production | Canonical origin for auth callbacks. A mismatch here silently bounces signed-in users to `/signin`. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Workspace | Clerk publishable key. Public by design. |
+| `CLERK_SECRET_KEY` | Workspace | Clerk secret key. Server-side only. |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Optional | Svix secret for `/api/webhooks/clerk`. Without it the webhook rejects everything; sessions still provision users on first sign-in. |
+| `APP_URL` | Production | Canonical public origin. The payment gateway posts the payer back to absolute URLs built from this, so a wrong value strands completed payments. |
 | `GEMMA_API_KEY` | AI features | Google AI Studio key, server-side only. Also powers embeddings. |
 | `GEMMA_MODEL` | Optional | `gemma-4-26b-a4b-it` (default) or `gemma-4-31b-it`. Values outside the allowlist fall back to the default. |
 | `ADMIN_EMAILS` | Optional | Comma-separated admin allowlist. |
@@ -329,13 +368,13 @@ tests/                  Node test-runner suites
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate-limit store, **see the warning below** |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Calendar / Classroom **integrations** (not sign-in) |
 | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | Facebook **integration** (not sign-in) |
-| `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET`, `LEMONSQUEEZY_VARIANT_PRO`, `LEMONSQUEEZY_VARIANT_ELITE` | Checkout, subscription management, webhook verification |
+| `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_SANDBOX` | Hosted checkout, payment validation, IPN. `SSLCOMMERZ_SANDBOX=false` switches to the live gateway. |
 
 > **Rate limiting in production.** Without the two `UPSTASH_*` variables, `lib/ratelimit.ts` falls back to a per-process in-memory window. On serverless that budget is *per instance*, so the effective limit is the configured budget multiplied by the number of warm lambdas. Set Upstash before opening the Strategist to real traffic.
 
-Sign-in is **email + password only** (NextAuth credentials provider). The Google and Facebook variables above are consumed by the integrations hub in `lib/integrations/registry.ts`; there is no social sign-in.
+Sign-in is handled by **Clerk**, which owns credentials, email verification, sessions and MFA. The Google and Facebook variables above are consumed by the integrations hub in `lib/integrations/registry.ts` and are unrelated to sign-in.
 
-Plan budgets for the Strategist, enforced server-side over a 5-minute window: **free 10**, **pro 30**, **elite 60**.
+Rate limits are per-scope rather than one shared budget (`lib/ratelimit.ts`). Strategist chat over a 5-minute window: **free 10**, **pro 30**, **elite 60**; roadmap planning, Action Lab, exam AI and essay OCR each carry their own window and budget. Scopes that front a metered model call **fail closed** when Upstash is configured but unreachable.
 
 ---
 
@@ -347,7 +386,7 @@ Plan budgets for the Strategist, enforced server-side over a 5-minute window: **
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint, zero warnings tolerated |
-| `npm test` | Node test runner: exam scoring and roadmap contracts |
+| `npm test` | Node test runner: exam scoring, roadmap contracts, affordability, cohort statistics, reminder scheduling |
 | `npm run rag:test` | 38 deterministic retrieval self-tests, no database or network |
 | `npm run rag:ingest` | Ingest or refresh the retrieval corpus (`-- --force` re-embeds everything) |
 | `npm run rag:eval` | Recall@k and MRR per retriever (`-- --rerank` includes the reranker) |
@@ -356,6 +395,8 @@ Plan budgets for the Strategist, enforced server-side over a 5-minute window: **
 | `npm run screenshots` | Recapture `docs/screenshots/` from a running dev server |
 | `npm run benchmark:roadmap` | Roadmap planner benchmark |
 
+Scheduled work runs as an HTTP route rather than a worker: `GET /api/cron/deadline-reminders`, authorised by `CRON_SECRET` and wired in `vercel.json` to run daily at 03:00 UTC.
+
 ---
 
 ## Testing and verification
@@ -363,14 +404,14 @@ Plan budgets for the Strategist, enforced server-side over a 5-minute window: **
 ```bash
 npm run lint                          # ESLint, --max-warnings=0
 npx tsc --noEmit --incremental false  # full type check
-npm test                              # 15 tests
+npm test                              # 39 tests
 npm run rag:test                      # 38 self-tests
 npm run build                         # production build
 ```
 
-Current state: **all green**: lint clean, types clean, 15/15, 38/38, build compiles.
+Current state: **all green**: lint clean, types clean, 39/39, 38/38, build compiles.
 
-The two suites cover the places where a silent regression would be most expensive: **exam scoring** (whole-word matching, per-stage scoring, rejecting plausible wrong answers) and **roadmap contracts** (gap analysis, deterministic priority scoring, duration units).
+The suites cover the places where a silent regression would be most expensive: **exam scoring** (whole-word matching, per-stage scoring, rejecting plausible wrong answers), **roadmap contracts** (gap analysis, deterministic priority scoring, duration units), **affordability** (an unmodelled country must report unsupported rather than a zero cost, aid never applies to living costs, the verdict boundary), **cohort statistics** (the k-anonymity floor, bucket coverage, tie handling), and **reminder scheduling** (offsets, past deadlines, unparseable dates, phone normalisation).
 
 The retrieval harnesses are separate because they need network and a database. `rag:test` deliberately does not. It is the one retrieval check that runs anywhere, and it has already caught two real bugs in code that had never executed in production.
 
@@ -382,12 +423,14 @@ Before shipping:
 
 - [ ] `npm run lint && npx tsc --noEmit && npm test && npm run rag:test && npm run build` all pass
 - [ ] Production secrets set in the deployment environment, not in the repo
-- [ ] `NEXTAUTH_URL` exactly matches the public origin
+- [ ] `APP_URL` exactly matches the public origin
+- [ ] Clerk webhook points at `/api/webhooks/clerk` (user.created, user.updated, user.deleted)
+- [ ] SSLCommerz IPN URL registered in the merchant panel as `<APP_URL>/api/payments/sslcommerz/ipn`
 - [ ] `UPSTASH_*` configured, otherwise rate limits are per-instance
-- [ ] MongoDB network access allows the deployment, and indexes are created (`lib/db/indexes.ts`, `lib/db/indexes-app.ts`)
+- [ ] MongoDB network access allows the deployment. Indexes are created automatically on the first query by `ensureIndexes()` (`lib/db/indexes.ts`, which `getDb()` calls); verify with `db.<collection>.getIndexes()` after the first deploy
 - [ ] `npm run rag:ingest` has run since the last change to `RAG_EMBED_MODEL` or `RAG_EMBED_DIM`
 - [ ] `ADMIN_EMAILS` set, since the admin console is gated on it
-- [ ] LemonSqueezy webhook points at `/api/webhooks/lemonsqueezy`, if billing is on
+- [ ] `SSLCOMMERZ_SANDBOX=false` and live store credentials set, if billing is on
 
 ---
 
@@ -395,9 +438,14 @@ Before shipping:
 
 - **Credentials stay server-side.** The AI key is never shipped to the browser; the only exception is the explicitly labelled bring-your-own-key flow in Action Lab, where the user supplies their own.
 - **Student retrieval rows are scoped by `userId`** at both the store query and a per-row re-check, and `user_chunks` is deleted with the account alongside profiles, roadmaps, memory, chat, and transactions.
-- **Protected routes are gated in middleware** across 21 path prefixes, reading the JWT with `secureCookie` forced on HTTPS so a misconfigured `NEXTAUTH_URL` cannot desynchronise the cookie name.
+- **Protected routes are gated in `clerkMiddleware`** across 21 path prefixes. Cookie naming is Clerk's, so a misconfigured origin can no longer desynchronise the session and bounce signed-in users to `/signin`.
+- **Payments are never granted from a callback.** SSLCommerz's return and IPN endpoints are public and unauthenticated, so both re-validate server-to-server and check the amount and currency against the order row written before redirect. Settlement is idempotent, and access ends when the paid term expires rather than when an unrecognised gateway event arrives.
 - **API input is validated with Zod**, and plan/role requirements are enforced in the handler.
 - **The acceptance model uses academic inputs only**: GPA, test percentile, activity count, research. No demographic features.
+- **Cohort statistics are k-anonymous.** A cohort below 20 students returns `suppressed` and renders nothing; the aggregation projects four numbers per profile and no identifiers.
+- **Viewer scope is enforced server-side** in `lib/links/scope.ts`. A teacher's payload is materially narrower than a parent's, and Strategist conversations are shared with nobody in any role.
+- **Public passports are unlisted, not published**: random slug, `noindex`, excluded from the sitemap, and an unpublished slug behaves exactly like one that never existed.
+- **Scheduled routes refuse to run without `CRON_SECRET`**, compared in constant time. An open endpoint that sends real SMS to real students is not something to leave to a default.
 - **Integrations are read-only by default**, request explicit scopes, and can be revoked in one click.
 - **Answers are audited before they finish**: citation URIs are parsed and verified against what was actually retrieved, and any currency or score figure not present in the supplied context raises a visible warning on the message.
 

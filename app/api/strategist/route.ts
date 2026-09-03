@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const rl = await rateLimit(user.id, user.plan, "strategist");
+    const rl = await rateLimit(user.id, user.plan, "chat");
     if (!rl.allowed) {
       return NextResponse.json(
         { error: language === "bn" ? BN_ERRORS.rateLimit : "Rate limit reached. Slow down for a few minutes." },

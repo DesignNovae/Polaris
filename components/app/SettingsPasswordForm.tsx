@@ -1,116 +1,68 @@
 "use client";
 
 /**
- * Settings → Password change. PATCH /api/account with currentPassword +
- * newPassword. Server verifies the current password before applying.
+ * Settings → Security.
+ *
+ * Credentials moved to Clerk, so there is no password in this application's
+ * database to change. Rather than proxy Clerk's password, email and MFA flows
+ * through our own form - which would mean re-implementing verification,
+ * breach checks and re-authentication - this opens Clerk's account UI, which
+ * already handles all of it.
  */
 
-import { useState } from "react";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { Btn } from "./ui";
 
 export function SettingsPasswordForm() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [show, setShow] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
-  const [error, setError] = useState("");
+  const { openUserProfile } = useClerk();
+  const { user, isLoaded } = useUser();
 
-  const mismatch = confirm.length > 0 && next !== confirm;
-  const tooShort = next.length > 0 && next.length < 8;
-  const valid = current.length > 0 && next.length >= 8 && next === confirm;
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!valid) return;
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/account", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: current, newPassword: next }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "Failed to update");
-      }
-      setStatus("ok");
-      setCurrent("");
-      setNext("");
-      setConfirm("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-      setStatus("error");
-    } finally {
-      setSaving(false);
-      setTimeout(() => setStatus("idle"), 2400);
-    }
-  }
-
-  const inputCls =
-    "w-full h-10 px-3 rounded-lg bg-paper-card ring-1 ring-inset ring-polaris-500/15 text-[13.5px] text-ink outline-none focus:ring-polaris-400 transition";
+  const strategies = user?.passwordEnabled
+    ? "Password"
+    : user?.externalAccounts?.length
+      ? "Connected account"
+      : "Email code";
+  const mfaOn = Boolean(user?.twoFactorEnabled);
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[12.5px] font-medium text-ink">Current password</span>
-          <button
-            type="button"
-            onClick={() => setShow((s) => !s)}
-            className="text-[11px] text-polaris-500 hover:text-polaris-600"
-          >
-            {show ? "Hide" : "Show"} passwords
-          </button>
-        </div>
-        <input
-          type={show ? "text" : "password"}
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          required
-          autoComplete="current-password"
-          className={inputCls}
-        />
+    <div className="space-y-4">
+      <div className="rounded-xl bg-paper-soft dark:bg-white/[0.04] px-4 py-3.5 ring-1 ring-inset ring-polaris-500/10 dark:ring-white/[0.08]">
+        <dl className="space-y-2.5 text-[13px]">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-ink-dim">Sign-in method</dt>
+            <dd className="font-medium text-ink">
+              {isLoaded ? strategies : "…"}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-ink-dim">Two-factor authentication</dt>
+            <dd
+              className={
+                mfaOn
+                  ? "font-medium text-aurora-700 dark:text-aurora-200"
+                  : "font-medium text-ink-dim"
+              }
+            >
+              {!isLoaded ? "…" : mfaOn ? "On" : "Off"}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-ink-dim">Email</dt>
+            <dd className="font-medium text-ink truncate max-w-[55%]">
+              {user?.primaryEmailAddress?.emailAddress ?? "—"}
+            </dd>
+          </div>
+        </dl>
       </div>
 
-      <div>
-        <div className="text-[12.5px] font-medium text-ink mb-1">New password</div>
-        <div className="text-[11.5px] text-ink-muted mb-2">At least 8 characters.</div>
-        <input
-          type={show ? "text" : "password"}
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          required
-          minLength={8}
-          autoComplete="new-password"
-          className={inputCls}
-        />
-        {tooShort && <div className="mt-1 text-[11.5px] text-rose-600">Use at least 8 characters.</div>}
-      </div>
+      <p className="text-[12.5px] leading-relaxed text-ink-dim">
+        Your password, email addresses and two-factor settings are managed in
+        your Polaris account security panel.
+      </p>
 
-      <div>
-        <div className="text-[12.5px] font-medium text-ink mb-1">Confirm new password</div>
-        <input
-          type={show ? "text" : "password"}
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-          autoComplete="new-password"
-          className={inputCls}
-        />
-        {mismatch && <div className="mt-1 text-[11.5px] text-rose-600">Passwords don&apos;t match.</div>}
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
-        <Btn variant="primary" disabled={!valid || saving} type="submit">
-          {saving ? "Updating…" : "Update password"}
-        </Btn>
-        {status === "ok" && <span className="text-[12px] text-aurora-600">Updated ✓</span>}
-        {status === "error" && <span className="text-[12px] text-rose-600">{error}</span>}
-      </div>
-    </form>
+      <Btn onClick={() => openUserProfile()} disabled={!isLoaded}>
+        Manage sign-in &amp; security
+      </Btn>
+    </div>
   );
 }
-

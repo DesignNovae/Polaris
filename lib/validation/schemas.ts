@@ -54,13 +54,6 @@ export const studentProfileSchema = z.object({
   undergradMajor: z.string().max(120).optional(),
   testScores: z.record(z.string().min(1).max(20), z.number().min(0).max(1600)).optional(),
 });
-export const registerSchema = z.object({
-  name: z.string().min(1).max(120),
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  role: z.enum(["student", "parent", "partner"]).optional(),
-});
-
 export const roadmapBodySchema = z.object({
   profile: studentProfileSchema,
 });
@@ -73,6 +66,7 @@ export const milestonePatchSchema = z.object({
 
 export const checkoutSchema = z.object({
   tier: z.enum(["pro", "elite"]),
+  cycle: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 
 export const linkInviteSchema = z.object({
@@ -93,10 +87,9 @@ export const benchmarkBodySchema = z.object({
   profile: studentProfileSchema,
 });
 
+// Passwords are Clerk's now - there is no credential here to change.
 export const accountUpdateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
-  currentPassword: z.string().optional(),
-  newPassword: z.string().min(8, "New password must be at least 8 characters").optional(),
   phone: z.string().max(30).optional(),
   avatarUrl: z.string().url("Avatar must be a valid URL").max(500).optional().or(z.literal("")),
 });

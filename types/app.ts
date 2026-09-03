@@ -18,6 +18,9 @@ export type NavItemId =
   | "universities"
   | "resources"
   | "action-lab"
+  | "passport"
+  | "cohort"
+  | "affordability"
   | "connections"
   | "partners"
   | "consultants"
@@ -43,7 +46,8 @@ export type PathSummary = {
   target: string;
   degree: string;
   horizon: string;
-  probability: number; // 0..1
+  /** 0..1, or null when the student has no profile to score yet. */
+  probability: number | null;
   color: "polaris" | "nova" | "aurora";
 };
 

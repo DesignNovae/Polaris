@@ -9,18 +9,24 @@
  *   Billing summary      - next invoice, default method, lifetime spend
  *   Payment methods      - saved instruments, add (display-safe), default, remove
  *
- * All money movement is the sandbox checkout (CheckoutModal → /api/transactions).
- * A successful payment writes real subscription state server-side; this screen
- * re-reads it on refresh. Swapping in Stripe/SSLCommerz later only replaces
- * the modal's confirm step.
+ * Plan purchases go to SSLCommerz. The button posts to /api/checkout, which
+ * prices the order from the plan catalog server-side, persists it, and returns
+ * a hosted gateway URL; the browser leaves for that URL and comes back through
+ * /api/payments/sslcommerz/return, while the authoritative IPN settles the
+ * order and grants the plan. Nothing here can influence what gets charged.
+ *
+ * This screen previously drove a simulated checkout modal against
+ * /api/transactions, which granted the plan on a dice roll with no money
+ * involved. The transactions ledger is still what consultant bookings use; it
+ * no longer grants plans.
  */
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckoutModal } from "./CheckoutModal";
 import { PaymentLogo, CardBrandMark } from "./PaymentLogos";
-import { PLAN_CATALOG, formatMinor, planDescription, type BillingCycle, type PlanId } from "@/lib/billing/plans";
+import { startCheckout } from "@/components/PlanGate";
+import { PLAN_CATALOG, formatMinor, type BillingCycle, type PlanId } from "@/lib/billing/plans";
 import { Icon } from "./ui";
 import { cn } from "@/lib/cn";
 
@@ -55,21 +61,11 @@ export function BillingClient({
 }) {
   const router = useRouter();
   const [cycle, setCycle] = useState<BillingCycle>(subscription?.billingCycle ?? "yearly");
-  const [checkout, setCheckout] = useState<null | { id: "pro" | "elite" }>(null);
+  const [buying, setBuying] = useState<null | "pro" | "elite">(null);
+  const [checkoutError, setCheckoutError] = useState("");
   const [methods, setMethods] = useState<MethodDto[]>(initialMethods);
   const [addOpen, setAddOpen] = useState(false);
   const [subBusy, setSubBusy] = useState(false);
-
-  const choice = useMemo(() => {
-    if (!checkout) return null;
-    const def = PLAN_CATALOG.find((p) => p.id === checkout.id)!;
-    return {
-      id: checkout.id,
-      name: planDescription(checkout.id, cycle),
-      amountUSDcents: def.usd[cycle],
-      amountBDTpaisa: def.bdt[cycle],
-    };
-  }, [checkout, cycle]);
 
   const canceled = subscription?.status === "canceled";
   const isPaid = plan !== "free";
@@ -85,6 +81,22 @@ export function BillingClient({
       if (r.ok) router.refresh();
     } finally {
       setSubBusy(false);
+    }
+  }
+
+  /**
+   * Leaves for the SSLCommerz hosted page. `buying` is never cleared on the
+   * success path - the tab is navigating away, and re-enabling the button
+   * first would invite a second order for the same plan.
+   */
+  async function purchase(tier: "pro" | "elite") {
+    setCheckoutError("");
+    setBuying(tier);
+    try {
+      await startCheckout(tier, cycle);
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : "Could not open checkout");
+      setBuying(null);
     }
   }
 
@@ -186,10 +198,17 @@ export function BillingClient({
             cycle={cycle}
             currentPlan={plan}
             delay={i * 0.07}
-            onSelect={def.id !== "free" && def.id !== plan ? () => setCheckout({ id: def.id as "pro" | "elite" }) : undefined}
+            busy={buying === def.id}
+            onSelect={def.id !== "free" && def.id !== plan ? () => void purchase(def.id as "pro" | "elite") : undefined}
           />
         ))}
       </div>
+
+      {checkoutError && (
+        <p role="alert" className="text-[12px] font-medium text-rose-600 dark:text-rose-300">
+          {checkoutError}
+        </p>
+      )}
 
       {/* ─── Summary + payment methods ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -213,21 +232,10 @@ export function BillingClient({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </span>
         <p className="text-[11.5px] text-ink-dim leading-relaxed">
-          <span className="font-semibold text-ink">Sandbox billing.</span> Card, bKash, Nagad, and Rocket run in demo mode - no real money moves, but every flow is end-to-end: plans activate, transactions ledger, receipts generate, and subscription state updates. The gateway layer is abstracted so production processors drop in without UI changes.
+          <span className="font-semibold text-ink">Payments run through SSLCommerz.</span> Choosing a plan opens the hosted gateway, where card, bKash, Nagad and Rocket are all available. Your plan activates when SSLCommerz confirms the payment to us directly - not when the browser returns - so a closed tab or a dropped connection never costs you the upgrade. Whether the gateway is in sandbox or live mode is set by the deployment.
         </p>
       </div>
 
-      {choice && (
-        <CheckoutModal
-          open
-          onClose={() => setCheckout(null)}
-          plan={choice}
-          onSuccess={() => {
-            void refreshMethods();
-            setTimeout(() => router.refresh(), 600);
-          }}
-        />
-      )}
       <AnimatePresence>
         {addOpen && <AddMethodModal onClose={() => setAddOpen(false)} onAdded={async () => { await refreshMethods(); setAddOpen(false); }} />}
       </AnimatePresence>
@@ -256,13 +264,15 @@ function StatusChip({ status }: { status: string }) {
 /* ─── pricing card ─── */
 
 function PricingCard({
-  def, cycle, currentPlan, delay, onSelect,
+  def, cycle, currentPlan, delay, onSelect, busy = false,
 }: {
   def: (typeof PLAN_CATALOG)[number];
   cycle: BillingCycle;
   currentPlan: PlanId;
   delay: number;
   onSelect?: () => void;
+  /** Waiting on /api/checkout for the gateway URL. */
+  busy?: boolean;
 }) {
   const active = def.id === currentPlan;
   const usd = def.usd[cycle];
@@ -345,14 +355,21 @@ function PricingCard({
       {onSelect ? (
         <button
           onClick={onSelect}
+          disabled={busy}
+          aria-busy={busy}
           className={cn(
             "mt-5 w-full h-10 rounded-full text-[13px] font-semibold transition-all",
             def.popular || isUpgrade
               ? "bg-ink text-paper hover:bg-polaris-700 hover:shadow-md"
               : "bg-paper-soft text-ink hairline hover:bg-paper-deep",
+            busy && "cursor-wait opacity-70 hover:shadow-none",
           )}
         >
-          {isUpgrade ? `Upgrade to ${def.name}` : `Switch to ${def.name}`}
+          {busy
+            ? "Opening checkout..."
+            : isUpgrade
+              ? `Upgrade to ${def.name}`
+              : `Switch to ${def.name}`}
         </button>
       ) : (
         <div className={cn(

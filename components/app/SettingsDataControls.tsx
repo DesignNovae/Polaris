@@ -7,10 +7,11 @@
  */
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
+import { useSignOut } from "@/components/SessionProvider";
 import { Btn, Tag } from "./ui";
 
 export function SettingsDataControls() {
+  const signOut = useSignOut();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 

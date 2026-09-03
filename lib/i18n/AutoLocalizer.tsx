@@ -245,12 +245,16 @@ export function AutoLocalizer({ lang, setLang }: Props) {
   }, [lang]);
 
   const showDock = pathname !== "/" && !ROUTES_WITH_LANGUAGE_CONTROL.test(pathname);
+  const isAuthRoute = /^\/(?:signin|signup|signout)(?:\/|$)/.test(pathname);
   if (!showDock) return null;
 
   return (
     <div
       data-no-translate
-      className="fixed bottom-4 right-4 z-[70] flex items-center rounded-full bg-ink/90 p-1 text-[11px] text-paper shadow-pop ring-1 ring-inset ring-white/15 backdrop-blur-xl"
+      className={cn(
+        "fixed right-4 z-[70] flex items-center rounded-full bg-ink/90 p-1 text-[11px] text-paper shadow-pop ring-1 ring-inset ring-white/15 backdrop-blur-xl",
+        isAuthRoute ? "top-4 sm:bottom-4 sm:top-auto" : "bottom-4",
+      )}
       aria-label={lang === "bn" ? "Switch to English" : "Switch to Bengali"}
     >
       <button

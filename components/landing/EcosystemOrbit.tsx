@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/cn";
 import {
   SectionIntro, Accent, Dot, Reveal, glassLight,
@@ -50,6 +50,7 @@ const MODULES: Module[] = [
 ];
 
 export function EcosystemOrbit() {
+  const reduce = useReducedMotion();
   const [active, setActive] = useState<Module>(MODULES[0]);
 
   return (
@@ -77,7 +78,7 @@ export function EcosystemOrbit() {
                   cx="270" cy="270" r="190"
                   fill="none" stroke="rgba(196,125,78,0.18)" strokeWidth="1"
                   strokeDasharray="40 320"
-                  animate={{ strokeDashoffset: [0, -360] }}
+                  animate={reduce ? undefined : { strokeDashoffset: [0, -360] }}
                   transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
                 />
               </svg>
@@ -88,7 +89,7 @@ export function EcosystemOrbit() {
                   aria-hidden
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-32 w-32 rounded-full"
                   style={{ background: "radial-gradient(closest-side, rgba(196,125,78,0.3), transparent 70%)" }}
-                  animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0.35, 0.7] }}
+                  animate={reduce ? undefined : { scale: [1, 1.25, 1], opacity: [0.7, 0.35, 0.7] }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 />
                 <div className="relative flex h-[76px] w-[76px] items-center justify-center rounded-full bg-gradient-to-br from-polaris-400 via-polaris-500 to-aurora-600 text-paper shadow-[0_16px_50px_-12px_rgba(139,94,60,0.55)] ring-4 ring-paper">

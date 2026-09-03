@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/SessionProvider";
 import { canUse, type Feature, PLAN_LABELS } from "@/lib/features";
 import type { Plan } from "@/lib/db/collections";
 import { cn } from "@/lib/cn";
+import { track } from "@/lib/analytics";
 
 export function usePlan() {
   const { data: session, status } = useSession();
@@ -16,15 +17,25 @@ export function usePlan() {
   };
 }
 
-/** Kicks off a LemonSqueezy checkout for the given tier. */
-export async function startCheckout(tier: "pro" | "elite") {
+/**
+ * Opens an SSLCommerz hosted checkout for the given tier.
+ *
+ * The server prices the order from the plan catalog and persists it before
+ * returning a gateway URL, so nothing here can influence what gets charged.
+ */
+export async function startCheckout(
+  tier: "pro" | "elite",
+  cycle: "monthly" | "yearly" = "monthly",
+) {
+  track("checkout_started", { tier, cycle });
   const res = await fetch("/api/checkout", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ tier }),
+    body: JSON.stringify({ tier, cycle }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    track("checkout_failed", { tier, cycle, status: res.status });
     throw new Error(data.error || "Checkout failed");
   }
   const { url } = await res.json();

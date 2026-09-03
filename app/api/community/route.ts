@@ -6,8 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOptionalSession } from "@/lib/authz";
 import { getDb } from "@/lib/db/mongodb";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +30,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   // Who is posting? Read it from the login session, never from the request.
-  const session = await getServerSession(authOptions);
+  const session = await getOptionalSession();
   if (!session) {
     return NextResponse.json({ error: "Please sign in" }, { status: 401 });
   }
@@ -50,8 +49,8 @@ export async function POST(req: Request) {
 
   const message = {
     channel,
-    userName: session.user.name,
-    userRole: session.user.role,   // "student" | "partner" | "admin"
+    userName: session.name,
+    userRole: session.role,   // "student" | "partner" | "admin"
     text: text.trim(),
     createdAt: new Date(),
   };
