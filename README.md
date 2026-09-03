@@ -423,6 +423,7 @@ Before shipping:
 
 - [ ] `npm run lint && npx tsc --noEmit && npm test && npm run rag:test && npm run build` all pass
 - [ ] Production secrets set in the deployment environment, not in the repo
+- [ ] Vercel has the matching `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` for the selected Clerk instance (`pk_test_`/`sk_test_` for the test instance or `pk_live_`/`sk_live_` for production); the old `NEXTAUTH_*` variables are not used
 - [ ] `APP_URL` exactly matches the public origin
 - [ ] Clerk webhook points at `/api/webhooks/clerk` (user.created, user.updated, user.deleted)
 - [ ] SSLCommerz IPN URL registered in the merchant panel as `<APP_URL>/api/payments/sslcommerz/ipn`
