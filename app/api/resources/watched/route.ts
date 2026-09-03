@@ -8,8 +8,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOptionalSession } from "@/lib/authz";
 import { getDb } from "@/lib/db/mongodb";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +16,13 @@ export const dynamic = "force-dynamic";
 /* ─── READ: which videos has this student watched? ─── */
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getOptionalSession();
   if (!session) return NextResponse.json([]); // signed out -> nothing watched
 
   const db = await getDb();
   const rows = await db
     .collection("watched_resources")
-    .find({ userId: session.user.id })       // only MY rows
+    .find({ userId: session.id })            // only MY rows
     .sort({ lastWatchedAt: -1 })             // most recently watched first
     .limit(50)
     .toArray();
@@ -42,7 +41,7 @@ export async function GET() {
 /* ─── WRITE: mark one video as watched ─── */
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getOptionalSession();
   if (!session) {
     return NextResponse.json({ error: "Please sign in" }, { status: 401 });
   }
@@ -54,12 +53,12 @@ export async function POST(req: Request) {
 
   const db = await getDb();
   await db.collection("watched_resources").updateOne(
-    { userId: session.user.id, ref },                       // find this student + this video
+    { userId: session.id, ref },                            // find this student + this video
     {
       $set: { lastWatchedAt: new Date() },                  // always refresh the time
       $inc: { plays: 1 },                                   // count repeat views
       $setOnInsert: {                                       // only on the first watch
-        userId: session.user.id,
+        userId: session.id,
         ref,
         title: String(title ?? "").slice(0, 120),
         firstWatchedAt: new Date(),
