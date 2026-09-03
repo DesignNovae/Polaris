@@ -10,6 +10,7 @@
  */
 
 const isHostedBuild = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+const vercelEnvironment = process.env.VERCEL_ENV || "hosted";
 
 if (!isHostedBuild) {
   process.exit(0);
@@ -25,8 +26,9 @@ if (missing.length > 0) {
   console.error(
     [
       "Clerk deployment configuration is incomplete.",
+      `Vercel environment: ${vercelEnvironment}`,
       `Missing: ${missing.join(", ")}`,
-      "Add the matching Clerk test or live keys to the Vercel environment and redeploy.",
+      `Add the matching Clerk test or live keys to Vercel's ${vercelEnvironment} environment and redeploy.`,
       "Do not use the legacy NEXTAUTH_SECRET or NEXTAUTH_URL variables for Clerk.",
     ].join("\n"),
   );
