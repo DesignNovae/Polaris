@@ -19,8 +19,6 @@
   "dependencies": {
     "@clerk/nextjs": "^7.9.0",
     "@google/genai": "^2.15.0",
-    "@lemonsqueezy/lemonsqueezy": {},
-    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.40.0",
     "gsap": "^3.15.0",
