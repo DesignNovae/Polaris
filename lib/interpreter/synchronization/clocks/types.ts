@@ -2,9 +2,8 @@
  * Clock source contract.
  *
  * The lesson video is the single source of truth for time. Everything downstream
- * reads from it and nothing writes back to it - the interpreter never owns a
- * timeline of its own, never runs its own timer, and can never drift away and
- * keep going.
+ * reads from it. The model buffer may pause/resume the transport, but never owns
+ * a separate timeline or advances the signing figure beyond the source clock.
  *
  * A clock source is the adapter that makes "the video" mean a YouTube iframe, an
  * HTML media element, or a speech synthesiser, without the sync engine caring
@@ -54,5 +53,9 @@ export interface PlaybackClockSource {
    * next poll to notice, which is what keeps a seek from showing a visible jump.
    */
   subscribe(listener: (snapshot: ClockSnapshot) => void): () => void;
+  /** Optional transport used to hold media while model inference catches up. */
+  play?(): void | Promise<void>;
+  pause?(): void;
+  seekTo?(seconds: number): void;
   destroy(): void;
 }

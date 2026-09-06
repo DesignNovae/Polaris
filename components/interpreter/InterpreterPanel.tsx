@@ -29,13 +29,18 @@ import { GlossTrack } from "./GlossTrack";
 import { InterpreterControls } from "./InterpreterControls";
 import { SyncIndicator } from "./SyncIndicator";
 import { INTERPRETER_COPY, type Lang } from "./copy";
+import { ModelInterpreterPanel, type ModelPanelProps } from "./ModelInterpreterPanel";
 
 // Registers the transcript and translation providers, and the renderers. The
 // renderer modules themselves stay unloaded until one is actually selected.
 import "@/lib/interpreter/bootstrap";
 import "./renderers";
 
-export function InterpreterPanel({
+export function InterpreterPanel(props: ModelPanelProps) {
+  return <ModelInterpreterPanel {...props}><SketchInterpreterPanel {...props} /></ModelInterpreterPanel>;
+}
+
+function SketchInterpreterPanel({
   mediaId,
   source,
   lang,
