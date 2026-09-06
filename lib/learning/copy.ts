@@ -1,0 +1,15 @@
+export const LEARNING_BENGALI: Record<string, string> = {
+  "Foundation": "ভিত্তি", "Practice": "অনুশীলন", "Advanced": "উচ্চতর",
+  "IELTS Listening essentials": "IELTS Listening-এর ভিত্তি",
+  "Read for evidence": "পড়ে প্রমাণ খুঁজুন",
+  "Build your Task 2 essay": "Task 2 রচনা তৈরি করুন",
+  "Develop your speaking answers": "কথোপকথনের উত্তর গড়ে তুলুন",
+  "SAT algebra foundations": "SAT বীজগণিতের ভিত্তি",
+  "SAT reading and sentence skills": "SAT পাঠ ও বাক্যের দক্ষতা",
+  "Get familiar with the test, build a listening strategy, then practise a recording.": "পরীক্ষার ধরন জানুন, শোনার কৌশল তৈরি করুন, তারপর রেকর্ডিং দিয়ে অনুশীলন করুন।",
+  "Explore question types, distinguish evidence from assumptions, and practise True, False, Not Given.": "প্রশ্নের ধরন জানুন, অনুমান থেকে প্রমাণ আলাদা করুন এবং True, False, Not Given অনুশীলন করুন।",
+  "Move from understanding the task to structuring and developing a complete essay.": "প্রশ্ন বোঝা থেকে শুরু করে একটি সম্পূর্ণ রচনার গঠন ও বিষয়বস্তু তৈরি করুন।",
+  "Practise introduction questions, the long turn, and fluency before watching a mock test.": "মক পরীক্ষা দেখার আগে পরিচিতিমূলক প্রশ্ন, দীর্ঘ উত্তর এবং সাবলীলতা অনুশীলন করুন।",
+  "Strengthen the underlying skills: linear equations, systems, functions, and quadratics.": "সরল সমীকরণ, সমীকরণ জোট, ফাংশন ও দ্বিঘাত সমীকরণের ভিত্তি মজবুত করুন।",
+  "Build reading foundations, support an inference, and connect ideas with accurate punctuation.": "পড়ার ভিত্তি তৈরি করুন, অনুমানের পক্ষে প্রমাণ দিন এবং সঠিক যতিচিহ্ন দিয়ে ধারণা যুক্ত করুন।",
+};

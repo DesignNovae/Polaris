@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { PracticeQuestion } from "@/lib/action-lab/types";
 import { generateGemmaText, generateGemmaVisionText, getGemmaModelId, hasGemmaKey } from "@/lib/llm/gemma";
-import { LEARNING_VIDEOS } from "@/lib/action-lab/data";
+import { LEARNING_LIBRARY as LEARNING_VIDEOS } from "@/lib/learning/catalog";
 import { searchDocs } from "@/lib/rag/search";
 import { rateLimit, rateLimitHeaders, rateLimitMessage, type LimitScope } from "@/lib/ratelimit";
 import { fail, parseJson, withErrorHandling } from "@/lib/api/respond";
@@ -1189,7 +1189,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }
 
   if (body.kind === "videos") {
-    const candidates = LEARNING_VIDEOS.filter((video) => video.exam === body.exam && video.topic === body.section);
+    const candidates = LEARNING_VIDEOS.filter((video) => video.exam === body.exam && (body.section === "All" || video.topic === body.section));
     if (!candidates.length) return fail(422, lang === "bn" ? "এই বিভাগের জন্য কোনো যাচাই করা ভিডিও নেই।" : "No verified videos are available for this section.");
     const hits = await searchDocs(`${body.exam} ${body.section} official lesson video practice`, null, 8);
     const evidence = hits.map((item, index) => `[${index + 1}] ${item.title}: ${item.text.slice(0, 350)} (${item.source})`).join("\n");

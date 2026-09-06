@@ -5,22 +5,17 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Btn, Card, Icon, Pill, Progress, RingMini, Tag } from "@/components/app/ui";
 import { MarkdownMessage } from "@/components/app/MarkdownMessage";
-import { LEARNING_VIDEOS } from "@/lib/action-lab/data";
-import type { LearningVideo, PracticeReviewItem, PublicPracticeQuestion, WritingTask } from "@/lib/action-lab/types";
+import type { PracticeReviewItem, PublicPracticeQuestion, WritingTask } from "@/lib/action-lab/types";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import { cn } from "@/lib/cn";
 import { translateUiText } from "@/lib/i18n/bengali";
 import { InterpreterPanel } from "@/components/interpreter/InterpreterPanel";
-import { InterpreterStage } from "@/components/interpreter/InterpreterStage";
 import { InterpreterToggle } from "@/components/interpreter/InterpreterControls";
-import { LessonPlayer } from "@/components/interpreter/LessonPlayer";
 import { INTERPRETER_COPY } from "@/components/interpreter/copy";
 import { useInterpreterSettings } from "@/lib/interpreter/hooks/useInterpreterSettings";
-import { describeMedia, registerVerbatimScript, clearVerbatimScript } from "@/lib/interpreter/bootstrap";
+import { registerVerbatimScript, clearVerbatimScript } from "@/lib/interpreter/bootstrap";
 import { SpeechClockSource } from "@/lib/interpreter/synchronization/clocks/SpeechClockSource";
 import type { PlaybackClockSource } from "@/lib/interpreter/synchronization/clocks/types";
-import { ImportedLessonPlayer } from "@/components/interpreter/ImportedLessonPlayer";
-import { liveJobSchema, youtubeVideoId } from "@/lib/interpreter/model/live";
 
 type Lang = "en" | "bn";
 type Trace = {
@@ -1143,206 +1138,8 @@ export function AIPracticeStudio({ lang }: { lang: Lang }) {
   );
 }
 
-type VideoRecommendation = LearningVideo & {
-  reason: string;
-};
+export { VideoLearningLibrary as GemmaVideoLearning } from "@/components/learning/VideoLearningLibrary";
 
-function videosFor(exam: "IELTS" | "SAT", section: string): LearningVideo[] {
-  return LEARNING_VIDEOS.filter((video) => video.exam === exam && video.topic === section);
-}
-
-export function GemmaVideoLearning({ lang }: { lang: Lang }) {
-  const bn = lang === "bn";
-  const tr = (value: string) => bn ? translateUiText(value) : value;
-  const [exam, setExam] = useState<"IELTS" | "SAT">("IELTS");
-  const sections = exam === "IELTS" ? IELTS_SECTIONS : SAT_SECTIONS;
-  const [section, setSection] = useState<string>("Listening");
-  const initialVideo = videosFor("IELTS", "Listening")[0];
-  const [selected, setSelected] = useState<LearningVideo>(initialVideo);
-  const [playerVersion, setPlayerVersion] = useState(0);
-  const [recommendations, setRecommendations] = useState<VideoRecommendation[]>([]);
-  const [trace, setTrace] = useState<Trace | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Sign language interpreter. The clock source arrives once the player is ready;
-  // until then the panel reports "waiting for the lesson" rather than guessing.
-  const [interpreterSettings, updateInterpreter] = useInterpreterSettings();
-  const [clock, setClock] = useState<PlaybackClockSource | null>(null);
-  const [imported, setImported] = useState<{ url: string; title: string; jobId: string; file: File } | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const importAbort = useRef<AbortController | null>(null);
-  const interpreterCopy = INTERPRETER_COPY[lang];
-
-  useEffect(() => () => { importAbort.current?.abort(); }, []);
-  useEffect(() => {
-    if (!imported) return;
-    return () => {
-      URL.revokeObjectURL(imported.url);
-      void fetch(`/api/interpreter/live/${imported.jobId}`, { method: "DELETE", keepalive: true });
-    };
-  }, [imported]);
-
-  const importFile = async (file: File) => {
-    if (file.size > 100 * 1024 * 1024 || !file.size) { setImportError("Choose a video or audio file smaller than 100 MB."); return; }
-    importAbort.current?.abort();
-    const controller = new AbortController(); importAbort.current = controller;
-    setImportBusy(true); setImportError("");
-    try {
-      const response = await fetch("/api/interpreter/live?upload=1", { method: "POST", body: file,
-        headers: { "Content-Type": "application/octet-stream" }, signal: controller.signal });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "This file could not be imported.");
-      const job = liveJobSchema.parse(body);
-      if (controller.signal.aborted) return;
-      clock?.pause?.(); setClock(null);
-      setImported({ url: URL.createObjectURL(file), title: file.name, jobId: job.id, file });
-      updateInterpreter({ enabled: true, language: "ase" });
-    } catch (cause) {
-      if (!controller.signal.aborted) setImportError(cause instanceof Error ? cause.message : "Import failed.");
-    } finally { if (!controller.signal.aborted) setImportBusy(false); }
-  };
-
-  // Registers the lesson so the caption provider can fetch its published captions
-  // and, failing that, the outline provider can describe the right topic.
-  useEffect(() => {
-    describeMedia({
-      mediaId: selected.id,
-      videoId: selected.youtubeId,
-      title: selected.title,
-      topic: selected.topic,
-      exam: selected.exam,
-      source: selected.source,
-    });
-  }, [selected]);
-
-  const defaults = useMemo(() => videosFor(exam, section), [exam, section]);
-  const visibleVideos: VideoRecommendation[] = recommendations.length
-    ? recommendations
-    : defaults.slice(0, 2).map((video) => ({ ...video, reason: bn ? "এই বিভাগের জন্য আগে থেকে যাচাই করা পাঠ।" : "A verified starter lesson for this section." }));
-  const alternativeVideo = visibleVideos.find((video) => video.youtubeId !== selected.youtubeId)
-    ?? defaults.find((video) => video.youtubeId !== selected.youtubeId);
-
-  const chooseVideo = (video: LearningVideo) => {
-    setImported(null); setClock(null); setImportError("");
-    setSelected(video);
-    setPlayerVersion((value) => value + 1);
-  };
-
-  const chooseSection = (nextSection: string, nextExam = exam) => {
-    setImported(null); setClock(null);
-    setSection(nextSection);
-    const first = videosFor(nextExam, nextSection)[0];
-    if (first) setSelected(first);
-    setRecommendations([]);
-    setTrace(null);
-    setPlayerVersion(0);
-  };
-
-  const refresh = async () => {
-    setBusy(true);
-    try {
-      const result = await studioPost<{ recommendations: VideoRecommendation[] } & Trace>({ kind: "videos", exam, section }, lang);
-      setRecommendations(result.recommendations);
-      setTrace(result);
-      if (result.recommendations[0]) chooseVideo(result.recommendations[0]);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const interpreterOn = interpreterSettings.enabled;
-
-  const lessonCard = (
-    <Card className="overflow-hidden border border-ink-faint/15">
-      {/*
-        The interpreter control sits ABOVE the player, not below it. A 16:9 video
-        is tall enough to push anything underneath off the first screen, and an
-        accessibility affordance nobody can find without scrolling past the thing
-        they cannot hear is not an affordance.
-      */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-faint/12 px-4 py-2.5">
-        <InterpreterToggle
-          enabled={interpreterOn}
-          onChange={(enabled) => updateInterpreter({ enabled })}
-          copy={interpreterCopy}
-        />
-        <span className="text-[10px] text-ink-muted">{tr(selected.topic)} · {tr(selected.duration)}</span>
-      </div>
-
-      {imported ? <ImportedLessonPlayer key={imported.url} url={imported.url} title={imported.title} onSource={setClock} /> : <LessonPlayer
-        key={selected.youtubeId}
-        videoId={selected.youtubeId}
-        title={selected.title}
-        onSource={setClock}
-        autoPlay={playerVersion > 0}
-        fallbackUrl={selected.id.startsWith("youtube:") ? undefined : selected.officialUrl}
-        onTryAnother={selected.id.startsWith("youtube:") || !alternativeVideo ? undefined : () => chooseVideo(alternativeVideo)}
-        locale={lang}
-      />}
-      <div className="p-5">
-        <div className="flex flex-wrap items-center gap-2"><Pill tone="rose">{selected.exam}</Pill><Tag tone="ink">{tr(selected.topic)}</Tag></div>
-        <h2 className="mt-3 break-words font-serif text-[22px] font-bold text-ink">{imported?.title ?? tr(selected.title)}</h2>
-        <p className="mt-1 text-[11.5px] text-ink-muted">{imported ? "Imported media · processed by your local signing worker" : selected.source}</p>
-      </div>
-    </Card>
-  );
-
-  return (
-    <div className={cn("grid gap-4", interpreterOn ? "grid-cols-1" : "xl:grid-cols-[1.3fr_0.7fr]")}>
-      <InterpreterStage
-        enabled={interpreterOn}
-        side={interpreterSettings.side}
-        size={interpreterSettings.size}
-        layout={interpreterSettings.layout}
-        media={lessonCard}
-        panel={<InterpreterPanel mediaId={imported?.jobId ?? selected.id} source={clock} lang={lang} className="h-full"
-          liveInput={imported ? { kind: "job", jobId: imported.jobId } : { kind: "youtube", videoId: selected.youtubeId }}
-          onLiveRetry={imported ? () => { if (!importBusy) void importFile(imported.file); } : undefined} />}
-      />
-      <div className={cn("space-y-4", interpreterOn && "xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0")}>
-        <Card className="space-y-3 border border-ink-faint/15 p-4 xl:col-span-2">
-          <h3 className="font-serif text-[19px] font-bold text-ink">{bn ? "নিজের ভিডিও দিয়ে শিখুন" : "Learn from your own video"}</h3>
-          <p className="text-xs leading-relaxed text-ink-dim">{bn ? "ইংরেজি ভিডিও বা অডিও দিন। নতুন অংশ প্রস্তুত করার সময় প্লেব্যাক অপেক্ষা করবে।" : "Import English video or audio for ASL signing. New sections buffer while the local model prepares them."}</p>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="min-w-0 flex-1 space-y-1 text-xs text-ink-dim">
-              <span>YouTube link</span>
-              <input type="url" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=…"
-                className="h-11 w-full min-w-48 rounded-lg border border-ink-faint/30 bg-paper-card px-3 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-polaris-500" />
-            </label>
-            <button type="button" disabled={importBusy} onClick={() => {
-              const id = youtubeVideoId(videoUrl);
-              if (!id) { setImportError("Enter a valid HTTPS YouTube video link."); return; }
-              chooseVideo({ ...selected, id: `youtube:${id}`, youtubeId: id, title: "Imported YouTube video", source: "YouTube", duration: "" });
-              updateInterpreter({ enabled: true, language: "ase" });
-            }} className="min-h-11 rounded-lg bg-ink px-4 text-xs font-semibold text-paper disabled:opacity-50">Load video</button>
-            <label className="flex min-h-11 cursor-pointer items-center rounded-lg border border-ink-faint/30 px-4 text-xs font-semibold text-ink focus-within:outline focus-within:outline-2 focus-within:outline-polaris-500">
-              {importBusy ? "Importing…" : "Import video / audio"}
-              <input type="file" accept="video/mp4,video/webm,audio/mpeg,audio/wav,audio/mp4,audio/ogg" disabled={importBusy} className="sr-only"
-                onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = ""; }} />
-            </label>
-          </div>
-          <p className="text-xs text-ink-muted">MP4, WebM, MP3, WAV, M4A or Ogg · up to 100 MB and 2 hours. If YouTube audio is unavailable, import the original file.</p>
-          {importError && <p role="alert" className="text-sm text-signal-rose">{importError}</p>}
-        </Card>
-        <Card className="border border-ink-faint/15 p-4">
-          <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-muted">{bn ? "Polaris AI পাঠ অনুসন্ধান" : "Polaris AI lesson finder"}</div><h3 className="mt-1 font-serif text-[19px] font-bold text-ink">{bn ? "নতুন প্রাসঙ্গিক পাঠ খুঁজুন" : "Find fresh related content"}</h3></div><ModelTrace trace={trace} /></div>
-          <Segmented value={exam} options={["IELTS", "SAT"]} onChange={(value) => { const next = value as "IELTS" | "SAT"; setExam(next); chooseSection(next === "IELTS" ? "Listening" : "Reading and Writing", next); }} />
-          <div className="mt-3 flex flex-wrap gap-1.5">{sections.map((item) => <button key={item} onClick={() => chooseSection(item)} className={cn("rounded-full border px-3 py-1.5 text-[10.5px] font-semibold transition", item === section ? "border-polaris-500 bg-polaris-500 text-white" : "border-ink-faint/20 text-ink-dim hover:border-polaris-500/40")}>{tr(item)}</button>)}</div>
-          <Btn className="mt-4 w-full" variant="accent" disabled={busy} onClick={() => void refresh()} icon={<Icon.spark size={13} />}>{busy ? (bn ? "Polaris AI খুঁজছে…" : "Polaris AI is searching…") : (bn ? "Polaris AI দিয়ে হালনাগাদ করুন" : "Refresh with Polaris AI")}</Btn>
-        </Card>
-        <Card className="max-h-[390px] space-y-2 overflow-y-auto border border-ink-faint/15 p-3">
-          {visibleVideos.map((item, index) => (
-            <motion.button type="button" key={`${item.id}-${index}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => chooseVideo(item)} className={cn("block w-full rounded-xl border bg-bg/40 p-3 text-left transition hover:border-polaris-500/40 hover:bg-polaris-500/[0.04]", selected.youtubeId === item.youtubeId ? "border-polaris-500/45 bg-polaris-500/[0.06]" : "border-ink-faint/15")}>
-              <div className="flex items-start gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-500"><Icon.play size={12} /></span><span className="min-w-0"><span className="block text-[12px] font-semibold leading-snug text-ink">{tr(item.title)}</span><span className="mt-1 block text-[10px] text-ink-muted">{item.source}</span><span className="mt-1 block text-[10.5px] leading-relaxed text-ink-dim">{item.reason}</span></span></div>
-            </motion.button>
-          ))}
-        </Card>
-      </div>
-    </div>
-  );
-}
 type KnowledgeNote = {
   id: string;
   title: string;

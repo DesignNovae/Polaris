@@ -53,6 +53,7 @@ async function run(db: Db): Promise<void> {
       { unique: true, sparse: true },
     ),
     db.collection("streaks").createIndex({ userId: 1 }, { unique: true }),
+    db.collection("learning_progress").createIndex({ userId: 1 }),
 
     // ── Sharing / monitoring ──
     db.collection("links").createIndex({ studentId: 1 }),
