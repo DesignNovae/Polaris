@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ok, withErrorHandling, parseJson, HttpError } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordStreakActivity } from "@/lib/streak/service";
 import {
   ensurePassport, updatePassport, upsertClaim, deleteClaim,
 } from "@/lib/passport/service";
@@ -60,6 +61,12 @@ export const POST = withErrorHandling(async (req) => {
     default:
       throw new HttpError(400, "Unknown action");
   }
+
+  // Building the record a recommender will actually read is real work.
+  await recordStreakActivity(
+    user.id,
+    body.action === "claim" ? "Added a passport claim" : "Updated the passport",
+  );
 
   const passport = await ensurePassport(user.id, user.name ?? "Student");
   return ok({ passport });

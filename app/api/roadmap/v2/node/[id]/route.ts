@@ -17,6 +17,7 @@
 import { z } from "zod";
 import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordStreakActivity } from "@/lib/streak/service";
 import { getProfile, getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
 import { nodeProgressFromTasks, recomputeStatuses, shortId, type ScoreEntry } from "@/lib/roadmap/types";
 import { applyScoreAdaptation } from "@/lib/roadmap/generate";
@@ -149,5 +150,14 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
   }
   recomputeStatuses(doc);
   await saveRoadmapV2(session.id, doc);
-  return ok({ doc, adaptation, meaningfulEvent: Boolean(body.evidence || body.score || body.markDone) });
+  // Only real progress earns the day - the route already knows which edits
+  // those are, so reuse that judgement rather than inventing a second one.
+  const meaningfulEvent = Boolean(body.evidence || body.score || body.markDone);
+  if (meaningfulEvent) {
+    await recordStreakActivity(
+      session.id,
+      body.markDone ? "Completed a roadmap node" : body.score ? "Logged a score" : "Added roadmap evidence",
+    );
+  }
+  return ok({ doc, adaptation, meaningfulEvent });
 });

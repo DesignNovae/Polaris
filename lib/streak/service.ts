@@ -2,17 +2,30 @@
  * Day streak - server-side, earned only by meaningful work.
  *
  * `recordStreakActivity(userId, action)` is called from mutation routes that
- * represent real progress (roadmap node updates, score logs, replans, weekly
- * task progress, deadline edits). Page loads and refreshes never touch it.
+ * represent real progress. Page loads, refreshes and pure read-shaped
+ * computations never touch it: a streak has to mean the student did something,
+ * or it means nothing at all. Every call site is asserted by
+ * tests/streak-coverage.test.ts, so a new surface cannot quietly go silent.
  *
- * Rules:
- *   - one increment per calendar day (user-local dates handled as server-day;
- *     consistent because all writes go through here)
- *   - consecutive day → current+1; gap → reset to 1
- *   - longest streak tracked forever; active-day log kept for the heatmap
+ * The arithmetic lives in ./rules - this file is only persistence.
+ *
+ * On freezes: losing a long run to a single missed day is the classic way
+ * these systems lose the people they were built for - a student who breaks a
+ * 40-day streak tends not to restart it. One freeze is banked per completed
+ * week, up to two, spent automatically to bridge a gap.
  */
 
 import { getDb } from "@/lib/db/mongodb";
+import {
+  advanceStreak,
+  dayKey,
+  nextMilestone,
+  viewStreak,
+  MAX_FREEZES,
+  STREAK_MILESTONES,
+} from "./rules";
+
+export { STREAK_MILESTONES, MAX_FREEZES };
 
 export type DbStreak = {
   userId: string;
@@ -24,20 +37,14 @@ export type DbStreak = {
   days: string[];
   /** Actions logged today (resets each new day) - "what earned it". */
   todayActions: string[];
+  /** Unspent streak freezes. Earned by consistency, spent automatically. */
+  freezes?: number;
+  /** Days a freeze covered - drawn differently from both active and missed. */
+  frozenDays?: string[];
   updatedAt: Date;
 };
 
 const DAY_CAP = 120;
-
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function isYesterday(prev: string, today: string): boolean {
-  const [y, m, d] = prev.split("-").map(Number);
-  const next = new Date(y, m - 1, d + 1);
-  return dayKey(next) === today;
-}
 
 /** Idempotent per day; cheap enough to call from any mutation route. */
 export async function recordStreakActivity(userId: string, action: string): Promise<void> {
@@ -50,11 +57,14 @@ export async function recordStreakActivity(userId: string, action: string): Prom
     if (!row) {
       await col.insertOne({
         userId, current: 1, longest: 1, lastActiveDay: today,
-        days: [today], todayActions: [action], updatedAt: new Date(),
+        days: [today], todayActions: [action],
+        freezes: 0, frozenDays: [],
+        updatedAt: new Date(),
       });
       return;
     }
 
+    // Already counted today - just record what else they did.
     if (row.lastActiveDay === today) {
       if (row.todayActions.length < 12 && !row.todayActions.includes(action)) {
         await col.updateOne({ userId }, { $push: { todayActions: action }, $set: { updatedAt: new Date() } });
@@ -62,14 +72,20 @@ export async function recordStreakActivity(userId: string, action: string): Prom
       return;
     }
 
-    const current = isYesterday(row.lastActiveDay, today) ? row.current + 1 : 1;
+    const next = advanceStreak(
+      { current: row.current, lastActiveDay: row.lastActiveDay, freezes: row.freezes ?? 0 },
+      today,
+    );
+
     await col.updateOne({ userId }, {
       $set: {
-        current,
-        longest: Math.max(row.longest, current),
+        current: next.current,
+        longest: Math.max(row.longest, next.current),
         lastActiveDay: today,
         days: [...row.days.slice(-(DAY_CAP - 1)), today],
         todayActions: [action],
+        freezes: next.freezes,
+        frozenDays: [...(row.frozenDays ?? []), ...next.frozen].slice(-DAY_CAP),
         updatedAt: new Date(),
       },
     });
@@ -77,8 +93,6 @@ export async function recordStreakActivity(userId: string, action: string): Prom
     // Streaks must never break the action that earned them.
   }
 }
-
-export const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
 
 export type StreakState = {
   current: number;
@@ -92,6 +106,12 @@ export type StreakState = {
   earned: number[];
   /** Distinct active days in the current week (Mon–Sun). */
   weekCount: number;
+  /** Freezes banked and unspent. */
+  freezes: number;
+  /** Days inside the window that a freeze covered. */
+  frozenDays: string[];
+  /** True when a missed day is currently being held by a banked freeze. */
+  freezeHolding: boolean;
 };
 
 export async function getStreak(userId: string): Promise<StreakState> {
@@ -100,11 +120,18 @@ export async function getStreak(userId: string): Promise<StreakState> {
   const today = dayKey(new Date());
 
   if (!row) {
-    return { current: 0, longest: 0, todayDone: false, days: [], todayActions: [], nextMilestone: STREAK_MILESTONES[0], earned: [], weekCount: 0 };
+    return {
+      current: 0, longest: 0, todayDone: false, days: [], todayActions: [],
+      nextMilestone: STREAK_MILESTONES[0], earned: [], weekCount: 0,
+      freezes: 0, frozenDays: [], freezeHolding: false,
+    };
   }
 
-  // A missed day means the visible current streak is 0 until they act again.
-  const live = row.lastActiveDay === today || isYesterday(row.lastActiveDay, today) ? row.current : 0;
+  const banked = row.freezes ?? 0;
+  const { live, freezeHolding } = viewStreak(
+    { current: row.current, lastActiveDay: row.lastActiveDay, freezes: banked },
+    today,
+  );
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 56);
@@ -122,9 +149,11 @@ export async function getStreak(userId: string): Promise<StreakState> {
     todayDone: row.lastActiveDay === today,
     days,
     todayActions: row.lastActiveDay === today ? row.todayActions : [],
-    nextMilestone: STREAK_MILESTONES.find((m) => m > live) ?? live + 100,
+    nextMilestone: nextMilestone(live),
     earned: STREAK_MILESTONES.filter((m) => row.longest >= m),
     weekCount: days.filter((d) => d >= monKey).length,
+    freezes: banked,
+    frozenDays: (row.frozenDays ?? []).filter((d) => d >= cutKey),
+    freezeHolding,
   };
 }
-
