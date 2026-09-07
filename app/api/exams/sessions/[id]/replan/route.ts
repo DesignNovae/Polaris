@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 import { buildReplanProposal, applyReplanProposal } from "@/lib/exams/replan-bridge";
 
 export const runtime = "nodejs";
@@ -35,6 +35,6 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Conte
 
   const applied = await applyReplanProposal(user.id, id, accept);
   // Reading a proposal is not work; accepting one and changing the plan is.
-  if (applied) await recordStreakActivity(user.id, "Replanned after an exam");
+  if (applied) await recordProgress(user.id, "exam-replan");
   return ok({ applied, proposal: await buildReplanProposal(user.id, id) });
 });

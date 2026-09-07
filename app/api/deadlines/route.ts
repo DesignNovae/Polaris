@@ -21,7 +21,7 @@ import {
   listDeadlines,
   patchDeadline,
 } from "@/lib/deadlines/service";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 
 export const runtime = "nodejs";
 
@@ -39,7 +39,7 @@ export const POST = withErrorHandling(async (req) => {
   const user = await requireSession();
   const body = DeadlineCreateSchema.parse(await parseJson(req));
   const item = await createDeadline(user.id, body);
-  await recordStreakActivity(user.id, "Planned a deadline");
+  await recordProgress(user.id, "deadline-planned");
   return ok({ item }, 201);
 });
 
@@ -49,7 +49,7 @@ export const PATCH = withErrorHandling(async (req) => {
   if (!id) throw new HttpError(400, "Missing id");
   const body = DeadlinePatchSchema.parse(await parseJson(req));
   await patchDeadline(user.id, id, body);
-  await recordStreakActivity(user.id, "Updated a deadline");
+  await recordProgress(user.id, "deadline-updated");
   return new NextResponse(null, { status: 204 });
 });
 

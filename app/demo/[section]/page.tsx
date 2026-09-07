@@ -27,9 +27,10 @@ import { PassportClient } from "@/components/app/PassportClient";
 import { CohortClient } from "@/components/app/CohortClient";
 import { AffordabilityClient } from "@/components/app/AffordabilityClient";
 import { supportedCountries } from "@/lib/affordability/model";
-import { DEMO_PASSPORT, DEMO_COHORT, DEMO_SCHOLARSHIPS } from "@/lib/demo/new-surfaces";
+import { DEMO_PASSPORT, DEMO_COHORT, DEMO_SCHOLARSHIPS, DEMO_XP, DEMO_BADGES, DEMO_WALLET } from "@/lib/demo/new-surfaces";
+import { AchievementsClient } from "@/components/app/AchievementsClient";
 
-const SECTIONS = new Set(["strategist", "deadlines", "universities", "resources", "action-lab", "passport", "cohort", "affordability", "connections", "partners", "consultants", "community", "family", "bookings", "billing", "transactions", "settings"]);
+const SECTIONS = new Set(["strategist", "deadlines", "universities", "resources", "action-lab", "passport", "achievements", "cohort", "affordability", "connections", "partners", "consultants", "community", "family", "bookings", "billing", "transactions", "settings"]);
 const VALID_TIERS: UniversityForModel["tier"][] = ["elite", "top10", "top50", "top100", "top200"];
 
 export function generateStaticParams() { return [...SECTIONS].map((section) => ({ section })); }
@@ -46,6 +47,7 @@ export default async function DemoSectionPage({ params }: { params: Promise<{ se
   // The three newest surfaces run from seeded data - the demo has no database,
   // and the affordability model is pure so it recomputes live in the browser.
   if (section === "passport") return <PassportClient origin="https://polaris.app" demoPassport={DEMO_PASSPORT} />;
+  if (section === "achievements") return <AchievementsClient xp={DEMO_XP} badges={DEMO_BADGES} wallet={DEMO_WALLET} demo passportPublished passportSlug="ayesha-rahman-4f2c" />;
   if (section === "cohort") return <CohortClient demoCohort={DEMO_COHORT} />;
   if (section === "affordability") return <AffordabilityClient countries={supportedCountries()} defaultCountry="USA" demoScholarships={DEMO_SCHOLARSHIPS} />;
   if (section === "partners") return <PartnersClient level="hsc" roadmapTopics={["SAT", "IELTS", "research", "portfolio", "essays", "scholarships"]} weakScores={[{ key: "research", label: "Research evidence", ratio: 0.2 }, { key: "testing", label: "Testing", ratio: 0.48 }]} deadlineTypesSoon={["test-exam", "scholarship", "essay"]} eliteUniIds={universities.filter((item) => item.tier === "elite" || item.tier === "top10").map((item) => item.id)} />;

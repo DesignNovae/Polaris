@@ -14,6 +14,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { HttpError, ok, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import {
   getUserMemory,
   addMemoryFacts,
@@ -56,6 +57,9 @@ export const POST = withErrorHandling(async (req) => {
   if (added.length === 0) {
     throw new HttpError(409, "That fact is already on file.");
   }
+  // Only a genuinely new fact earns - a duplicate threw above, so re-saving
+  // the same note cannot be repeated for points.
+  await recordProgress(session.id, "note-saved");
   return ok({ fact: added[0] });
 });
 

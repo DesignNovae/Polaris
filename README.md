@@ -51,6 +51,18 @@ The roadmap connects long-term goals to yearly missions, milestones, and weekly 
 
 The Strategist combines a student's record with hybrid retrieval over the knowledge base. It streams guidance with citations, checks citation references, and flags unsupported figures. Optional web retrieval adds current sources. [Retrieval design and evaluation →](docs/RAG.md)
 
+### Effort that becomes evidence
+
+![Polaris effort points, levels, and the coin shop](docs/screenshots/achievements.png)
+
+**Points measure the work, never the mark.** Sitting a timed exam section earns; the score on it never does, because rewarding outcomes takes recognition away from the students still improving. Every event carries a weight and the day is capped, so no amount of cheap repetition beats a real session. Students set their own weekly target rather than being handed one.
+
+Coins accumulate from points and buy exactly two things: a streak freeze, so one missed day does not end a forty-day run, and the accent colour on the passport a recommender opens. They never buy a paid feature and never buy an achievement.
+
+![Evidence achievements struck as passport stamps](docs/screenshots/achievements-evidence.png)
+
+**Achievements are claims Polaris will make on a student's behalf.** Each states a countable fact — "Completed 10 practice exam sections under timed conditions" — with what it does *not* establish written next to it, and appears on the public passport in its own section, separate from the claims the student writes themselves. A student cannot edit them, which is what makes them worth reading.
+
 ### More of the workspace
 
 | Capability | What students can do |
@@ -62,6 +74,7 @@ The Strategist combines a student's record with hybrid retrieval over the knowle
 | Knowledge Notes | Retain feedback and connect it to future work. |
 | Deadlines | Track risk and configure email or SMS reminders through optional providers. |
 | Family and teacher views | Share role-scoped progress while keeping Strategist conversations private. |
+| Achievements | Earn capped effort points, levels, and evidence achievements that publish to the passport. |
 | Cohort benchmarks | Compare academic distributions; groups below 20 students are suppressed. |
 | Connections | Connect supported providers with explicit scopes and revocation. |
 
@@ -88,9 +101,29 @@ The Strategist combines a student's record with hybrid retrieval over the knowle
 
 ![University discovery and filters](docs/screenshots/universities.png)
 
+**Verified Student Passport**
+
+![Verified Student Passport with evidence-backed claims](docs/screenshots/passport.png)
+
+**Cohort benchmarks**
+
+![Cohort benchmarks shown as distributions, never rankings](docs/screenshots/benchmarks.png)
+
+**Affordability**
+
+![Affordability planning with costs, aid, and the funding gap](docs/screenshots/affordability.png)
+
+**Deadlines**
+
+![Deadline tracking with risk and reminder configuration](docs/screenshots/deadlines.png)
+
+**Plans and checkout**
+
+![Plan comparison and SSLCommerz checkout](docs/screenshots/billing.png)
+
 </details>
 
-The ASL, library, learning-path, and Exam Lab screenshots were captured from the running application on **7 September 2026**, using a test account and public lesson material. Other screens are earlier product captures. [Screenshot notes →](docs/screenshots/README.md)
+Workspace screenshots are captured at 2× from the public `/demo` routes by `npm run screenshots -- --scale 2`, with the docked Strategist panel closed, so they use seeded data and never contain a real student's name, email, or plan. The ASL, library, learning-path, and Exam Lab images were captured by hand from a signed-in test account on **7 September 2026** using public lesson material. [Screenshot notes →](docs/screenshots/README.md)
 
 ## Quick start
 
@@ -191,6 +224,10 @@ lib/interpreter/        Signing contracts, worker bridge, and playback support
 lib/exams/              Exam assembly, sessions, scoring, and results
 lib/rag/                Retrieval, embeddings, evaluation, and answer checks
 lib/roadmap/            Planning, adaptation, and scheduling
+lib/progress/           One recorder feeding streak, points, counters, badges
+lib/xp/                 Effort-point weights, daily cap, levels
+lib/badges/             Evidence achievement catalogue and awarding
+lib/coins/              Coin wallet and the shop
 services/signing/       Local GPU inference service and Python tests
 scripts/                Model setup, catalog audits, screenshots, and evaluation
 tests/                  TypeScript regression suites
@@ -227,7 +264,7 @@ Use [`.env.local.example`](.env.local.example) for application settings and the 
 | `npm run signing:test` | Run Python signing tests using the documented Windows environment. |
 | `npm run rag:test` | Run deterministic retrieval self-tests. |
 | `npm run rag:eval` | Evaluate retrieval; requires the configured corpus and providers. |
-| `npm run screenshots` | Recapture the script's public demo targets. |
+| `npm run screenshots -- --scale 2` | Recapture the public demo targets at retina resolution. |
 
 Focused library and interpreter checks:
 

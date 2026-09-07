@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import { getDb } from "@/lib/db/mongodb";
 import { HttpError, parseJson, withErrorHandling } from "@/lib/api/respond";
 import { LEARNING_LIBRARY } from "@/lib/learning/catalog";
@@ -24,5 +25,9 @@ export const PATCH = withErrorHandling(async (request) => {
   const updatedAt = new Date().toISOString();
   await db.collection<Record>("learning_progress").updateOne({ _id: `${user.id}:${videoId}`, userId: user.id },
     { $set: { ...patch, updatedAt }, $setOnInsert: { userId: user.id, videoId } }, { upsert: true });
+  // Watching earns; finishing earns more. Saving a lesson for later is not
+  // work, so it is not counted.
+  if (patch.completed === true) await recordProgress(user.id, "lesson-complete");
+  else if (typeof patch.position === "number") await recordProgress(user.id, "lesson-progress");
   return Response.json({ ok: true, updatedAt }, { headers });
 });

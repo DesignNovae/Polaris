@@ -29,6 +29,15 @@ const MUST_RECORD = [
   "app/api/exams/sessions/[id]/replan/route.ts",
   "app/api/tasks/[id]/route.ts",
   "app/api/passport/route.ts",
+  "app/api/learning/progress/route.ts",
+  "app/api/milestones/route.ts",
+  "app/api/discovery/notes/route.ts",
+  "app/api/memory/route.ts",
+  "app/api/tasks/weekly/replan/route.ts",
+  "app/api/roadmap/v2/schedule/route.ts",
+  "app/api/roadmap/v2/route.ts",
+  "app/api/exams/writing/[id]/route.ts",
+  "app/api/consultants/bookings/route.ts",
 ];
 
 /**
@@ -37,13 +46,33 @@ const MUST_RECORD = [
  */
 const DELIBERATELY_SILENT: Record<string, string> = {
   "app/api/benchmark/route.ts":
-    "pure computation - persists nothing, so rewarding it would reward a page view",
+    "a pure computation - persists nothing, so rewarding it would reward a page view",
+  "app/api/probability/route.ts":
+    "also a pure computation, and it reports an outcome, which is never rewarded",
+  "app/api/affordability/route.ts":
+    "a pure computation over the affordability model",
   "app/api/streak/route.ts":
     "reads the streak; a GET must never be able to change it",
   "app/api/session/route.ts":
     "identity, not work",
   "app/api/profile/route.ts":
     "settings; editing a target tier is not a day of study",
+  "app/api/chat/threads/[id]/messages/route.ts":
+    "trivially farmable - a student could type \"hi\" for points, and it spends model budget",
+  "app/api/action-lab/route.ts":
+    "a model call with no persistence; paying students to spend the AI budget is backwards",
+  "app/api/interpreter/route.ts":
+    "same - a generation endpoint, repeatable at will and metered",
+  "app/api/community/messages/route.ts":
+    "social activity, not study, and the easiest thing in the app to farm",
+  "app/api/consultants/reviews/route.ts":
+    "reviews must never be motivated by a reward",
+  "app/api/exams/sessions/route.ts":
+    "starting an exam is not sitting one; the submission earns",
+  "app/api/exams/sessions/[id]/responses/route.ts":
+    "fires per answer - the section submit already covers the work",
+  "app/api/transactions/[id]/confirm/route.ts":
+    "money movement is not study",
 };
 
 function source(rel: string): string {
@@ -63,9 +92,16 @@ function code(rel: string): string {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 
-/** True when the file actually invokes the recorder, rather than naming it. */
+/**
+ * True when the file actually invokes the recorder, rather than naming it.
+ *
+ * Routes call `recordProgress`, which drives the streak, effort points, the
+ * badge counters and badge evaluation together. `recordStreakActivity` is
+ * still accepted here because it remains the streak's own entry point, but a
+ * route using it directly would earn a day and no points, so nothing does.
+ */
 function records(rel: string): boolean {
-  return /recordStreakActivity\s*\(/.test(code(rel));
+  return /record(Progress|StreakActivity)\s*\(/.test(code(rel));
 }
 
 test("every meaningful-progress route records streak activity", () => {

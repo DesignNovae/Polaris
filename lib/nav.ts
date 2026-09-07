@@ -9,6 +9,7 @@ export const NAV: NavItem[] = [
   { id: "resources",    label: "Resources",    hint: "Library & notes",           shortcut: "G L" },
   { id: "action-lab",   label: "Action Lab",   hint: "Decide · prove · practise", shortcut: "G X" },
   { id: "passport",     label: "Passport",     hint: "Shareable proof",           shortcut: "G V" },
+  { id: "achievements", label: "Achievements", hint: "Points & evidence",         shortcut: "G E" },
   { id: "cohort",       label: "Benchmarks",   hint: "Students like you",         shortcut: "G N" },
   { id: "affordability",label: "Affordability",hint: "Cost, aid & the gap",       shortcut: "G Y" },
   { id: "connections",  label: "Connections",  hint: "Notion · Obsidian",         shortcut: "G C", minPlan: "pro" },

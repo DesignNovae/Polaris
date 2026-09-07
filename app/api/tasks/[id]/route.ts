@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/authz";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 import { withErrorHandling, parseJson, HttpError } from "@/lib/api/respond";
 import { TaskIdSchema, TaskPatchSchema } from "@/lib/tasks/schema";
 import { applyTaskPatch, listMilestones } from "@/lib/tasks/service";
@@ -33,10 +33,7 @@ export const PATCH = withErrorHandling(async (req, ctx) => {
   }
 
   await applyTaskPatch(user.id, milestoneId, body);
-  await recordStreakActivity(
-    user.id,
-    body.status === "done" ? "Completed a task" : "Worked on a task",
-  );
+  await recordProgress(user.id, body.status === "done" ? "task-done" : "task-progress");
   return new NextResponse(null, { status: 204 });
 });
 

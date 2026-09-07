@@ -17,7 +17,7 @@
 import { z } from "zod";
 import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 import { getProfile, getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
 import { nodeProgressFromTasks, recomputeStatuses, shortId, type ScoreEntry } from "@/lib/roadmap/types";
 import { applyScoreAdaptation } from "@/lib/roadmap/generate";
@@ -154,9 +154,9 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
   // those are, so reuse that judgement rather than inventing a second one.
   const meaningfulEvent = Boolean(body.evidence || body.score || body.markDone);
   if (meaningfulEvent) {
-    await recordStreakActivity(
+    await recordProgress(
       session.id,
-      body.markDone ? "Completed a roadmap node" : body.score ? "Logged a score" : "Added roadmap evidence",
+      body.markDone ? "roadmap-node-done" : body.score ? "roadmap-score" : "roadmap-evidence",
     );
   }
   return ok({ doc, adaptation, meaningfulEvent });

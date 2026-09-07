@@ -173,6 +173,8 @@ function NavGlyph({ id }: { id: NavItem["id"] }) {
     "action-lab": "M9 3h6 M10 3v5l-5.5 9.5A2.3 2.3 0 0 0 6.5 21h11a2.3 2.3 0 0 0 2-3.5L14 8V3 M8 15h8 M9.5 12h5",
     // a stamped seal - the passport's verification mark
     passport:     "M12 3l7 3v6c0 4.4-2.9 8.3-7 9.5-4.1-1.2-7-5.1-7-9.5V6z M9 12l2 2 4-4",
+    // a struck medallion on its ribbon
+    achievements: "M12 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M9 12.5L7 21l5-2.5 5 2.5-2-8.5",
     // a distribution: three bars of different heights
     cohort:       "M4 20V10 M10 20V4 M16 20v-8 M22 20H2",
     // a coin with a gap in the ring

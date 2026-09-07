@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useSession, useSignOut } from "@/components/SessionProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, Pill } from "./ui";
+import { ProgressPill, type ProgressSummary } from "./ProgressPill";
 import { useTheme } from "./ThemeProvider";
 import { useRoadmapStrategist } from "@/lib/roadmap/store";
 import { getMissingFields } from "@/lib/profile";
@@ -50,9 +51,11 @@ const TITLES: Record<string, { eyebrow: string; title: string }> = {
 type TopBarProps = {
   basePath?: string;
   demoUser?: { name: string; email: string; plan: "free" | "pro" | "elite" };
+  /** Seeded level/coin numbers for the signed-out demo shell. */
+  demoProgress?: ProgressSummary;
 };
 
-export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
+export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = {}) {
   const path = usePathname();
   const id = basePath ? (path.split("/")[2] || "roadmap") : (path.split("/")[1] || "roadmap");
   const t = TITLES[id] ?? TITLES.roadmap;
@@ -179,6 +182,8 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
         <WorkspaceSearch basePath={basePath} lang={lang} />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <ProgressPill basePath={basePath} demoSummary={demoProgress} />
+          <div className="hidden sm:block h-6 w-px bg-white/[0.10] mx-0.5" />
                     <Link href={basePath || "/roadmap"} className="hidden md:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] hover:-translate-y-px transition-all">
             New task
           </Link>

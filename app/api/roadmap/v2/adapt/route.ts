@@ -10,7 +10,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
 import { getProfile, getRoadmapV2, saveRoadmapV2 } from "@/lib/db/collections";
 import { adaptRoadmap } from "@/lib/roadmap/generate";
@@ -53,6 +53,6 @@ export const POST = withErrorHandling(async (req) => {
   }
 
   await saveRoadmapV2(session.id, adapted);
-  await recordStreakActivity(session.id, "Replanned the roadmap");
+  await recordProgress(session.id, "roadmap-replan");
   return ok({ doc: adapted });
 });

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { parseJson, withErrorHandling } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import {
   listDiscoveryNotes,
   saveDiscoveryNote,
@@ -28,5 +29,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 export const PUT = withErrorHandling(async (req: NextRequest) => {
   const user = await requireSession();
   const body = saveSchema.parse(await parseJson(req));
-  return Response.json({ note: await saveDiscoveryNote({ userId: user.id, ...body }) });
+  const note = await saveDiscoveryNote({ userId: user.id, ...body });
+  await recordProgress(user.id, "note-saved");
+  return Response.json({ note });
 });

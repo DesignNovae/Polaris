@@ -1,6 +1,8 @@
 import { randomBytes } from "crypto";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongodb";
+import { listEarnedBadges, type EarnedBadge } from "@/lib/badges/service";
+import { accentForUser } from "@/lib/coins/service";
 
 /**
  * Verified Student Passport.
@@ -64,6 +66,23 @@ export type PublicPassport = {
   summary: string;
   verified: PassportClaim[];
   unevidenced: PassportClaim[];
+  /**
+   * What Polaris itself can attest, as distinct from what the student claims.
+   *
+   * Kept in its own collection and rendered here rather than folded into
+   * `claims`: a claim is verified by an artifact the student linked, and a
+   * badge has no such link because the proof is the platform's own record.
+   * Merging them would either make Polaris's attestations student-editable or
+   * make the student's claims read-only. Showing them as two sources is also
+   * the honest presentation for whoever is reading the page.
+   */
+  achievements: EarnedBadge[];
+  /**
+   * The accent this student has applied to their own page. Bought with coins,
+   * which is the only thing coins touch that anyone else ever sees - and it
+   * changes how the record looks, never what it claims.
+   */
+  accent: { ink: string; wash: string; label: string };
   showUnevidenced: boolean;
   updatedAt: Date;
   stats: { total: number; verified: number; coverage: number };
@@ -232,6 +251,10 @@ export async function getPublicPassport(slug: string): Promise<PublicPassport | 
 
   const verified = doc.claims.filter((c) => c.status === "verified");
   const unevidenced = doc.claims.filter((c) => c.status === "unevidenced");
+  const [achievements, accent] = await Promise.all([
+    listEarnedBadges(doc.userId),
+    accentForUser(doc.userId),
+  ]);
 
   return {
     slug: doc.slug,
@@ -240,6 +263,8 @@ export async function getPublicPassport(slug: string): Promise<PublicPassport | 
     summary: doc.summary,
     verified,
     unevidenced: doc.showUnevidenced ? unevidenced : [],
+    achievements,
+    accent,
     showUnevidenced: doc.showUnevidenced,
     updatedAt: doc.updatedAt,
     stats: {

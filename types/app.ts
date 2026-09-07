@@ -19,6 +19,7 @@ export type NavItemId =
   | "resources"
   | "action-lab"
   | "passport"
+  | "achievements"
   | "cohort"
   | "affordability"
   | "connections"
