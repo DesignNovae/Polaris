@@ -132,7 +132,7 @@ export function TopBar({ basePath = "", demoUser }: TopBarProps = {}) {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        document.getElementById("top-search")?.focus();
+        window.dispatchEvent(new Event("polaris:openSearch"));
       }
       if (e.key === "Escape") setProfileOpen(false);
     }
