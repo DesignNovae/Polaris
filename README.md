@@ -1,129 +1,164 @@
-# Polaris
+<div align="center">
 
-### Your academic goals. One connected workspace.
+<img src="docs/banner.svg" alt="Polaris — a distant university goal, resolved into the next clear move" width="100%">
 
-Polaris brings accessible video learning, IELTS and SAT practice, evidence-backed AI guidance, and adaptive admissions planning into one English–Bengali platform.
+**An English–Bengali academic workspace for students applying abroad from Bangladesh.**
 
-[Feature showcase](#feature-showcase) · [Quick start](#quick-start) · [ASL setup](docs/SIGN_LANGUAGE_PRODUCTION.md) · [Architecture](#architecture) · [Deployment](#deployment)
+Polaris turns a distant university goal into the next concrete task, keeps the plan honest as scores and evidence arrive, and produces a record a recommender can actually check.
 
-## Feature showcase
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-087EA4?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF?style=flat-square&logo=clerk&logoColor=white)
+![Gemma](https://img.shields.io/badge/AI-Gemma%204-8B5E3C?style=flat-square&logo=google&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-134%20passing-43705A?style=flat-square)
 
-### Watch a lesson. Follow the signing.
+[Quick start](#quick-start) · [Architecture](#architecture) · [Configuration](#configuration) · [ASL setup](docs/SIGN_LANGUAGE_PRODUCTION.md) · [Retrieval design](docs/RAG.md)
 
-![A real SAT lesson alongside Polaris's model-generated 3D ASL figure](docs/screenshots/asl-learning.jpg)
+</div>
 
-**Model-generated ASL follows the lesson's playback clock.** Polaris transcribes English audio with Whisper, generates hand, body, and facial motion with SignSparK, and renders a licensed SMPL-X figure in Three.js. Pause the video and the figure pauses. Seek backward to revisit a section; seek forward and the worker prepares the requested section.
+<table>
+<tr>
+<td align="center" width="33%"><b>The plan</b></td>
+<td align="center" width="33%"><b>The record</b></td>
+<td align="center" width="33%"><b>The proof</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/roadmap.png" alt="Adaptive roadmap"></td>
+<td><img src="docs/screenshots/achievements.png" alt="Effort points and coins"></td>
+<td><img src="docs/screenshots/passport.png" alt="Verified Student Passport"></td>
+</tr>
+</table>
 
-- Available in Video Learning and the timed IELTS Listening runner.
-- Supports accessible YouTube audio and imported video or audio, including media outside the catalog.
-- Generates eight-second sections with lookahead and explicit buffering when a section is not ready.
-- Runs inference on a separately started local NVIDIA GPU worker.
+---
 
-> **Research feature:** the supported pairing is English audio → ASL. Generated signing requires linguistic review; it is not certified interpretation. Startup and uncached sections can take time. The current worker is local-only and is not included in a Vercel deployment. [Implementation, measurements, and limitations →](docs/SIGN_LANGUAGE_PRODUCTION.md)
+## How a student actually uses it
 
-### A learning library with a next step
+A student in Dhaka wants to study abroad. They know the destination and almost nothing about the route: which exam, by when, what counts as evidence, whether the family can pay for it. Polaris is the walk from that question to an answer, and the sections below are that walk in order.
 
-![Polaris lesson library with filters, real thumbnails, source attribution, and durations](docs/screenshots/learning-library.jpg)
+### 1 · Start from the goal, not a blank calendar
 
-**60 curated lessons across six IELTS and SAT skill areas**, with searchable titles, source attribution, checked video metadata, and actual durations. Filter by exam, skill, level, or length; save a lesson, track completion, and resume from your last position.
+<img src="docs/screenshots/roadmap.png" alt="The adaptive roadmap showing missions and milestones">
 
-![Structured IELTS learning paths in Polaris](docs/screenshots/learning-paths.jpg)
+You give Polaris a target — a country, a tier, a degree, a timeline. It generates a roadmap: long-term goals broken into yearly missions, milestones, and tasks small enough to finish this week. Nothing here is a template. The plan is built against this student's grades, curriculum, and target tier, and it is the thing every other surface reads from.
 
-Six learning paths organize lessons into useful sequences: IELTS Listening, Reading, Writing, and Speaking, plus SAT algebra and reading/sentence skills. Changing a library filter keeps the current lesson playing. [Catalog and progress design →](docs/LEARNING_LIBRARY.md)
+### 2 · Ask it why, and get sources back
 
-### Practise under exam conditions
+<img src="docs/screenshots/strategist.png" alt="The Strategist answering with cited sources">
 
-![Polaris Exam Lab with IELTS and SAT practice options](docs/screenshots/exam-lab-current.jpg)
+The Strategist reads the student's own record alongside a knowledge base, using hybrid retrieval — BM25 for the exact terms, dense embeddings for the meaning, fused into one ranking. It streams answers with citations, checks that the citations actually support what was said, and flags figures it cannot ground. Asking "why am I at 41% for MIT?" gets an answer about *this* profile, not admissions advice in general. [Retrieval design and evaluation →](docs/RAG.md)
 
-Timed mock exams include a SAT Math module, a full adaptive SAT, and all four IELTS papers. Attempts support autosave and recovery. Results can propose targeted changes to the next week's study blocks; students review the proposal before applying it.
+### 3 · Sit the paper under real conditions
 
-AI Practice generates original questions for a selected skill and difficulty. Practice results are unofficial and do not predict an official SAT score or IELTS band.
+<img src="docs/screenshots/exam-lab-current.jpg" alt="Exam Lab with IELTS and SAT practice">
 
-### Turn a goal into a working plan
+A full adaptive SAT, a SAT Math module, and all four IELTS papers — timed, autosaved, recoverable if the tab dies mid-attempt. When results arrive, Polaris proposes specific changes to next week's study blocks. The student reviews the proposal before anything moves; the plan is never rewritten behind their back.
 
-![Polaris adaptive roadmap showing missions and milestones](docs/screenshots/roadmap.png)
+> Practice results are unofficial and do not predict an official SAT score or IELTS band. Polaris says so on the results screen too.
 
-The roadmap connects long-term goals to yearly missions, milestones, and weekly tasks. Decision Twin explores changed constraints, Evidence Graph connects claims to supporting artifacts, and Smart Routine turns available study time into editable blocks.
+### 4 · Learn the material, including without hearing it
 
-### Ask for guidance with sources
+<img src="docs/screenshots/learning-library.jpg" alt="The curated lesson library">
 
-![Polaris Strategist with contextual academic guidance](docs/screenshots/strategist.png)
+Sixty curated lessons across six IELTS and SAT skill areas, with checked durations, real source attribution, and resume-where-you-stopped.
 
-The Strategist combines a student's record with hybrid retrieval over the knowledge base. It streams guidance with citations, checks citation references, and flags unsupported figures. Optional web retrieval adds current sources. [Retrieval design and evaluation →](docs/RAG.md)
+<img src="docs/screenshots/asl-learning.jpg" alt="A SAT lesson beside a model-generated 3D ASL figure">
 
-### Effort that becomes evidence
+And for a deaf or hard-of-hearing student, the lesson can be signed. Polaris transcribes the English audio with Whisper, generates hand, body and facial motion with SignSparK, and renders a licensed SMPL-X figure in Three.js **against the video's own playback clock** — pause the lesson and the figure pauses; seek back and it follows.
 
-![Polaris effort points, levels, and the coin shop](docs/screenshots/achievements.png)
+> **Research feature.** The supported pairing is English audio → ASL. Generated signing needs linguistic review and is not certified interpretation. The worker is local-only and is not part of a Vercel deployment. [Implementation, measurements, and limitations →](docs/SIGN_LANGUAGE_PRODUCTION.md)
 
-**Points measure the work, never the mark.** Sitting a timed exam section earns; the score on it never does, because rewarding outcomes takes recognition away from the students still improving. Every event carries a weight and the day is capped, so no amount of cheap repetition beats a real session. Students set their own weekly target rather than being handed one.
+### 5 · Turn the week into something you can actually do
 
-Coins accumulate from points and buy exactly two things: a streak freeze, so one missed day does not end a forty-day run, and the accent colour on the passport a recommender opens. They never buy a paid feature and never buy an achievement.
+<img src="docs/screenshots/action-lab-routine.png" alt="Smart Routine turning available hours into study blocks">
 
-![Evidence achievements struck as passport stamps](docs/screenshots/achievements-evidence.png)
+Action Lab is where the plan meets a real week. Smart Routine turns the hours a student actually has into editable blocks. Decision Twin answers "what if I sat the IELTS in March instead". Evidence Graph shows which claims have artifacts behind them and which are still just assertions.
 
-**Achievements are claims Polaris will make on a student's behalf.** Each states a countable fact — "Completed 10 practice exam sections under timed conditions" — with what it does *not* establish written next to it, and appears on the public passport in its own section, separate from the claims the student writes themselves. A student cannot edit them, which is what makes them worth reading.
+### 6 · Never lose a date
 
-### More of the workspace
+<img src="docs/screenshots/deadlines.png" alt="Deadline tracking with risk and reminders">
+
+Every application deadline in one place, ranked by risk. Reminders go out by email or SMS on a schedule the student sets — SMS because in this market it is the channel that actually gets read.
+
+### 7 · Find out whether the money works
+
+<img src="docs/screenshots/affordability.png" alt="Cost, aid, and the funding gap in BDT">
+
+Costs, aid, scholarships, and the remaining gap, in BDT, before a student spends a year preparing for a place the family cannot fund. Living costs come from official visa and maintenance requirements; tuition is a published range and is labelled as one.
+
+### 8 · See where you honestly stand
+
+<img src="docs/screenshots/benchmarks.png" alt="Cohort benchmarks shown as distributions">
+
+Compared with anonymised students targeting the same tier — as a distribution and a percentile, never a ranking. There is deliberately no leaderboard, and any cohort with fewer than 20 students is suppressed entirely rather than shown with a caveat, because in a group that small a percentile identifies someone.
+
+### 9 · Get credit for the work, without cheapening it
+
+<img src="docs/screenshots/achievements.png" alt="Effort points, levels, and the coin shop">
+
+Effort points measure what a day contained. Sitting a timed exam section earns; **the mark on it never does**, because rewarding outcomes takes recognition from exactly the students still improving. Every event has a weight, the day is capped, and the student sets their own weekly target.
+
+Coins accumulate from points and buy two things: a streak freeze so one missed day does not end a forty-day run, and the accent on the passport below. They never buy a paid feature and never buy an achievement.
+
+<img src="docs/screenshots/achievements-evidence.png" alt="Evidence achievements struck as passport stamps">
+
+### 10 · Leave with something checkable
+
+<img src="docs/screenshots/passport.png" alt="The Verified Student Passport">
+
+The Verified Student Passport is one unlisted page a student sends to a teacher, a consultant, or a committee. Each claim sits beside the artifact that proves it and the date it was verified — **and the claims with nothing behind them are shown, not hidden**, because a page that only shows the good half is a CV with extra steps.
+
+Achievements appear in their own section, marked as attested by Polaris rather than by the student. The student cannot edit those, which is exactly what makes them worth reading.
+
+<details>
+<summary><b>More of the workspace</b></summary>
+
+<br>
 
 | Capability | What students can do |
 | --- | --- |
 | University discovery | Explore sourced university information and academic fit estimates. |
-| Affordability | Compare estimated costs, aid, scholarships, and funding gaps in BDT. |
-| Student Passport | Share an unlisted profile with evidence-backed claims and verification dates. |
 | Essay Studio | Extract English, Bengali, or mixed handwriting into an editable draft and request coaching. |
 | Knowledge Notes | Retain feedback and connect it to future work. |
-| Deadlines | Track risk and configure email or SMS reminders through optional providers. |
 | Family and teacher views | Share role-scoped progress while keeping Strategist conversations private. |
-| Achievements | Earn capped effort points, levels, and evidence achievements that publish to the passport. |
-| Cohort benchmarks | Compare academic distributions; groups below 20 students are suppressed. |
 | Connections | Connect supported providers with explicit scopes and revocation. |
-
-<details>
-<summary>See more product screens</summary>
-
-**Decision Twin**
-
-![Decision Twin constraint comparison](docs/screenshots/action-lab.png)
-
-**Evidence Graph**
-
-![Evidence Graph connecting claims and proof](docs/screenshots/action-lab-evidence.png)
-
-**Smart Routine**
-
-![Smart Routine study planning](docs/screenshots/action-lab-routine.png)
-
-**Essay Studio**
-
-![Essay Studio handwriting extraction and coaching](docs/screenshots/action-lab-essay.png)
+| Consultants | Book verified mentors, with the first session free where offered. |
+| Billing | Plans and checkout through SSLCommerz — card, bKash, Nagad, Rocket. |
 
 **University discovery**
 
-![University discovery and filters](docs/screenshots/universities.png)
+<img src="docs/screenshots/universities.png" alt="University discovery and filters">
 
-**Verified Student Passport**
+**Decision Twin**
 
-![Verified Student Passport with evidence-backed claims](docs/screenshots/passport.png)
+<img src="docs/screenshots/action-lab.png" alt="Decision Twin comparing changed constraints">
 
-**Cohort benchmarks**
+**Evidence Graph**
 
-![Cohort benchmarks shown as distributions, never rankings](docs/screenshots/benchmarks.png)
+<img src="docs/screenshots/action-lab-evidence.png" alt="Evidence Graph connecting claims to proof">
 
-**Affordability**
+**Essay Studio**
 
-![Affordability planning with costs, aid, and the funding gap](docs/screenshots/affordability.png)
+<img src="docs/screenshots/action-lab-essay.png" alt="Handwriting extraction and essay coaching">
 
-**Deadlines**
+**Resource hub**
 
-![Deadline tracking with risk and reminder configuration](docs/screenshots/deadlines.png)
+<img src="docs/screenshots/resources.png" alt="Resource hub">
+
+**Connected progress**
+
+<img src="docs/screenshots/connections.png" alt="Integrations with explicit scopes">
 
 **Plans and checkout**
 
-![Plan comparison and SSLCommerz checkout](docs/screenshots/billing.png)
+<img src="docs/screenshots/billing.png" alt="Plan comparison and SSLCommerz checkout">
 
 </details>
 
-Workspace screenshots are captured at 2× from the public `/demo` routes by `npm run screenshots -- --scale 2`, with the docked Strategist panel closed, so they use seeded data and never contain a real student's name, email, or plan. The ASL, library, learning-path, and Exam Lab images were captured by hand from a signed-in test account on **7 September 2026** using public lesson material. [Screenshot notes →](docs/screenshots/README.md)
+Workspace screenshots are captured at 2× from the public `/demo` routes by `npm run screenshots -- --scale 2`, with the docked Strategist panel closed, so they use seeded data and never contain a real student's name, email, or plan. The ASL, library, and Exam Lab images were captured by hand from a signed-in test account using public lesson material. [Screenshot notes →](docs/screenshots/README.md)
+
+---
 
 ## Quick start
 
