@@ -173,6 +173,58 @@ const TARGETS = [
     prep: "window.__shot.closeSidePanel()",
     caption: "Connected progress",
   },
+  {
+    name: "achievements",
+    path: "/demo/achievements",
+    settle: 4000,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Effort points, levels and the coin shop",
+  },
+  {
+    name: "achievements-evidence",
+    path: "/demo/achievements",
+    settle: 4000,
+    prep:
+      "window.__shot.closeSidePanel();" +
+      "setTimeout(() => window.__shot.scrollMain(560), 1200)",
+    afterPrep: 2600,
+    caption: "Evidence achievements, struck as passport stamps",
+  },
+  {
+    name: "passport",
+    path: "/demo/passport",
+    settle: 3500,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Verified Student Passport",
+  },
+  {
+    name: "benchmarks",
+    path: "/demo/cohort",
+    settle: 3500,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Cohort benchmarks, k-anonymous by design",
+  },
+  {
+    name: "affordability",
+    path: "/demo/affordability",
+    settle: 3500,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Affordability and the funding gap",
+  },
+  {
+    name: "deadlines",
+    path: "/demo/deadlines",
+    settle: 3500,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Deadline tracking and reminders",
+  },
+  {
+    name: "billing",
+    path: "/demo/billing",
+    settle: 3500,
+    prep: "window.__shot.closeSidePanel()",
+    caption: "Plans and SSLCommerz checkout",
+  },
 ];
 
 function findChrome() {

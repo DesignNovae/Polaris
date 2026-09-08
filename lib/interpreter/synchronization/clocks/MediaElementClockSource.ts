@@ -53,6 +53,12 @@ export class MediaElementClockSource implements PlaybackClockSource {
     };
   }
 
+  play(): Promise<void> { return this.element.play(); }
+  pause(): void { this.element.pause(); }
+  seekTo(seconds: number): void {
+    this.element.currentTime = Math.max(0, Math.min(this.read().duration || seconds, seconds));
+  }
+
   private emit(): void {
     if (this.listeners.size === 0) return;
     const snapshot = this.read();

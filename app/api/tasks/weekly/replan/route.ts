@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { ok, fail, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
 import { replanWeeklyTasks, serializeWeeklyTask } from "@/lib/tasks/weekly";
 import { NextResponse } from "next/server";
@@ -38,6 +39,7 @@ export const POST = withErrorHandling(async (req) => {
   const body = schema.parse(await parseJson(req).catch(() => ({})));
   const result = await replanWeeklyTasks(session.id, body);
   if (!result.ok) return fail(422, result.error);
+  await recordProgress(session.id, "week-replanned");
   return ok({ tasks: result.tasks.map(serializeWeeklyTask) });
 });
 

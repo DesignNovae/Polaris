@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { ok, withErrorHandling, parseJson, HttpError } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import {
   ensureConsultantsSeeded, getConsultant, createBooking, listBookings,
 } from "@/lib/consultants/service";
@@ -73,6 +74,8 @@ export const POST = withErrorHandling(async (req) => {
     useFreeSession: body.useFreeSession,
   });
   if (!result.ok) throw new HttpError(409, result.error);
+
+  await recordProgress(session.id, "booking-made");
 
   return ok({
     booking: {

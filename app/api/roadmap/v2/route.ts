@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ok, withErrorHandling, parseJson } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import { rateLimit, rateLimitHeaders } from "@/lib/ratelimit";
 import { getProfile, upsertProfile, getRoadmapV2, saveRoadmapV2, deleteRoadmapV2 } from "@/lib/db/collections";
 import { RoadmapConfigSchema, type RoadmapConfig, type EducationLevel } from "@/lib/roadmap/types";
@@ -108,6 +109,9 @@ export const POST = withErrorHandling(async (req) => {
   const doc = await generateRoadmap(profile, config, { userId: session.id, language });
   await saveRoadmapV2(session.id, doc);
   console.info(`[roadmap:v3] POST generation completed in ${Date.now() - startedAt}ms (${config.durationDays}d/${config.timelineMode})`);
+  // Building the plan is the first real act of the product. It is already
+  // rate-limited above, so it cannot be repeated for points.
+  await recordProgress(session.id, "roadmap-generated");
   return ok({ doc });
 });
 

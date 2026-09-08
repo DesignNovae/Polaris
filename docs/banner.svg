@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-label="Polaris - a distant goal, resolved into the next clear move">
+  <title>Polaris</title>
+
+  <!--
+    Animated README banner.
+
+    Hand-authored rather than a recorded GIF: this stays sharp at any width,
+    weighs a few kilobytes, and needs no external render service. CSS keyframes
+    inside an SVG do run on GitHub when the file is referenced as an image, so
+    the whole thing is self-contained - no scripts, no web fonts, no network.
+
+    The animation is the product's own argument. A scatter of unconnected
+    points appears first, then the path through them draws itself, then the
+    star settles above it. That is what Polaris does to a student's ambition:
+    the pieces already existed, the route through them did not.
+
+    Deliberately dark on its own ground rather than transparent, so it reads
+    identically in GitHub's light and dark themes instead of half-disappearing
+    in one of them.
+  -->
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#17110D"/>
+      <stop offset="45%" stop-color="#100C0A"/>
+      <stop offset="100%" stop-color="#0A0806"/>
+    </linearGradient>
+
+    <radialGradient id="glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#C47D4E" stop-opacity="0.20"/>
+      <stop offset="60%" stop-color="#8B5E3C" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="route" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8B5E3C"/>
+      <stop offset="55%" stop-color="#C47D4E"/>
+      <stop offset="100%" stop-color="#5B8C6D"/>
+    </linearGradient>
+
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#C47D4E" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#C47D4E" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#5B8C6D" stop-opacity="0"/>
+    </linearGradient>
+
+    <style>
+      /* One 11s cycle. Long enough that the banner is calm on a page a
+         reader is scanning, not a flashing advertisement. */
+
+      .node {
+        opacity: 0;
+        animation: rise 11s ease-out infinite;
+      }
+      @keyframes rise {
+        0%   { opacity: 0; transform: translateY(6px); }
+        9%   { opacity: 0; transform: translateY(6px); }
+        16%  { opacity: 1; transform: translateY(0); }
+        88%  { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(0); }
+      }
+
+      /* The route draws through the points after they have all appeared. */
+      .route {
+        stroke-dasharray: 1400;
+        stroke-dashoffset: 1400;
+        animation: draw 11s ease-in-out infinite;
+      }
+      @keyframes draw {
+        0%   { stroke-dashoffset: 1400; }
+        22%  { stroke-dashoffset: 1400; }
+        52%  { stroke-dashoffset: 0; }
+        88%  { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 0; }
+      }
+
+      .star  { opacity: 0; animation: settle 11s ease-out infinite; }
+      @keyframes settle {
+        0%   { opacity: 0; transform: translateY(-10px) scale(0.85); }
+        46%  { opacity: 0; transform: translateY(-10px) scale(0.85); }
+        58%  { opacity: 1; transform: translateY(0) scale(1); }
+        88%  { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      .halo { transform-origin: 232px 96px; animation: breathe 5.5s ease-in-out infinite; }
+      @keyframes breathe {
+        0%, 100% { opacity: 0.30; transform: scale(0.92); }
+        50%      { opacity: 0.62; transform: scale(1.10); }
+      }
+
+      .word    { opacity: 0; animation: word 11s ease-out infinite; }
+      @keyframes word {
+        0%   { opacity: 0; transform: translateY(10px); }
+        30%  { opacity: 0; transform: translateY(10px); }
+        42%  { opacity: 1; transform: translateY(0); }
+        88%  { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      .sub     { opacity: 0; animation: sub 11s ease-out infinite; }
+      @keyframes sub {
+        0%   { opacity: 0; }
+        52%  { opacity: 0; }
+        64%  { opacity: 1; }
+        88%  { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      .hair {
+        stroke-dasharray: 620;
+        stroke-dashoffset: 620;
+        animation: hair 11s ease-out infinite;
+      }
+      @keyframes hair {
+        0%   { stroke-dashoffset: 620; }
+        58%  { stroke-dashoffset: 620; }
+        76%  { stroke-dashoffset: 0; }
+        88%  { stroke-dashoffset: 0; opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* A reader who has asked for less motion gets the finished frame. */
+      @media (prefers-reduced-motion: reduce) {
+        .node, .route, .star, .halo, .word, .sub, .hair {
+          animation: none;
+          opacity: 1;
+          stroke-dashoffset: 0;
+          transform: none;
+        }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="380" fill="url(#sky)"/>
+  <rect width="1200" height="380" fill="url(#glow)"/>
+
+  <!-- ── The route and its waypoints ──────────────────────────────────────
+       Left half of the canvas: the plan. Right half: the name. -->
+  <g transform="translate(0,0)">
+    <path class="route"
+          d="M96 300 C 160 286, 196 250, 232 214 S 300 150, 356 132 S 430 118, 470 96"
+          fill="none" stroke="url(#route)" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Waypoints. Each is a completed step, so each gets its own beat. -->
+    <g class="node" style="animation-delay:0s">
+      <circle cx="96" cy="300" r="5.5" fill="#C47D4E"/>
+      <circle cx="96" cy="300" r="11" fill="none" stroke="#C47D4E" stroke-opacity="0.35" stroke-width="1.2"/>
+    </g>
+    <g class="node" style="animation-delay:0.35s">
+      <circle cx="232" cy="214" r="4.5" fill="#C79A4B"/>
+    </g>
+    <g class="node" style="animation-delay:0.7s">
+      <circle cx="356" cy="132" r="4.5" fill="#8FB89A"/>
+    </g>
+    <g class="node" style="animation-delay:1.05s">
+      <circle cx="470" cy="96" r="5.5" fill="#5B8C6D"/>
+      <circle cx="470" cy="96" r="11" fill="none" stroke="#5B8C6D" stroke-opacity="0.35" stroke-width="1.2"/>
+    </g>
+
+    <!-- Unconnected possibilities, dimmer: the things that were always there. -->
+    <g class="node" style="animation-delay:0.2s"><circle cx="150" cy="176" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+    <g class="node" style="animation-delay:0.5s"><circle cx="292" cy="292" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+    <g class="node" style="animation-delay:0.85s"><circle cx="404" cy="238" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+    <g class="node" style="animation-delay:1.2s"><circle cx="188" cy="98" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+    <g class="node" style="animation-delay:1.4s"><circle cx="322" cy="52" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+    <g class="node" style="animation-delay:1.6s"><circle cx="60" cy="220" r="2.2" fill="#8B5E3C" fill-opacity="0.6"/></g>
+  </g>
+
+  <!-- ── The star, arriving over the second waypoint ── -->
+  <g class="star">
+    <circle class="halo" cx="232" cy="96" r="26" fill="#C47D4E" fill-opacity="0.18"/>
+    <path d="M232 66l4.6 17.4L254 88l-17.4 4.6L232 110l-4.6-17.4L210 88l17.4-4.6z"
+          fill="#F6E3B4"/>
+  </g>
+
+  <!-- ── Wordmark ── -->
+  <g class="word">
+    <text x="620" y="176" font-family="Georgia, 'Iowan Old Style', 'Times New Roman', serif"
+          font-size="86" font-weight="700" fill="#F6F0E6" letter-spacing="-1.5">Polaris</text>
+  </g>
+
+  <line class="hair" x1="622" y1="206" x2="1120" y2="206"
+        stroke="url(#rule)" stroke-width="1.4"/>
+
+  <g class="sub">
+    <text x="622" y="244" font-family="ui-monospace, 'SFMono-Regular', Consolas, monospace"
+          font-size="15" fill="#C2B4A6" letter-spacing="3.4">YOUR ACADEMIC NORTH STAR</text>
+    <text x="622" y="284" font-family="-apple-system, 'Segoe UI', Roboto, sans-serif"
+          font-size="17.5" fill="#8E8074">A distant university goal, resolved into the next clear move —</text>
+    <text x="622" y="310" font-family="-apple-system, 'Segoe UI', Roboto, sans-serif"
+          font-size="17.5" fill="#8E8074">then kept honest as the evidence changes.</text>
+  </g>
+</svg>

@@ -39,6 +39,9 @@ export function LessonPlayer({
   onSource,
   onState,
   autoPlay,
+  fallbackUrl,
+  onTryAnother,
+  locale = "en",
 }: {
   videoId: string;
   title: string;
@@ -46,9 +49,15 @@ export function LessonPlayer({
   onSource: (source: YouTubeClockSource | null) => void;
   onState?: (state: LessonPlayerState, message?: string) => void;
   autoPlay?: boolean;
+  fallbackUrl?: string;
+  onTryAnother?: () => void;
+  locale?: "en" | "bn";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<LessonPlayerState>("loading");
+  const [message, setMessage] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const bn = locale === "bn";
 
   // Callbacks are read through refs so a parent re-render never tears down and
   // rebuilds the player - which would restart the lesson from zero.
@@ -64,6 +73,7 @@ export function LessonPlayer({
     if (!container) return;
 
     let cancelled = false;
+    let failed = false;
     let created: YouTubeClockSource | null = null;
 
     // Any iframe left behind by a previous attach goes now. Without this the
@@ -71,6 +81,7 @@ export function LessonPlayer({
     container.replaceChildren();
 
     setState("loading");
+    setMessage("");
     onStateRef.current?.("loading");
 
     void YouTubeClockSource.create({
@@ -79,13 +90,18 @@ export function LessonPlayer({
       privacyEnhanced: true,
       onError: (message) => {
         if (cancelled) return;
+        failed = true;
+        created?.destroy();
+        container.replaceChildren();
+        onSourceRef.current(null);
+        setMessage(message);
         setState("unavailable");
         onStateRef.current?.("unavailable", message);
       },
     })
       .then((source) => {
         // Resolved after teardown: discard it rather than leaving it mounted.
-        if (cancelled) {
+        if (cancelled || failed) {
           source.destroy();
           return;
         }
@@ -97,8 +113,9 @@ export function LessonPlayer({
       })
       .catch(() => {
         if (cancelled) return;
+        setMessage("The YouTube player could not load this lesson.");
         setState("unavailable");
-        onStateRef.current?.("unavailable");
+        onStateRef.current?.("unavailable", "The YouTube player could not load this lesson.");
       });
 
     return () => {
@@ -107,21 +124,22 @@ export function LessonPlayer({
       created?.destroy();
       container.replaceChildren();
     };
-  }, [videoId]);
+  }, [videoId, attempt]);
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-[#0b0908]">
+    <div className="relative aspect-video w-full overflow-hidden bg-[#0b0908]" role="group" aria-label={`${title} video player`}>
       <div ref={containerRef} className="lesson-player-frame absolute inset-0" />
 
       {state === "unavailable" && (
-        <iframe
-          key={videoId}
-          title={title}
-          src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0`}
-          className="absolute inset-0 h-full w-full border-0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0908] px-6 text-center text-paper" role="status">
+          <h3 className="font-serif text-xl font-bold">{bn ? "পাঠটি পাওয়া যাচ্ছে না" : "Lesson unavailable"}</h3>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-paper/70">{bn ? "YouTube থেকে এই পাঠটি এখন চালানো যাচ্ছে না।" : message || "This lesson cannot be played from YouTube right now."}</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <button type="button" onClick={() => setAttempt((value) => value + 1)} className="min-h-11 rounded-lg bg-paper px-4 text-xs font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper">{bn ? "আবার চেষ্টা করুন" : "Try again"}</button>
+            {onTryAnother && <button type="button" onClick={onTryAnother} className="min-h-11 rounded-lg border border-paper/30 px-4 text-xs font-semibold text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper">{bn ? "অন্য পাঠ চালান" : "Try another lesson"}</button>}
+          </div>
+          {fallbackUrl && <a href={fallbackUrl} target="_blank" rel="noreferrer" className="mt-4 text-xs font-medium text-paper/75 underline underline-offset-4 hover:text-paper">{bn ? "পাঠের লাইব্রেরি খুলুন" : "Open the lesson library"}</a>}
+        </div>
       )}
     </div>
   );

@@ -1,478 +1,343 @@
-# Polaris
+<div align="center">
 
-**A bilingual academic strategy platform that turns a student's goals, scores, and deadlines into a living admissions roadmap, and keeps it honest.**
+<img src="docs/banner.svg" alt="Polaris — a distant university goal, resolved into the next clear move" width="100%">
 
-Polaris plans a multi-year path to a target university, breaks it into weekly work, and puts a retrieval-grounded AI Strategist next to it that cites its sources and is checked for fabricated figures before it finishes answering.
+**An English–Bengali academic workspace for students applying abroad from Bangladesh.**
 
-Built with Next.js 15, React 19, TypeScript, MongoDB, and a hybrid BM25 + dense-vector retrieval layer.
+Polaris turns a distant university goal into the next concrete task, keeps the plan honest as scores and evidence arrive, and produces a record a recommender can actually check.
 
-![Polaris landing experience](docs/screenshots/polaris-overview.png)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-087EA4?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF?style=flat-square&logo=clerk&logoColor=white)
+![Gemma](https://img.shields.io/badge/AI-Gemma%204-8B5E3C?style=flat-square&logo=google&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-134%20passing-43705A?style=flat-square)
+
+[Quick start](#quick-start) · [Architecture](#architecture) · [Configuration](#configuration) · [ASL setup](docs/SIGN_LANGUAGE_PRODUCTION.md) · [Retrieval design](docs/RAG.md)
+
+</div>
+
+<table>
+<tr>
+<td align="center" width="33%"><b>The plan</b></td>
+<td align="center" width="33%"><b>The record</b></td>
+<td align="center" width="33%"><b>The proof</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/roadmap.png" alt="Adaptive roadmap"></td>
+<td><img src="docs/screenshots/achievements.png" alt="Effort points and coins"></td>
+<td><img src="docs/screenshots/passport.png" alt="Verified Student Passport"></td>
+</tr>
+</table>
 
 ---
 
-## Table of contents
+## How a student actually uses it
 
-- [Why Polaris](#why-polaris)
-- [Quick start](#quick-start)
-- [Product tour](#product-tour)
-- [Architecture](#architecture)
-- [Retrieval and grounding](#retrieval-and-grounding)
-- [Technology](#technology)
-- [Repository structure](#repository-structure)
-- [Configuration](#configuration)
-- [Commands](#commands)
-- [Testing and verification](#testing-and-verification)
-- [Deployment](#deployment)
-- [Security and privacy](#security-and-privacy)
-- [Known limits](#known-limits)
+A student in Dhaka wants to study abroad. They know the destination and almost nothing about the route: which exam, by when, what counts as evidence, whether the family can pay for it. Polaris is the walk from that question to an answer, and the sections below are that walk in order.
 
----
+### 1 · Start from the goal, not a blank calendar
 
-## Why Polaris
+<img src="docs/screenshots/roadmap.png" alt="The adaptive roadmap showing missions and milestones">
 
-Most admissions tools do one of three things: store a checklist, answer questions from a chatbot, or sell a consultant. Polaris connects them, and treats the AI as something that has to be *verifiable* rather than merely fluent.
+You give Polaris a target — a country, a tier, a degree, a timeline. It generates a roadmap: long-term goals broken into yearly missions, milestones, and tasks small enough to finish this week. Nothing here is a template. The plan is built against this student's grades, curriculum, and target tier, and it is the thing every other surface reads from.
 
-| Design decision | What it means in practice |
+### 2 · Ask it why, and get sources back
+
+<img src="docs/screenshots/strategist.png" alt="The Strategist answering with cited sources">
+
+The Strategist reads the student's own record alongside a knowledge base, using hybrid retrieval — BM25 for the exact terms, dense embeddings for the meaning, fused into one ranking. It streams answers with citations, checks that the citations actually support what was said, and flags figures it cannot ground. Asking "why am I at 41% for MIT?" gets an answer about *this* profile, not admissions advice in general. [Retrieval design and evaluation →](docs/RAG.md)
+
+### 3 · Sit the paper under real conditions
+
+<img src="docs/screenshots/exam-lab-current.jpg" alt="Exam Lab with IELTS and SAT practice">
+
+A full adaptive SAT, a SAT Math module, and all four IELTS papers — timed, autosaved, recoverable if the tab dies mid-attempt. When results arrive, Polaris proposes specific changes to next week's study blocks. The student reviews the proposal before anything moves; the plan is never rewritten behind their back.
+
+> Practice results are unofficial and do not predict an official SAT score or IELTS band. Polaris says so on the results screen too.
+
+### 4 · Learn the material, including without hearing it
+
+<img src="docs/screenshots/learning-library.jpg" alt="The curated lesson library">
+
+Sixty curated lessons across six IELTS and SAT skill areas, with checked durations, real source attribution, and resume-where-you-stopped.
+
+<img src="docs/screenshots/asl-learning.jpg" alt="A SAT lesson beside a model-generated 3D ASL figure">
+
+And for a deaf or hard-of-hearing student, the lesson can be signed. Polaris transcribes the English audio with Whisper, generates hand, body and facial motion with SignSparK, and renders a licensed SMPL-X figure in Three.js **against the video's own playback clock** — pause the lesson and the figure pauses; seek back and it follows.
+
+> **Research feature.** The supported pairing is English audio → ASL. Generated signing needs linguistic review and is not certified interpretation. The worker is local-only and is not part of a Vercel deployment. [Implementation, measurements, and limitations →](docs/SIGN_LANGUAGE_PRODUCTION.md)
+
+### 5 · Turn the week into something you can actually do
+
+<img src="docs/screenshots/action-lab-routine.png" alt="Smart Routine turning available hours into study blocks">
+
+Action Lab is where the plan meets a real week. Smart Routine turns the hours a student actually has into editable blocks. Decision Twin answers "what if I sat the IELTS in March instead". Evidence Graph shows which claims have artifacts behind them and which are still just assertions.
+
+### 6 · Never lose a date
+
+<img src="docs/screenshots/deadlines.png" alt="Deadline tracking with risk and reminders">
+
+Every application deadline in one place, ranked by risk. Reminders go out by email or SMS on a schedule the student sets — SMS because in this market it is the channel that actually gets read.
+
+### 7 · Find out whether the money works
+
+<img src="docs/screenshots/affordability.png" alt="Cost, aid, and the funding gap in BDT">
+
+Costs, aid, scholarships, and the remaining gap, in BDT, before a student spends a year preparing for a place the family cannot fund. Living costs come from official visa and maintenance requirements; tuition is a published range and is labelled as one.
+
+### 8 · See where you honestly stand
+
+<img src="docs/screenshots/benchmarks.png" alt="Cohort benchmarks shown as distributions">
+
+Compared with anonymised students targeting the same tier — as a distribution and a percentile, never a ranking. There is deliberately no leaderboard, and any cohort with fewer than 20 students is suppressed entirely rather than shown with a caveat, because in a group that small a percentile identifies someone.
+
+### 9 · Get credit for the work, without cheapening it
+
+<img src="docs/screenshots/achievements.png" alt="Effort points, levels, and the coin shop">
+
+Effort points measure what a day contained. Sitting a timed exam section earns; **the mark on it never does**, because rewarding outcomes takes recognition from exactly the students still improving. Every event has a weight, the day is capped, and the student sets their own weekly target.
+
+Coins accumulate from points and buy two things: a streak freeze so one missed day does not end a forty-day run, and the accent on the passport below. They never buy a paid feature and never buy an achievement.
+
+<img src="docs/screenshots/achievements-evidence.png" alt="Evidence achievements struck as passport stamps">
+
+### 10 · Leave with something checkable
+
+<img src="docs/screenshots/passport.png" alt="The Verified Student Passport">
+
+The Verified Student Passport is one unlisted page a student sends to a teacher, a consultant, or a committee. Each claim sits beside the artifact that proves it and the date it was verified — **and the claims with nothing behind them are shown, not hidden**, because a page that only shows the good half is a CV with extra steps.
+
+Achievements appear in their own section, marked as attested by Polaris rather than by the student. The student cannot edit those, which is exactly what makes them worth reading.
+
+<details>
+<summary><b>More of the workspace</b></summary>
+
+<br>
+
+| Capability | What students can do |
 | --- | --- |
-| The plan is the product | The roadmap is a real data structure (yearly missions, milestones, weekly tasks), not a chat transcript. Everything else reads from and writes to it. |
-| Grounded, not generative-only | The Strategist retrieves from a shared knowledge base and the student's own record, then cites what it used. Retrieval is measured, not assumed. |
-| Answers are checked before they land | A deterministic citation audit and an unsupported-figure guard run over every answer; the figure guard emits a visible warning rather than silently passing. |
-| Degrade, never break | No embeddings, no `TAVILY_API_KEY`, no reranker, no MongoDB: each absence downgrades a capability instead of failing the request. |
-| Gates live in code | Plan limits and feature access are enforced server-side (`lib/features.ts`), not by hiding buttons. |
+| University discovery | Explore sourced university information and academic fit estimates. |
+| Essay Studio | Extract English, Bengali, or mixed handwriting into an editable draft and request coaching. |
+| Knowledge Notes | Retain feedback and connect it to future work. |
+| Family and teacher views | Share role-scoped progress while keeping Strategist conversations private. |
+| Connections | Connect supported providers with explicit scopes and revocation. |
+| Consultants | Book verified mentors, with the first session free where offered. |
+| Billing | Plans and checkout through SSLCommerz — card, bKash, Nagad, Rocket. |
+
+**University discovery**
+
+<img src="docs/screenshots/universities.png" alt="University discovery and filters">
+
+**Decision Twin**
+
+<img src="docs/screenshots/action-lab.png" alt="Decision Twin comparing changed constraints">
+
+**Evidence Graph**
+
+<img src="docs/screenshots/action-lab-evidence.png" alt="Evidence Graph connecting claims to proof">
+
+**Essay Studio**
+
+<img src="docs/screenshots/action-lab-essay.png" alt="Handwriting extraction and essay coaching">
+
+**Resource hub**
+
+<img src="docs/screenshots/resources.png" alt="Resource hub">
+
+**Connected progress**
+
+<img src="docs/screenshots/connections.png" alt="Integrations with explicit scopes">
+
+**Plans and checkout**
+
+<img src="docs/screenshots/billing.png" alt="Plan comparison and SSLCommerz checkout">
+
+</details>
+
+Workspace screenshots are captured at 2× from the public `/demo` routes by `npm run screenshots -- --scale 2`, with the docked Strategist panel closed, so they use seeded data and never contain a real student's name, email, or plan. The ASL, library, and Exam Lab images were captured by hand from a signed-in test account using public lesson material. [Screenshot notes →](docs/screenshots/README.md)
 
 ---
 
 ## Quick start
 
-### Prerequisites
+### Application
 
-- **Node.js 22 or newer** (developed on 26; `scripts/screenshots.mjs` needs the global `WebSocket` from Node 22+)
-- npm
-- MongoDB, only for the authenticated workspace
-- A Google AI Studio API key, only for AI features
-
-### Fastest path: the demo, with no database
+Use Node.js 22 or newer, npm, a MongoDB connection, and a matching Clerk publishable/secret key pair.
 
 ```bash
 git clone https://github.com/DesignNovae/Polaris.git
 cd Polaris
-npm install
+npm ci
+```
+
+Copy `.env.local.example` to `.env.local`:
+
+```powershell
+# PowerShell
+Copy-Item .env.local.example .env.local
+```
+
+```bash
+# macOS / Linux
+cp .env.local.example .env.local
+```
+
+Configure the application credentials, then start it:
+
+```dotenv
+MONGODB_URI=your_mongodb_connection_string
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
+```
+
+```bash
 npm run dev
 ```
 
-Open **`http://localhost:3000/demo`**. Every workspace surface renders from seeded data with no MongoDB, no API key, and no sign-up. This is also what the screenshots below are captured from.
+Open [localhost:3000](http://localhost:3000). The authenticated workspace uses MongoDB. `/demo` provides seeded product views, but the application still loads its environment configuration; it is not a replacement for configuring the required keys. Some live Action Lab features require sign-in.
 
-### Full workspace
+### Optional AI guidance
 
-```bash
-cp .env.local.example .env.local     # PowerShell: Copy-Item .env.local.example .env.local
-```
-
-Set at minimum:
-
-```bash
-MONGODB_URI=...                          # authenticated features
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...    # Clerk dashboard -> API keys
-CLERK_SECRET_KEY=...                     # server-side, never exposed
-GEMMA_API_KEY=...                        # AI features + embeddings
-```
-
-Then ingest the retrieval corpus and start:
+Set `GEMMA_API_KEY` in `.env.local` to enable the Google AI Studio integration. Prepare the retrieval corpus with:
 
 ```bash
 npm run rag:ingest
-npm run dev
 ```
 
----
+Optional provider failures have feature-specific fallbacks. Authentication and database configuration are still required for the full workspace.
 
-## Product tour
+### Optional local ASL worker
 
-### Adaptive roadmap
+The signing service requires additional Python/CUDA dependencies, model checkpoints, FFmpeg, and your separately obtained SMPL-X model. These assets are not installed by `npm ci` and are not committed to this repository.
 
-A goal becomes yearly missions, missions become milestones, and milestones become a weekly schedule. Changing a constraint replans the tree rather than resetting it.
+Follow the [complete signing setup](docs/SIGN_LANGUAGE_PRODUCTION.md), then run this in a second terminal:
 
-![Polaris adaptive roadmap](docs/screenshots/roadmap.png)
+```bash
+npm run signing:worker
+```
 
-### Grounded Strategist
-
-Streams profile-aware guidance over SSE. Every turn carries the student's profile, roadmap, extracted memory, retrieved knowledge-base passages, and, on request, live web results, with citations back to each source.
-
-![Polaris grounded Strategist](docs/screenshots/strategist.png)
-
-### University intelligence
-
-Sourced universities with dated official data, filters, and an acceptance-probability model that starts from each school's published rate and adjusts it from academic inputs only, with no demographic features.
-
-![Polaris university discovery](docs/screenshots/universities.png)
-
-### Action Lab
-
-Seven tools for turning intent into evidence: Decision Twin, Evidence Graph, Exam Lab, Smart Routine, Video Learning, Knowledge Notes, and Essay Studio.
-
-The **Decision Twin** stress-tests a constraint change ("my SAT date moved six weeks earlier") and shows the acceptance probability before and after, next to a diff of what the plan would do differently.
-
-![Polaris Action Lab Decision Twin](docs/screenshots/action-lab.png)
-
-The **Evidence Graph** maps a claim to the artifact that proves it, then names the verified signal, the remaining gap, and the next action. Claims with nothing behind them are surfaced rather than quietly counted.
-
-![Polaris Action Lab Evidence Graph](docs/screenshots/action-lab-evidence.png)
-
-**Smart Routine** turns the roadmap and a declared weekly capacity into protected time blocks. Blocks are added in natural language ("add math practice on Monday from 9 to 10 pm") or through the manual editor, and every generated block stays editable.
-
-![Polaris Action Lab Smart Routine](docs/screenshots/action-lab-routine.png)
-
-**Exam Lab** runs timed mock exams with autosave and recovery. The catalog covers a SAT Math module, a full adaptive SAT of four modules plus a break, and all four IELTS papers. An interrupted attempt shows as *Resume* instead of being lost.
-
-![Polaris Action Lab Exam Lab](docs/screenshots/action-lab-exam.png)
-
-**AI Practice** generates a fresh original practice set for a chosen exam, section, difficulty and target skill. The disclaimer belongs to the product rather than this README: these are original unofficial questions and do not predict an official IELTS band or SAT score.
-
-![Polaris Action Lab AI Practice](docs/screenshots/action-lab-ai-practice.png)
-
-**Essay Studio** captures Bengali, English or mixed handwriting and extracts it into an editable draft, preserving the original language and paragraphing. The uploaded image is not stored, it is processed only for the active extraction request. The coach returns feedback, refinement and outline suggestions rather than rewriting the essay.
-
-![Polaris Action Lab Essay Studio](docs/screenshots/action-lab-essay.png)
-
-**Video Learning** collects vetted official lessons for the current section, with an AI lesson finder that refreshes the list. A sign language interpreter track can be toggled on for the player.
-
-![Polaris Action Lab Video Learning](docs/screenshots/action-lab-video.png)
-
-### Verified Student Passport
-
-One permalinked page a student can send to a teacher, a consultant, or a scholarship committee. Each claim sits beside the artifact that proves it and the date it was verified - and the claims with nothing behind them are listed as unevidenced rather than quietly dropped. That last rule is the point: a page that only shows the good half is a CV with extra steps.
-
-Published passports are unlisted (`noindex`, random slug) and excluded from the sitemap. `/passport` builds it; `/p/<slug>` is the public view.
-
-### Cohort benchmarking
-
-Where a student stands against anonymised students targeting the same tier, as a distribution rather than a leaderboard. A cohort under **20 students never renders** - not blurred, not approximated. In a group that small a percentile tells you someone else's score, so the API returns `suppressed` and the UI explains the rule. The aggregation projects four numbers per profile and no identifiers.
-
-### Affordability planner
-
-The question that actually decides a Bangladeshi family's list, answered in taka: total cost after aid, the funding gap named as a figure, and the scholarships ranked by how much of that gap they would close. Living costs are the official visa and maintenance figures with their source links; tuition is a published-range estimate and is labelled `estimate` everywhere it appears. The two are never blurred together.
-
-### Exam results rewrite the plan
-
-Finishing a mock now proposes a change to next week's blocks - which to add, which to deprioritise, and the arithmetic behind each ("48% on Heart of Algebra vs 71% overall"). It is deterministic, it proposes rather than applies, and accepting the same proposal twice is a no-op.
-
-### Teacher and recommender portal
-
-The link model extends to teachers, with a **narrower** scope than a parent: the evidence behind each claim, the academic record, and the deadlines that constrain the letter - and nothing else. Scope is enforced once on the server (`lib/links/scope.ts`), so a component cannot widen it by forgetting. Strategist conversations are never shared with anyone, in any role.
-
-### Deadline reminders that leave the app
-
-Risk-scored deadlines reach students by email and SMS rather than only in a tab they have to remember to open. Each (user, deadline, channel, day-offset) fires exactly once, enforced by a unique index rather than a flag - and the log row is claimed *before* the send, because a duplicate text at 6am is worse than a missed one when the deadline is visible in the app anyway.
-
-### Works on a bad connection
-
-A service worker caches the workspace shell and the read APIs a student needs offline; anything authenticated and mutating, anything from the model, and anything to do with payments is never cached. Exam answers written offline queue in IndexedDB and replay on reconnect. `/changelog` records what shipped.
-
-### Knowledge hub
-
-Composite admit stories, real scholarships with official links, and sourced cost benchmarks. This is the same corpus the Strategist retrieves from.
-
-![Polaris resource hub](docs/screenshots/resources.png)
-
-### Connected progress
-
-Read-only-by-default integrations with explicit scopes and one-click revocation. Connected data sharpens the roadmap, deadlines, and fit analysis.
-
-![Polaris connections](docs/screenshots/connections.png)
-
-> Most screenshots are reproducible: `npm run dev`, then `npm run screenshots`. Those render only public `/demo` routes, so no real student data reaches a committed image. The four Exam Lab, AI Practice, Essay Studio and Video Learning captures are the exception: those surfaces load from authenticated endpoints, so they were taken from a signed-in session and cannot be regenerated by the script.
-
-Also included and not pictured: deadline command with risk scoring, Knowledge Notes, community channels, consultant marketplace and bookings, family/monitor visibility, billing, and an admin console.
-
----
+Enable the interpreter in Video Learning or IELTS Listening. The application and worker currently run on the same machine. The documented configuration has been exercised on an **RTX 3070 with 8 GB VRAM**; timing varies with source media, model initialization, and workload.
 
 ## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph client["Client"]
-        UI["Workspace shell<br/>roadmap · strategist · exams · deadlines"]
-    end
-
-    subgraph api["Next.js App Router: API routes"]
-        MW["middleware.ts<br/>JWT gate on 21 protected prefixes"]
-        RM["/api/roadmap/v2<br/>generate · adapt · schedule"]
-        ST["/api/strategist<br/>SSE stream"]
-        EX["/api/exams<br/>sessions · scoring"]
-        PB["/api/probability<br/>logistic model"]
-    end
-
-    subgraph engine["Domain layer"]
-        PLAN["lib/roadmap<br/>planning · templates · schedule"]
-        RES["lib/strategist<br/>research orchestration"]
-        ML["lib/ml<br/>acceptance probability"]
-        EXE["lib/exams<br/>assembler · state machine · scoring"]
-    end
-
-    subgraph rag["Retrieval: lib/rag"]
-        IDX["kb_chunks + user_chunks"]
-        HYB["BM25 + dense vectors<br/>weighted RRF"]
-        CHK["citation audit · figure guard"]
-    end
-
-    DB[("MongoDB")]
-    LLM["Gemma 4<br/>the only generative model"]
-
-    UI --> MW
-    MW --> RM
-    MW --> ST
-    MW --> EX
-    MW --> PB
-    RM --> PLAN
-    PLAN --> DB
-    ST --> RES
-    RES --> HYB
-    HYB --> IDX
-    IDX --> DB
-    RES --> LLM
-    LLM --> CHK
-    CHK --> UI
-    PB --> ML
-    EX --> EXE
-    EXE --> DB
+flowchart LR
+    UI["Next.js + React workspace"] --> API["Clerk-authenticated API routes"]
+    API --> DB[("MongoDB")]
+    API --> PLAN["Roadmaps, exams, evidence, progress"]
+    API --> RAG["BM25 + dense retrieval"]
+    RAG --> DB
+    RAG --> AI["Gemma guidance + citation checks"]
+    AI --> UI
+    API --> WORKER["Local authenticated signing worker"]
+    WORKER --> ASR["Whisper transcription"]
+    ASR --> MOTION["SignSparK + SMPL-X"]
+    MOTION --> VIEW["Three.js figure · source-clock playback"]
+    VIEW --> UI
 ```
 
-**The Strategist turn**, in order: plan queries (rewriting follow-ups into standalone questions) → retrieve from the shared KB and the student-scoped index in parallel → optionally rerank → fire a second pass if the best passage is below the similarity threshold → drop retrieval entirely if it found nothing relevant → stream the answer → audit citations and scan for unsupported figures.
-
-That last step matters: when retrieval genuinely has nothing, Polaris hands the model an empty context so it declines, rather than letting it answer from parametric memory and cite nothing.
-
----
-
-## Retrieval and grounding
-
-Retrieval quality is measured, not asserted. Baselines over 50 labelled queries spanning 5 query kinds against 114 indexed chunks:
-
-| Retriever | R@1 | R@3 | R@5 | MRR |
-| --- | --- | --- | --- | --- |
-| Lexical (BM25 only) | 0.640 | 0.780 | 0.860 | 0.726 |
-| Vector only | 0.880 | 0.960 | 0.980 | 0.925 |
-| **Hybrid (default)** | 0.840 | 0.980 | 0.980 | 0.897 |
-| Hybrid + LLM rerank | 0.940 | 0.960 | 0.980 | 0.955 |
-
-Reranking wins on R@1 and MRR but not on R@5, and the Strategist passes all five passages to the model either way, so it ships **off**, costing one fewer model call per turn. Flip `RAG_RERANK=on` if answer quality turns out to depend on passage order.
-
-Generation-side checks (n=8):
-
-| Metric | Result |
+| Layer | Technology |
 | --- | --- |
-| Citation precision | 0.957 |
-| Malformed citation URIs | 0 |
-| Unsupported figures | 0 |
-| Groundedness (LLM judge) | 0.903 |
-| Answer relevance | 1.000 |
-
-The groundedness judge is itself calibrated against labelled fixtures (0.800 detection, 0.000 false-alarm rate), because a model grading a model is worth nothing until you know its error rate.
-
-Full design, failure behaviour, and the measurement caveats are in **[docs/RAG.md](docs/RAG.md)**.
-
----
-
-## Technology
-
-| Area | Implementation |
-| --- | --- |
-| Application | Next.js 15 App Router, React 19, TypeScript 5 |
-| Styling and motion | Tailwind CSS, Framer Motion, GSAP, Lenis |
-| Authentication | Clerk (hosted sign-in, enforced email verification, MFA); application role and plan resolved in `lib/authz.ts` |
-| Data | MongoDB 7 driver |
-| Validation | Zod 4 on API input |
-| Generation | Gemma 4 (`gemma-4-26b-a4b-it` default, `gemma-4-31b-it`) via Google AI Studio, streamed over SSE |
-| Retrieval | `gemini-embedding-001` @ 768 dims + BM25, fused with weighted RRF |
-| Rate limiting | Upstash Redis sliding window, with a lossy in-process fallback |
-| Payments | SSLCommerz hosted checkout with server-side validation and IPN (optional) |
-| Content | react-markdown, GFM, KaTeX |
-
-**On model policy:** Gemma 4 is the only model that generates language. The embedding model is a non-generative retriever and the web-search provider returns documents, not prose. Both are retrieval components, not second authors.
-
----
-
-## Repository structure
+| Web application | Next.js 15, React 19, TypeScript |
+| Interface | Tailwind CSS, Framer Motion, GSAP, Lenis |
+| Identity and data | Clerk, MongoDB, Zod |
+| AI guidance | Gemma through Google AI Studio; server-sent events |
+| Retrieval | BM25, dense embeddings, weighted reciprocal-rank fusion |
+| Sign production | Python, FastAPI, PyTorch, Whisper, SignSparK, SMPL-X |
+| Avatar rendering | Three.js with buffered geometry synchronized to media time |
+| Optional infrastructure | Upstash Redis, Tavily, notification providers, SSLCommerz |
 
 ```text
-app/
-  (app)/                Authenticated workspace shell: roadmap, strategist, exams, ...
-  (auth)/               Sign in / sign up / sign out
-  (exam)/               IELTS and SAT runners
-  admin/                Content, knowledge, roadmaps, users
-  demo/                 Public seeded demo, no database required
-  api/                  81 route handlers
-components/             Product, workspace, landing, and shared UI
-data/                   Seed universities, scholarships, case studies, RAG eval set
-docs/                   RAG.md and product screenshots
-lib/
-  action-lab/           Action Lab data and contracts
-  admissions/           Admissions requirements and gap analysis
-  billing/              Plan catalog and subscription services
-  db/                   MongoDB collections and indexes
-  exams/                Item bank, assembler, state machine, scoring
-  i18n/                 English / Bengali localization
-  integrations/         External provider registry and OAuth flows
-  llm/                  Model routing, provider adapters, web search
-  affordability/        Cost model + scholarship gap ranking
-  cohort/               k-anonymous benchmarking statistics
-  links/                Viewer scope policy (parent / partner / teacher)
-  ml/                   Acceptance-probability model
-  notifications/        Reminder channels, scheduling, dispatch
-  passport/             Verified Student Passport
-  payments/             SSLCommerz gateway + order settlement
-  rag/                  Chunking, embeddings, hybrid search, eval, guards
-  roadmap/              Planning, templates, scheduling, telemetry
-  strategist/           Research orchestration, prompts, tools, memory, streaming
-scripts/                RAG ingestion / eval / calibration, screenshots, benchmarks
-tests/                  Node test-runner suites
+app/                    Pages, layouts, exam runners, and API routes
+components/learning/    Lesson library and account progress UI
+components/             Workspace, interpreter, exam, and shared components
+data/learning/          Curated lesson metadata and additions
+lib/learning/           Catalog, paths, filtering, and progress contracts
+lib/interpreter/        Signing contracts, worker bridge, and playback support
+lib/exams/              Exam assembly, sessions, scoring, and results
+lib/rag/                Retrieval, embeddings, evaluation, and answer checks
+lib/roadmap/            Planning, adaptation, and scheduling
+lib/progress/           One recorder feeding streak, points, counters, badges
+lib/xp/                 Effort-point weights, daily cap, levels
+lib/badges/             Evidence achievement catalogue and awarding
+lib/coins/              Coin wallet and the shop
+services/signing/       Local GPU inference service and Python tests
+scripts/                Model setup, catalog audits, screenshots, and evaluation
+tests/                  TypeScript regression suites
+docs/                   Technical documentation and product screenshots
 ```
-
----
 
 ## Configuration
 
-`.env.local.example` is the source of truth. Never commit `.env.local`.
+Use [`.env.local.example`](.env.local.example) for application settings and the [signing guide](docs/SIGN_LANGUAGE_PRODUCTION.md) for worker settings. Never commit real credentials or licensed model files.
 
-### Core
-
-| Variable | Required for | Purpose |
-| --- | --- | --- |
-| `MONGODB_URI` | Workspace | Connection string. `/demo` works without it. |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Workspace | Clerk publishable key. Public by design. |
-| `CLERK_SECRET_KEY` | Workspace | Clerk secret key. Server-side only. |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Optional | Svix secret for `/api/webhooks/clerk`. Without it the webhook rejects everything; sessions still provision users on first sign-in. |
-| `APP_URL` | Production | Canonical public origin. The payment gateway posts the payer back to absolute URLs built from this, so a wrong value strands completed payments. |
-| `GEMMA_API_KEY` | AI features | Google AI Studio key, server-side only. Also powers embeddings. |
-| `GEMMA_MODEL` | Optional | `gemma-4-26b-a4b-it` (default) or `gemma-4-31b-it`. Values outside the allowlist fall back to the default. |
-| `ADMIN_EMAILS` | Optional | Comma-separated admin allowlist. |
-
-### Retrieval
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `RAG_EMBEDDINGS` | on | `off` falls back to BM25-only retrieval |
-| `RAG_EMBED_MODEL` | `gemini-embedding-001` | changing it invalidates stored vectors |
-| `RAG_EMBED_DIM` | `768` | as above, re-run `npm run rag:ingest -- --force` |
-| `RAG_VECTOR_WEIGHT` | `1.6` | dense weight during fusion; retune with `npm run rag:eval` |
-| `RAG_QUERY_REWRITE` | on | `off` skips follow-up resolution |
-| `RAG_RERANK` | off | `on` adds a model call per turn and widens retrieval depth to 15 |
-| `RAG_SECOND_PASS` | on | `off` disables the retry on weak retrieval |
-| `RAG_SECOND_PASS_THRESHOLD` | `0.6` | cosine below which retrieval counts as having found nothing |
-| `RAG_EVAL_RPM` | `12` | request budget for the batch harnesses only, never for request paths |
-
-### Optional services
-
-| Variable | Purpose |
+| Setting | Purpose |
 | --- | --- |
-| `TAVILY_API_KEY` | Non-generative live-web retrieval in Research mode |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate-limit store, **see the warning below** |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Calendar / Classroom **integrations** (not sign-in) |
-| `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` | Facebook **integration** (not sign-in) |
-| `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_SANDBOX` | Hosted checkout, payment validation, IPN. `SSLCOMMERZ_SANDBOX=false` switches to the live gateway. |
+| `MONGODB_URI` | Authenticated application data. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | Matching Clerk instance credentials. Only the publishable key belongs in browser code. |
+| `APP_URL` | Canonical public origin, including payment callback generation. |
+| `GEMMA_API_KEY`, `GEMMA_MODEL` | AI guidance and supported model selection. |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Verify Clerk webhook events. |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Shared rate limits across application instances. |
+| `TAVILY_API_KEY` | Optional web retrieval. |
+| `ADMIN_EMAILS` | Administrative access allowlist. |
+| `SSLCOMMERZ_*` | Optional payment gateway configuration. |
+| `POLARIS_SIGNING_TOKEN`, `POLARIS_SMPLX_PATH` | Server-only worker authentication and licensed model location. |
 
-> **Rate limiting in production.** Without the two `UPSTASH_*` variables, `lib/ratelimit.ts` falls back to a per-process in-memory window. On serverless that budget is *per instance*, so the effective limit is the configured budget multiplied by the number of warm lambdas. Set Upstash before opening the Strategist to real traffic.
-
-Sign-in is handled by **Clerk**, which owns credentials, email verification, sessions and MFA. The Google and Facebook variables above are consumed by the integrations hub in `lib/integrations/registry.ts` and are unrelated to sign-in.
-
-Rate limits are per-scope rather than one shared budget (`lib/ratelimit.ts`). Strategist chat over a 5-minute window: **free 10**, **pro 30**, **elite 60**; roadmap planning, Action Lab, exam AI and essay OCR each carry their own window and budget. Scopes that front a metered model call **fail closed** when Upstash is configured but unreachable.
-
----
-
-## Commands
+## Development and verification
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` | Production build |
-| `npm run start` | Serve the production build |
-| `npm run lint` | ESLint, zero warnings tolerated |
-| `npm test` | Node test runner: exam scoring, roadmap contracts, affordability, cohort statistics, reminder scheduling |
-| `npm run rag:test` | 38 deterministic retrieval self-tests, no database or network |
-| `npm run rag:ingest` | Ingest or refresh the retrieval corpus (`-- --force` re-embeds everything) |
-| `npm run rag:eval` | Recall@k and MRR per retriever (`-- --rerank` includes the reranker) |
-| `npm run rag:faith` | Citation validity, unsupported figures, groundedness (`-- --n 20` for a stable sample) |
-| `npm run rag:calibrate` | Score the groundedness judge against labelled fixtures |
-| `npm run screenshots` | Recapture `docs/screenshots/` from a running dev server |
-| `npm run benchmark:roadmap` | Roadmap planner benchmark |
+| `npm run dev` | Run the web application locally. |
+| `npm run build` | Compile and validate the production application. |
+| `npm run start` | Serve an existing production build. |
+| `npm run lint` | Run ESLint with zero warnings allowed. |
+| `npm test` | Run the TypeScript/Node regression suites. |
+| `npm run signing:worker` | Start the configured local signing service. |
+| `npm run signing:test` | Run Python signing tests using the documented Windows environment. |
+| `npm run rag:test` | Run deterministic retrieval self-tests. |
+| `npm run rag:eval` | Evaluate retrieval; requires the configured corpus and providers. |
+| `npm run screenshots -- --scale 2` | Recapture the public demo targets at retina resolution. |
 
-Scheduled work runs as an HTTP route rather than a worker: `GET /api/cron/deadline-reminders`, authorised by `CRON_SECRET` and wired in `vercel.json` to run daily at 03:00 UTC.
-
----
-
-## Testing and verification
+Focused library and interpreter checks:
 
 ```bash
-npm run lint                          # ESLint, --max-warnings=0
-npx tsc --noEmit --incremental false  # full type check
-npm test                              # 39 tests
-npm run rag:test                      # 38 self-tests
-npm run build                         # production build
+node --import ./tests/register.mjs --test --test-isolation=none tests/learning.library.test.ts tests/interpreter.live.test.ts tests/interpreter.model.test.ts
 ```
 
-Current state: **all green**: lint clean, types clean, 39/39, 38/38, build compiles.
-
-The suites cover the places where a silent regression would be most expensive: **exam scoring** (whole-word matching, per-stage scoring, rejecting plausible wrong answers), **roadmap contracts** (gap analysis, deterministic priority scoring, duration units), **affordability** (an unmodelled country must report unsupported rather than a zero cost, aid never applies to living costs, the verdict boundary), **cohort statistics** (the k-anonymity floor, bucket coverage, tie handling), and **reminder scheduling** (offsets, past deadlines, unparseable dates, phone normalisation).
-
-The retrieval harnesses are separate because they need network and a database. `rag:test` deliberately does not. It is the one retrieval check that runs anywhere, and it has already caught two real bugs in code that had never executed in production.
-
----
+The suites cover catalog and learning-path integrity, progress validation, media timing, ownership, exam access, scoring, and other domain contracts. Real GPU regression tests are opt-in; see the signing guide for measured runs and reproduction commands. Test counts and timings depend on the checkout and environment, so this README does not serve as a live CI status badge.
 
 ## Deployment
 
-Before shipping:
+The Next.js application can be deployed to Vercel. Configure `MONGODB_URI`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY` in the **environment being deployed**. Production settings do not automatically configure Preview; branch-specific Preview settings must match the branch.
 
-- [ ] `npm run lint && npx tsc --noEmit && npm test && npm run rag:test && npm run build` all pass
-- [ ] Production secrets set in the deployment environment, not in the repo
-- [ ] Vercel has the matching `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` for the selected Clerk instance (`pk_test_`/`sk_test_` for the test instance or `pk_live_`/`sk_live_` for production); the old `NEXTAUTH_*` variables are not used
-- [ ] `APP_URL` exactly matches the public origin
-- [ ] Clerk webhook points at `/api/webhooks/clerk` (user.created, user.updated, user.deleted)
-- [ ] SSLCommerz IPN URL registered in the merchant panel as `<APP_URL>/api/payments/sslcommerz/ipn`
-- [ ] `UPSTASH_*` configured, otherwise rate limits are per-instance
-- [ ] MongoDB network access allows the deployment. Indexes are created automatically on the first query by `ensureIndexes()` (`lib/db/indexes.ts`, which `getDb()` calls); verify with `db.<collection>.getIndexes()` after the first deploy
-- [ ] `npm run rag:ingest` has run since the last change to `RAG_EMBED_MODEL` or `RAG_EMBED_DIM`
-- [ ] `ADMIN_EMAILS` set, since the admin console is gated on it
-- [ ] `SSLCOMMERZ_SANDBOX=false` and live store credentials set, if billing is on
+`npm run build` runs a hosted-environment check before compilation. Missing Clerk keys intentionally fail the build. Use matching test keys for a test instance or matching live keys for a live instance. Legacy `NEXTAUTH_*` variables do not configure Clerk.
 
----
+Configure `APP_URL`, MongoDB network access, and any enabled webhook, payment, notification, or retrieval providers before using their features. Use a shared rate-limit store for deployments with multiple instances.
 
-## Security and privacy
+**ASL deployment is separate.** The current web-to-worker bridge calls `127.0.0.1:8765`; Vercel cannot use that address to reach your PC. Hosting live signing requires a secured GPU service and changes to remote media transfer and worker configuration. A cloud GPU deployment or public tunnel is not included in the current implementation.
 
-- **Credentials stay server-side.** The AI key is never shipped to the browser; the only exception is the explicitly labelled bring-your-own-key flow in Action Lab, where the user supplies their own.
-- **Student retrieval rows are scoped by `userId`** at both the store query and a per-row re-check, and `user_chunks` is deleted with the account alongside profiles, roadmaps, memory, chat, and transactions.
-- **Protected routes are gated in `clerkMiddleware`** across 21 path prefixes. Cookie naming is Clerk's, so a misconfigured origin can no longer desynchronise the session and bounce signed-in users to `/signin`.
-- **Payments are never granted from a callback.** SSLCommerz's return and IPN endpoints are public and unauthenticated, so both re-validate server-to-server and check the amount and currency against the order row written before redirect. Settlement is idempotent, and access ends when the paid term expires rather than when an unrecognised gateway event arrives.
-- **API input is validated with Zod**, and plan/role requirements are enforced in the handler.
-- **The acceptance model uses academic inputs only**: GPA, test percentile, activity count, research. No demographic features.
-- **Cohort statistics are k-anonymous.** A cohort below 20 students returns `suppressed` and renders nothing; the aggregation projects four numbers per profile and no identifiers.
-- **Viewer scope is enforced server-side** in `lib/links/scope.ts`. A teacher's payload is materially narrower than a parent's, and Strategist conversations are shared with nobody in any role.
-- **Public passports are unlisted, not published**: random slug, `noindex`, excluded from the sitemap, and an unpublished slug behaves exactly like one that never existed.
-- **Scheduled routes refuse to run without `CRON_SECRET`**, compared in constant time. An open endpoint that sends real SMS to real students is not something to leave to a default.
-- **Integrations are read-only by default**, request explicit scopes, and can be revoked in one click.
-- **Answers are audited before they finish**: citation URIs are parsed and verified against what was actually retrieved, and any currency or score figure not present in the supplied context raises a visible warning on the message.
+## Security, privacy, and limitations
 
----
+- Authentication, role checks, and exam ownership are enforced on the server. Learning progress is scoped to the signed-in account.
+- Signing requests require a server-only bearer token and owner identity. The worker limits uploads and concurrent jobs and removes expired job directories.
+- The current signing worker is designed for local use. Public exposure requires additional isolation, access controls, and resource limits.
+- Published student passports use unlisted URLs; teacher and family views apply role-specific scopes.
+- Acceptance estimates and AI-generated practice are advisory. They are not admissions guarantees or official exam scores.
+- Video metadata is checked when the catalog is refreshed. A third-party uploader can later remove a video or change embedding availability.
+- ASL accuracy depends on transcription and model output. BSL and ISL are not supported in the live production path; generated signing needs an ASL-fluent review.
+- The released SignSparK checkpoints have non-commercial research restrictions. SMPL-X requires its own registration and license acceptance; do not redistribute the model files. See the [upstream sources and license links](docs/SIGN_LANGUAGE_PRODUCTION.md#sources).
+- Retrieval evaluation results and their dataset scope are documented in [RAG.md](docs/RAG.md). They should not be interpreted as guarantees for every question.
 
-## Known limits
+## Documentation
 
-Stated plainly, because a README that only lists strengths is a sales page:
-
-- **The knowledge corpus is small**, at 114 chunks. It grows through Admin → Knowledge, which requires an `https` source URL and a verification date for every document. Nothing is auto-generated into it.
-- **Groundedness scores are noisy at n=8**, swinging 0.77 to 0.93 across runs with no code change. Use `npm run rag:faith -- --n 20` before believing a prompt change helped. The deterministic metrics (citation precision, figure violations) are stable.
-- **The reranker hits free-tier quota** on roughly 2 of 50 eval queries even with pacing. In production it degrades silently to fused order by design.
-- **Vector search is a brute-force cosine scan** in Node, not Atlas `$vectorSearch`. It is exact and tier-independent, but linear in corpus size. It is fine at this scale and will need revisiting well before six figures of chunks.
-- **No CI pipeline and no licence file yet.** The verification commands above are run manually.
-
----
-
-## Further documentation
-
-- [Retrieval and grounding design](docs/RAG.md)
+- [Learning library and catalog maintenance](docs/LEARNING_LIBRARY.md)
+- [Sign language production, setup, benchmarks, and limitations](docs/SIGN_LANGUAGE_PRODUCTION.md)
+- [Retrieval and grounding](docs/RAG.md)
+- [Screenshot capture notes](docs/screenshots/README.md)
 - [Environment template](.env.local.example)
-- [Feature access map](lib/features.ts)
-- [Plan catalog](lib/billing/plans.ts)
+- [Feature access rules](lib/features.ts)
 
----
-
-## Status
-
-Polaris is under active development. Interfaces, pricing, and integration behaviour may change while the platform is being prepared for production deployment.
+Polaris is an actively developed university/research project. Feature availability depends on the configured services, account access, and deployment environment.

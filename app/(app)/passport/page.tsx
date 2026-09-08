@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/authz";
 import { ensurePassport } from "@/lib/passport/service";
+import { listEarnedBadges } from "@/lib/badges/service";
 import { appOrigin } from "@/lib/env";
 import { PassportClient } from "@/components/app/PassportClient";
 
@@ -13,5 +14,16 @@ export const dynamic = "force-dynamic";
 export default async function PassportPage() {
   const user = await requireSession();
   await ensurePassport(user.id, user.name ?? "Student");
-  return <PassportClient origin={appOrigin()} />;
+  const achievements = await listEarnedBadges(user.id);
+  return (
+    <PassportClient
+      origin={appOrigin()}
+      achievements={achievements.map((a) => ({
+        id: a.id,
+        claim: a.claim,
+        signal: a.signal,
+        earnedAt: a.earnedAt,
+      }))}
+    />
+  );
 }

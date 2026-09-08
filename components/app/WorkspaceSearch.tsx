@@ -24,13 +24,19 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   /**
-   * Below `sm` the field is an icon button that expands to cover the bar.
-   * As a always-visible flex-1 field it consumed the row and pushed the
-   * language, theme and account controls past the right edge of a phone
-   * viewport, where they could not be reached at all.
+   * The app sidebar leaves the top bar less room than the viewport breakpoints
+   * imply. Keep search compact until the full field and every account action
+   * can coexist without either control collapsing.
    */
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Expanding the compact field should put the caret in it.
+  // Expanding the compact field should put the caret in it, including when
+  // the global keyboard shortcut opens search.
+  useEffect(() => {
+    const openSearch = () => setMobileOpen(true);
+    window.addEventListener("polaris:openSearch", openSearch);
+    return () => window.removeEventListener("polaris:openSearch", openSearch);
+  }, []);
+
   useEffect(() => {
     if (mobileOpen) document.getElementById("top-search")?.focus();
   }, [mobileOpen]);
@@ -51,17 +57,17 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   return (
     <div
       className={cn(
-        "relative min-w-0 sm:ml-6 sm:flex-1 sm:max-w-[420px]",
-        mobileOpen ? "absolute inset-x-3 z-40 sm:static sm:inset-auto" : "shrink-0 sm:shrink",
+        "relative min-w-0 2xl:ml-6 2xl:flex-1 2xl:max-w-[420px]",
+        mobileOpen ? "absolute inset-x-3 z-40 2xl:static 2xl:inset-auto" : "shrink-0 2xl:shrink",
       )}
     >
-      {/* Compact trigger - phones only. */}
+      {/* Compact trigger while the complete search field would crowd the bar. */}
       {!mobileOpen && (
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label={lang === "bn" ? "খুঁজুন" : "Search"}
-          className="sm:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
+          className="2xl:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
         >
           <SearchGlyph />
         </button>
@@ -69,7 +75,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
 
       <label className={cn(
         "h-9 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:bg-white/[0.09] focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]",
-        mobileOpen ? "flex" : "hidden sm:flex",
+        mobileOpen ? "flex" : "hidden 2xl:flex",
       )}>
         <SearchGlyph />
         <input

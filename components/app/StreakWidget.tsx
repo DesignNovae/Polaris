@@ -26,6 +26,9 @@ type StreakDto = {
   nextMilestone: number;
   earned: number[];
   weekCount: number;
+  freezes: number;
+  frozenDays: string[];
+  freezeHolding: boolean;
 };
 
 const MILESTONES = [3, 7, 14, 30, 60, 100];
@@ -41,6 +44,7 @@ export function StreakWidget({ demo = false }: { demo?: boolean }) {
   const [data, setData] = useState<StreakDto | null>(demo ? {
     current: 0, longest: 0, todayDone: false, days: [], todayActions: [],
     nextMilestone: 3, earned: [], weekCount: 0,
+    freezes: 0, frozenDays: [], freezeHolding: false,
   } : null);
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -87,12 +91,32 @@ export function StreakWidget({ demo = false }: { demo?: boolean }) {
           <Flame lit={data?.todayDone ?? false} />
           <div className="min-w-0">
             <div className="text-[11px] font-semibold text-paper leading-tight">Day streak</div>
-            <div className="text-[9.5px] text-paper/45 leading-tight">
-              {data === null ? "loading…" : data.todayDone ? "today earned" : "do one task today"}
+            <div className={cn(
+              "text-[9.5px] leading-tight",
+              data?.freezeHolding ? "text-nova-300" : "text-paper/45",
+            )}>
+              {data === null
+                ? "loading…"
+                : data.freezeHolding
+                  ? "a freeze is holding it"
+                  : data.todayDone
+                    ? "today earned"
+                    : "do one task today"}
             </div>
           </div>
-          <span className="ml-auto font-serif text-[20px] font-bold text-paper tabular-nums leading-none group-hover:scale-110 transition-transform">
-            {data === null ? "·" : current}
+          <span className="ml-auto flex items-center gap-1.5">
+            {(data?.freezes ?? 0) > 0 && (
+              <span
+                className="flex items-center gap-[3px] text-nova-300"
+                title={`${data!.freezes} streak freeze${data!.freezes === 1 ? "" : "s"} banked`}
+              >
+                <Snowflake />
+                <span className="font-mono text-[10px] tabular-nums">{data!.freezes}</span>
+              </span>
+            )}
+            <span className="font-serif text-[20px] font-bold text-paper tabular-nums leading-none group-hover:scale-110 transition-transform">
+              {data === null ? "·" : current}
+            </span>
           </span>
         </div>
 
@@ -143,6 +167,17 @@ export function StreakWidget({ demo = false }: { demo?: boolean }) {
 
 /* ─── flame orb ─── */
 
+/** Freeze mark. Six-spoke crystal, legible at 11px where a detailed one is mud. */
+function Snowflake() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d="M12 2v20M4.2 6.5l15.6 9M19.8 6.5l-15.6 9" />
+      <path d="M9 4.2 12 7l3-2.8M9 19.8 12 17l3 2.8" />
+    </svg>
+  );
+}
+
 function Flame({ lit }: { lit: boolean }) {
   return (
     <span className="relative h-8 w-8 shrink-0 inline-flex items-center justify-center">
@@ -164,16 +199,20 @@ function Flame({ lit }: { lit: boolean }) {
 function StreakDetail({ data, onClose }: { data: StreakDto; onClose: () => void }) {
   // 8-week heatmap: columns = weeks (oldest → newest), rows = Mon..Sun.
   const daySet = new Set(data.days);
+  const frozenSet = new Set(data.frozenDays);
   const today = new Date();
   const monOffset = (today.getDay() + 6) % 7; // days since Monday
-  const weeks: Array<Array<{ key: string; active: boolean; future: boolean }>> = [];
+  type Cell = { key: string; active: boolean; frozen: boolean; future: boolean };
+  const weeks: Array<Array<Cell>> = [];
   for (let w = 7; w >= 0; w--) {
-    const col: Array<{ key: string; active: boolean; future: boolean }> = [];
+    const col: Array<Cell> = [];
     for (let dow = 0; dow < 7; dow++) {
       const d = new Date(today);
       d.setDate(today.getDate() - monOffset - w * 7 + dow);
       const key = dayKey(d);
-      col.push({ key, active: daySet.has(key), future: d > today });
+      // A frozen day is deliberately its own state: reading it as a break
+      // would tell the student their run ended when it did not.
+      col.push({ key, active: daySet.has(key), frozen: frozenSet.has(key), future: d > today });
     }
     weeks.push(col);
   }
@@ -208,11 +247,40 @@ function StreakDetail({ data, onClose }: { data: StreakDto; onClose: () => void 
         </div>
 
         {/* stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
+        <div className="grid grid-cols-4 gap-2 mb-4">
           <MiniStat label="Current" value={String(data.current)} />
           <MiniStat label="Longest" value={String(data.longest)} />
           <MiniStat label="This week" value={`${data.weekCount}/7`} />
+          <MiniStat label="Freezes" value={String(data.freezes)} />
         </div>
+
+        {/* What a freeze is, said once, where it matters. Explained whenever
+            they hold one so it is never a surprise mechanic. */}
+        {(data.freezes > 0 || data.freezeHolding) && (
+          <div className={cn(
+            "mb-5 flex items-start gap-2.5 rounded-xl px-3.5 py-3",
+            data.freezeHolding ? "bg-nova-400/15 ring-1 ring-inset ring-nova-400/30" : "bg-paper-soft",
+          )}>
+            <span className="mt-[1px] shrink-0 text-nova-600 dark:text-nova-300"><Snowflake /></span>
+            <p className="text-[11.5px] leading-relaxed text-ink-dim">
+              {data.freezeHolding ? (
+                <>
+                  <span className="font-semibold text-ink">Your streak is safe.</span> You
+                  missed a day, so a freeze is holding it. Do one task and the run
+                  carries on from {data.current}.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-ink">
+                    {data.freezes} freeze{data.freezes === 1 ? "" : "s"} banked.
+                  </span>{" "}
+                  A missed day spends one instead of resetting your streak. You earn
+                  one for every full week you keep going.
+                </>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* heatmap */}
         <div className="mb-5">
@@ -223,13 +291,15 @@ function StreakDetail({ data, onClose }: { data: StreakDto; onClose: () => void 
                 {col.map((c) => (
                   <div
                     key={c.key}
-                    title={c.key}
+                    title={c.frozen ? `${c.key} - held by a freeze` : c.key}
                     className={cn(
                       "aspect-square rounded-[4px]",
                       c.future ? "bg-transparent" :
                       c.active
                         ? "bg-gradient-to-br from-polaris-400 to-polaris-600 shadow-[0_0_5px_rgba(196,125,78,0.4)]"
-                        : "bg-paper-deep dark:bg-white/[0.06]",
+                        : c.frozen
+                          ? "bg-nova-400/25 ring-1 ring-inset ring-nova-400/45"
+                          : "bg-paper-deep dark:bg-white/[0.06]",
                     )}
                   />
                 ))}

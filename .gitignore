@@ -59,6 +59,8 @@ desktop.ini
 
 # ---- Local tooling / generated artifacts ----
 /.cache/
+**/__pycache__/
+*.pyc
 /.turbo/
 /.history/
 /playwright-report/

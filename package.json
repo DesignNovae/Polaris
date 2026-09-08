@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "signing:worker": "node scripts/signing-worker.mjs",
+    "signing:test": ".cache/signing/venv/Scripts/python.exe -m pytest services/signing/tests -q",
     "prebuild": "node scripts/validate-deployment-env.mjs",
     "build": "next build",
     "start": "next start",
@@ -35,12 +37,14 @@
     "remark-math": "^6.0.0",
     "svix": "^2.3.0",
     "tailwind-merge": "^2.5.4",
+    "three": "0.180.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.180.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.1.0",

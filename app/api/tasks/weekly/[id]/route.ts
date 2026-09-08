@@ -19,7 +19,7 @@ import {
   type MilestoneStatus,
 } from "@/lib/db/collections";
 import { reviewSubmission, serializeWeeklyTask } from "@/lib/tasks/weekly";
-import { recordStreakActivity } from "@/lib/streak/service";
+import { recordProgress } from "@/lib/progress/record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,7 +88,7 @@ export const PATCH = withErrorHandling(async (req, ctx: { params: Promise<{ id: 
     }
   }
 
-  await recordStreakActivity(session.id, becameDone ? "Completed a weekly task" : "Worked on a weekly task");
+  await recordProgress(session.id, becameDone ? "weekly-task-done" : "weekly-task-progress");
 
   const updated = await getWeeklyTask(session.id, id);
   return ok({ task: updated ? serializeWeeklyTask(updated) : null });

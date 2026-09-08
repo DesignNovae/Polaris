@@ -155,3 +155,210 @@ export const DEMO_SCHOLARSHIPS = [
     typicalWindow: "With admission app · Nov-Mar", difficulty: "high",
   },
 ];
+
+/* ── Achievements ─────────────────────────────────────────────────────────
+   A mid-journey student: enough earned that the shelf has something to show,
+   enough locked that the progress rings are visible. Numbers are consistent
+   with each other - the level matches the total, the week sums to the week
+   figure - because a demo that does not add up is worse than no demo. */
+
+export const DEMO_XP = {
+  total: 1240,
+  today: 65,
+  dailyCap: 150,
+  week: 355,
+  weeklyGoal: 400,
+  weekPercent: 89,
+  weekDays: [
+    { day: "2026-09-07", earned: 90 },
+    { day: "2026-09-08", earned: 65 },
+    { day: "2026-09-09", earned: 150 },
+    { day: "2026-09-10", earned: 0 },
+    { day: "2026-09-11", earned: 50 },
+    { day: "2026-09-12", earned: 0 },
+    { day: "2026-09-13", earned: 0 },
+  ],
+  level: {
+    level: 4,
+    name: "Open water",
+    floor: 800,
+    ceiling: 1400,
+    into: 440,
+    remaining: 160,
+    percent: 73,
+  },
+};
+
+export const DEMO_BADGES = [
+  {
+    id: "timed-sections-10",
+    title: "Ten timed sections",
+    claim: "Completed 10 practice exam sections under timed conditions",
+    signal: "Ten separate sections started and submitted inside their time limit in Polaris.",
+    gap: "Practice performance only. It is not an official score and does not predict one.",
+    tier: "foundation" as const,
+    earnedAt: "2026-08-21T09:12:00.000Z",
+  },
+  {
+    id: "evidence-15",
+    title: "Fifteen pieces of evidence",
+    claim: "Logged 15 pieces of evidence against a study plan",
+    signal: "Fifteen separate artifacts or results attached to specific roadmap milestones.",
+    gap: "Polaris records that evidence was attached; it does not audit the artifacts themselves.",
+    tier: "foundation" as const,
+    earnedAt: "2026-08-29T16:40:00.000Z",
+  },
+  {
+    id: "scores-8",
+    title: "Eight results tracked",
+    claim: "Logged 8 practice results against a study plan",
+    signal: "Eight practice results recorded and used to update the plan.",
+    gap: "Counts that results were recorded, not what they were.",
+    tier: "foundation" as const,
+    earnedAt: "2026-09-02T11:05:00.000Z",
+  },
+  {
+    id: "full-exams-3",
+    title: "Three full papers",
+    claim: "Sat 3 complete full-length practice examinations end to end",
+    signal: "Three exams carried through every stage to submission, without abandoning the session.",
+    gap: "Says nothing about the marks achieved.",
+    tier: "sustained" as const,
+    earnedAt: "2026-09-05T14:22:00.000Z",
+  },
+  {
+    id: "streak-30",
+    title: "Thirty days running",
+    claim: "Studied on 30 consecutive days",
+    signal: "Thirty unbroken days on which the student completed real planned work, recorded automatically.",
+    gap: "Counts days with activity, not hours spent.",
+    tier: "sustained" as const,
+    earnedAt: null, have: 22, need: 30,
+  },
+  {
+    id: "roadmap-nodes-25",
+    title: "Twenty-five milestones",
+    claim: "Completed 25 milestones on a structured study roadmap",
+    signal: "Twenty-five distinct roadmap nodes marked complete against a plan generated for this student's targets.",
+    gap: "Completion is student-reported for milestones with no attached artifact.",
+    tier: "sustained" as const,
+    earnedAt: null, have: 18, need: 25,
+  },
+  {
+    id: "tasks-50",
+    title: "Fifty tasks done",
+    claim: "Completed 50 planned study tasks",
+    signal: "Fifty tasks from a generated study plan marked complete, one at a time, over weeks.",
+    gap: "Completion is student-reported for tasks with no attached artifact.",
+    tier: "sustained" as const,
+    earnedAt: null, have: 31, need: 50,
+  },
+  {
+    id: "replans-5",
+    title: "Five course corrections",
+    claim: "Revised the study plan 5 times in response to results",
+    signal: "Five plan adaptations accepted after new scores or evidence changed the picture.",
+    gap: "Shows responsiveness to feedback, not the quality of the resulting plan.",
+    tier: "sustained" as const,
+    earnedAt: null, have: 3, need: 5,
+  },
+  {
+    id: "verified-claims-5",
+    title: "Five backed claims",
+    claim: "Published 5 passport claims, each backed by a linked artifact",
+    signal: "Five claims on this passport carry a working link to the work they describe.",
+    gap: "Polaris checks that a link is present, not that the artifact is genuine.",
+    tier: "foundation" as const,
+    earnedAt: null, have: 2, need: 5,
+  },
+  {
+    id: "timed-sections-40",
+    title: "Forty timed sections",
+    claim: "Completed 40 practice exam sections under timed conditions",
+    signal: "Forty separate timed sections submitted in Polaris, across the student's chosen exams.",
+    gap: "Measures sustained practice volume, not accuracy or readiness.",
+    tier: "distinguished" as const,
+    earnedAt: null, have: 17, need: 40,
+  },
+  {
+    id: "streak-100",
+    title: "A hundred days",
+    claim: "Studied on 100 consecutive days",
+    signal: "One hundred unbroken days of recorded work in Polaris.",
+    gap: "Counts days with activity, not hours spent.",
+    tier: "distinguished" as const,
+    earnedAt: null, have: 22, need: 100,
+  },
+];
+
+/* A wallet mid-journey: enough to afford a freeze, not an accent, so the demo
+   shows both an available purchase and a blocked one. */
+export const DEMO_WALLET = {
+  balance: 49,
+  lifetime: 49,
+  owned: [] as string[],
+  activeAccent: null as string | null,
+  purchasedFreezes: 0,
+  toNextCoin: 15,
+  shop: [
+    {
+      id: "freeze",
+      kind: "freeze" as const,
+      name: "Streak freeze",
+      description:
+        "Banks one more freeze. A missed day spends it instead of resetting your streak.",
+      cost: 30,
+      repeatable: true,
+      owned: false,
+      blocked: null as string | null,
+    },
+    {
+      id: "accent-oxblood",
+      kind: "accent" as const,
+      name: "Oxblood passport",
+      description:
+        "Changes the accent on your public passport - the page a recommender opens.",
+      cost: 60,
+      repeatable: false,
+      owned: false,
+      blocked: "You need 11 more coins." as string | null,
+      accent: { ink: "#7C2B2B", wash: "rgba(124,43,43,0.08)", label: "Oxblood" },
+    },
+    {
+      id: "accent-verdigris",
+      kind: "accent" as const,
+      name: "Verdigris passport",
+      description:
+        "Changes the accent on your public passport - the page a recommender opens.",
+      cost: 60,
+      repeatable: false,
+      owned: false,
+      blocked: "You need 11 more coins." as string | null,
+      accent: { ink: "#2F5E55", wash: "rgba(47,94,85,0.08)", label: "Verdigris" },
+    },
+    {
+      id: "accent-indigo",
+      kind: "accent" as const,
+      name: "Indigo passport",
+      description:
+        "Changes the accent on your public passport - the page a recommender opens.",
+      cost: 60,
+      repeatable: false,
+      owned: false,
+      blocked: "You need 11 more coins." as string | null,
+      accent: { ink: "#2E3D6B", wash: "rgba(46,61,107,0.08)", label: "Indigo" },
+    },
+  ],
+};
+
+/** The top-bar summary for the demo shell. Derived from DEMO_XP/DEMO_WALLET so
+    the bar and the achievements page can never show different numbers. */
+export const DEMO_PROGRESS = {
+  level: DEMO_XP.level.level,
+  levelName: DEMO_XP.level.name,
+  levelPercent: DEMO_XP.level.percent,
+  points: DEMO_XP.total,
+  today: DEMO_XP.today,
+  dailyCap: DEMO_XP.dailyCap,
+  coins: DEMO_WALLET.balance,
+};

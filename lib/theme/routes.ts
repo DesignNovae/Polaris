@@ -32,6 +32,7 @@
  */
 export const THEMED_ROUTE_SEGMENTS = [
   "account",
+  "achievements",
   "action-lab",
   "admin",
   "affordability",

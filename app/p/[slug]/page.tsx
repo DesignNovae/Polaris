@@ -122,6 +122,71 @@ export default async function PassportPage({
         </div>
       </header>
 
+      {/* ── Attested by Polaris ──
+          Deliberately first, and deliberately separate from the student's own
+          claims. These are the only statements on this page that Polaris is
+          itself the source for: the student did not write them and cannot edit
+          them, and each one is a count of work recorded as it happened. Every
+          badge carries what it does *not* establish, for the same reason the
+          claims below do - a statement without its limits is advertising. */}
+      {passport.achievements.length > 0 && (
+        <section className="mx-auto max-w-3xl px-6 pt-12 sm:pt-16">
+          <h2 className="flex items-center gap-3 font-serif text-[22px] font-bold">
+            Attested by Polaris
+            <span
+              className="rounded-full px-2.5 py-0.5 text-[12px] font-bold tabular-nums"
+              style={{ background: passport.accent.wash, color: passport.accent.ink }}
+            >
+              {passport.achievements.length}
+            </span>
+          </h2>
+          <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-ink-dim">
+            Recorded automatically from work completed inside Polaris. The
+            student did not enter these.
+          </p>
+
+          <ul className="mt-6 space-y-3">
+            {passport.achievements.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-2xl border p-5"
+                style={{
+                  borderColor: `${passport.accent.ink}40`,
+                  background: passport.accent.wash,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-white"
+                    style={{ background: passport.accent.ink }}
+                    aria-hidden
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1z" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold leading-snug text-ink">
+                      {a.claim}
+                    </p>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-ink-dim">
+                      {a.signal}
+                    </p>
+                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-muted">
+                      <span className="font-medium text-ink">Does not establish:</span>{" "}
+                      {a.gap}
+                    </p>
+                    <p className="mt-2 font-mono text-[11px] text-ink-muted">
+                      Recorded {formatDate(new Date(a.earnedAt))}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* ── Claims ── */}
       <section className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <h2 className="flex items-center gap-3 font-serif text-[22px] font-bold">

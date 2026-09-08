@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { parseJson, withErrorHandling } from "@/lib/api/respond";
 import { requireSession } from "@/lib/authz";
+import { recordProgress } from "@/lib/progress/record";
 import { getWritingPractice, saveWritingDraft, startWritingPractice, submitWritingPractice } from "@/lib/exams/writing-practice";
 
 export const runtime = "nodejs";
@@ -26,6 +27,9 @@ export const PATCH = withErrorHandling(async (request: NextRequest, { params }: 
   const { id } = await params;
   const body = actionSchema.parse(await parseJson(request));
   if (body.action === "start") return Response.json(await startWritingPractice(user.id, id));
+  // Drafting autosaves constantly; only the submission is a unit of work.
   if (body.action === "save") return Response.json(await saveWritingDraft(user.id, id, body.response, body.revision));
-  return Response.json(await submitWritingPractice(user.id, id, body.response, body.revision));
+  const submitted = await submitWritingPractice(user.id, id, body.response, body.revision);
+  await recordProgress(user.id, "writing-submitted");
+  return Response.json(submitted);
 });

@@ -5,6 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, Pill, Progress } from "@/components/app/ui";
 import { cn } from "@/lib/cn";
 import type { PublicExamItem, PublicExamSession } from "@/lib/exams/types";
+import { InterpreterPanel } from "@/components/interpreter/InterpreterPanel";
+import { InterpreterToggle } from "@/components/interpreter/InterpreterControls";
+import { INTERPRETER_COPY } from "@/components/interpreter/copy";
+import { useInterpreterSettings } from "@/lib/interpreter/hooks/useInterpreterSettings";
+import { MediaElementClockSource } from "@/lib/interpreter/synchronization/clocks/MediaElementClockSource";
+import type { LiveSigningJob } from "@/lib/interpreter/model/live";
 
 type SaveState = "saved" | "saving" | "error";
 type PublicResponse = { answer: string | null; flagged: boolean; hasRecording?: boolean };
@@ -49,7 +55,7 @@ function speakingGuidance(itemId: string) {
   return "Answer each short question naturally in around 20–30 seconds. Aim for complete answers, not one-word replies.";
 }
 
-function Stimulus({ item, listening, played, active, anotherRecordingActive, playbackSeconds, playbackDuration, onPlay }: {
+function Stimulus({ item, listening, played, active, anotherRecordingActive, playbackSeconds, playbackDuration, onPlay, preparing }: {
   item: PublicExamItem;
   listening?: boolean;
   played?: boolean;
@@ -58,6 +64,7 @@ function Stimulus({ item, listening, played, active, anotherRecordingActive, pla
   playbackSeconds?: number;
   playbackDuration?: number;
   onPlay?: () => void;
+  preparing?: boolean;
 }) {
   if (!item.stimulus) return null;
   if (item.stimulus.kind === "audio") {
@@ -68,14 +75,14 @@ function Stimulus({ item, listening, played, active, anotherRecordingActive, pla
         <button
           type="button"
           onClick={onPlay}
-          disabled={played || active || anotherRecordingActive}
+          disabled={played || active || anotherRecordingActive || preparing}
           className="mt-3 inline-flex h-10 items-center gap-2 rounded-lg bg-polaris-500 px-4 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-ink-faint"
         >
-          <Icon.play size={12} /> {active ? "Recording playing…" : anotherRecordingActive ? "Another recording is playing" : played ? "Recording already played" : "Play recording once"}
+          <Icon.play size={12} /> {preparing ? "Preparing playback…" : active ? "Recording loaded" : anotherRecordingActive ? "Another recording is active" : played ? "Recording already played" : "Play recording once"}
         </button>
         {(active || anotherRecordingActive) && (
           <div className="mt-3" aria-live="polite">
-            {anotherRecordingActive && <p className="mb-2 text-[10px] font-medium text-nova-700">The current recording is still playing. Return to its questions to follow along.</p>}
+            {anotherRecordingActive && <p className="mb-2 text-[10px] font-medium text-nova-700">Another recording is active. Return to its questions to follow along.</p>}
             <div className="h-1.5 overflow-hidden rounded-full bg-ink-faint/20">
               <div className="h-full rounded-full bg-nova-500 transition-[width] duration-300" style={{ width: `${playbackDuration ? Math.min(100, (playbackSeconds ?? 0) / playbackDuration * 100) : 0}%` }} />
             </div>
@@ -118,6 +125,60 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   const [audioObjectUrl, setAudioObjectUrl] = useState<string | null>(null);
   const [audioPlaybackSeconds, setAudioPlaybackSeconds] = useState(0);
   const [audioPlaybackDuration, setAudioPlaybackDuration] = useState(0);
+  const [interpreterSettings, updateInterpreter] = useInterpreterSettings();
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [signingClock, setSigningClock] = useState<MediaElementClockSource | null>(null);
+  const [preparingPlayback, setPreparingPlayback] = useState(false);
+  const [signingJobId, setSigningJobId] = useState<string | null>(null);
+  const preparingPlaybackRef = useRef(false);
+  const audioStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!signingJobId) return;
+    return () => { void fetch(`/api/interpreter/live/${signingJobId}`, { method: "DELETE", keepalive: true }); };
+  }, [signingJobId]);
+
+  useEffect(() => {
+    audioStartedRef.current = false;
+    if (!audioElement) { setSigningClock(null); return; }
+    const source = new MediaElementClockSource(audioElement);
+    setSigningClock(source);
+    return () => source.destroy();
+  }, [audioElement]);
+
+  const startPreparedAudio = useCallback(() => {
+    if (!audioElement || audioElement.ended || audioStartedRef.current) return;
+    audioStartedRef.current = true;
+    void audioElement.play().then(() => setPreparingPlayback(false)).catch(() => {
+      audioStartedRef.current = false;
+      setPreparingPlayback(false);
+      setError("The browser could not start the recording. Allow audio playback for this page.");
+    });
+  }, [audioElement]);
+
+  useEffect(() => {
+    if (audioElement && !interpreterSettings.enabled) {
+      if (audioElement.ended) { setAudioObjectUrl(null); setActiveAudioPart(null); }
+      else startPreparedAudio();
+    }
+  }, [audioElement, interpreterSettings.enabled, startPreparedAudio]);
+
+  const onSigningPlaybackError = useCallback(() => {
+    setPreparingPlayback(false);
+    setError("The signing animation could not play. Turn the interpreter off to continue with this recording, or turn it off and on to retry the animation.");
+  }, []);
+
+  useEffect(() => {
+    if (!interpreterSettings.enabled || interpreterSettings.language !== "ase" || !activeAudioPart || signingJobId) return;
+    const controller = new AbortController();
+    audioElement?.pause();
+    setPreparingPlayback(true);
+    void apiJson<LiveSigningJob>("/api/interpreter/live", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "exam", sessionId, part: activeAudioPart, language: "ase" }), signal: controller.signal })
+      .then((job) => { if (!controller.signal.aborted) setSigningJobId(job.id); })
+      .catch((cause) => { if (!controller.signal.aborted) { setError(cause instanceof Error ? cause.message : "Signing failed."); setPreparingPlayback(false); } });
+    return () => controller.abort();
+  }, [interpreterSettings.enabled, interpreterSettings.language, activeAudioPart, signingJobId, audioElement, sessionId]);
   const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [microphoneStatus, setMicrophoneStatus] = useState<MicrophoneStatus>("checking");
   const [microphoneCheckBusy, setMicrophoneCheckBusy] = useState(false);
@@ -413,15 +474,25 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
     setActiveAudioPart(null);
     setAudioPlaybackSeconds(0);
     setAudioPlaybackDuration(0);
+    setPreparingPlayback(false);
+    setSigningJobId(null);
   }, []);
 
   const playListeningPart = async (part: string) => {
     setError("");
-    if (activeAudioPart) {
+    if (activeAudioPart || preparingPlaybackRef.current) {
       setError("Finish the current recording before starting another part.");
       return;
     }
+    preparingPlaybackRef.current = true;
+    setPreparingPlayback(true);
     try {
+        if (interpreterSettings.enabled) {
+          if (interpreterSettings.language !== "ase") throw new Error("Select ASL for live signing. The recording has not been used.");
+          const job = await apiJson<LiveSigningJob>("/api/interpreter/live", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "exam", sessionId, part, language: "ase" }) });
+          setSigningJobId(job.id);
+      }
       const response = await fetch(`/api/exams/sessions/${sessionId}/audio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,7 +509,10 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
       setAudioPlaybackDuration(0);
       setSession((value) => value ? { ...value, playedAudioParts: [...value.playedAudioParts, part] } : value);
     } catch (cause) {
+      setPreparingPlayback(false);
       setError(cause instanceof Error ? cause.message : "The recording could not be played.");
+    } finally {
+      preparingPlaybackRef.current = false;
     }
   };
 
@@ -446,6 +520,7 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   if (!session) return <main className="mx-auto h-full max-w-xl overflow-y-auto p-8 text-center"><h1 className="font-serif text-[28px] font-bold">Exam unavailable</h1><p className="mt-3 text-sm text-signal-rose">{error}</p><button onClick={() => void load()} className="mt-5 rounded-lg bg-ink px-4 py-2 text-sm text-paper">Try again</button></main>;
 
   const item = session.items[currentIndex];
+  const signingListening = session.mode === "ielts-listening" && interpreterSettings.enabled;
   if (item) currentItemIdRef.current = item.id;
   const response = item ? session.responses[item.id] ?? { answer: null, flagged: false } : { answer: null, flagged: false };
   const unanswered = session.items.length - session.answeredCount;
@@ -583,9 +658,9 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
           </section>
         </div>
       ) : (
-        <div key={item?.id ?? session.title} className={cn("exam-content-enter mx-auto grid w-full max-w-[1400px] min-h-0 flex-1 gap-4 overflow-hidden px-4 py-5 md:px-7", session.mode === "ielts-reading" ? "lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]" : "md:grid-cols-[minmax(0,1fr)_260px]")}>
+        <div key={item?.id ?? session.title} className={cn("exam-content-enter mx-auto w-full max-w-[1400px] min-h-0 flex-1 gap-4 px-4 py-5 md:px-7", signingListening ? "flex flex-col overflow-y-auto lg:grid lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]" : "grid overflow-hidden", session.mode === "ielts-reading" ? "lg:grid-cols-[minmax(320px,0.9fr)_minmax(420px,1.1fr)]" : !signingListening && "md:grid-cols-[minmax(0,1fr)_260px]")}>
           {session.mode === "ielts-reading" && item && <aside className="h-full min-h-0 overflow-y-auto rounded-2xl border border-ink-faint/20 bg-paper-card p-5 shadow-card"><Stimulus item={item} /></aside>}
-          <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-ink-faint/20 bg-paper-card shadow-card">
+          <section className={cn("flex flex-col overflow-hidden rounded-2xl border border-ink-faint/20 bg-paper-card shadow-card", signingListening ? "min-h-[440px] shrink-0 lg:h-full lg:min-h-0" : "h-full min-h-0")}>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8">
               {item && session.mode !== "ielts-reading" && item.stimulus && <div className="mb-5"><Stimulus
                 item={item}
@@ -595,8 +670,26 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
                 anotherRecordingActive={Boolean(activeAudioPart && item.stimulus.mediaUrl !== activeAudioPart)}
                 playbackSeconds={audioPlaybackSeconds}
                 playbackDuration={audioPlaybackDuration}
+                preparing={preparingPlayback}
                 onPlay={item.stimulus.mediaUrl ? () => void playListeningPart(item.stimulus!.mediaUrl!) : undefined}
               /></div>}
+              {session.mode === "ielts-listening" && <div className="mb-5 space-y-3">
+                <InterpreterToggle enabled={interpreterSettings.enabled} onChange={(enabled) => updateInterpreter({ enabled })} copy={INTERPRETER_COPY.en} />
+                {audioObjectUrl && <audio
+                  ref={setAudioElement} src={audioObjectUrl} controls={interpreterSettings.enabled}
+                  aria-label="Listening recording" className={interpreterSettings.enabled ? "w-full" : "hidden"}
+                  onTimeUpdate={(event) => setAudioPlaybackSeconds(event.currentTarget.currentTime)}
+                  onLoadedMetadata={(event) => setAudioPlaybackDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+                  onEnded={() => { if (interpreterSettings.enabled) setPreparingPlayback(false); else releaseListeningAudio(); }}
+                  onError={() => { releaseListeningAudio(); setError("This recording could not be played. Continue with the remaining parts and raise this with your instructor."); }}
+                />}
+                {interpreterSettings.enabled && <>
+                  <p className="text-xs leading-relaxed text-ink-dim">Sign-supported practice. Pause or seek in the recording; the exam timer continues. The written transcript remains hidden.</p>
+                  {audioElement && <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={releaseListeningAudio} className="min-h-10 rounded-lg border border-ink-faint/25 px-3 text-xs font-semibold text-ink">Finish this recording</button>
+                  </div>}
+                </>}
+              </div>}
               {questionContent}
             </div>
             <div className="flex shrink-0 items-center justify-between gap-3 border-t border-ink-faint/15 bg-paper-card px-5 py-4">
@@ -604,24 +697,21 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
               {currentIndex < session.items.length - 1 ? <button type="button" onClick={() => { flushText(); setCurrentIndex((value) => Math.min(session.items.length - 1, value + 1)); }} className="h-10 rounded-lg bg-ink px-5 text-[12px] font-semibold text-paper">Next →</button> : <button type="button" onClick={() => setConfirmSubmit(true)} className="h-10 rounded-lg bg-polaris-500 px-5 text-[12px] font-semibold text-white">{submitLabel}</button>}
             </div>
           </section>
-          {session.mode !== "ielts-reading" && <Navigator session={session} currentIndex={currentIndex} onSelect={(index) => { flushText(); setCurrentIndex(index); }} onSubmit={() => setConfirmSubmit(true)} />}
+          {session.mode !== "ielts-reading" && <div className={cn("min-h-0", signingListening ? "shrink-0 space-y-4 lg:h-full lg:overflow-y-auto [&>aside]:h-auto" : "h-full")}>
+            {signingListening && <InterpreterPanel
+              mediaId={`ielts-listening:${activeAudioPart ?? item?.stimulus?.mediaUrl ?? "part-1"}`}
+              source={signingClock} lang="en" examSessionId={sessionId}
+              onTrackReady={() => setPreparingPlayback(false)} onTrackError={onSigningPlaybackError}
+              liveInput={signingJobId ? { kind: "job", jobId: signingJobId } : undefined}
+              onLiveRetry={() => setSigningJobId(null)}
+              className="mx-auto w-full max-w-[420px]"
+            />}
+            <Navigator session={session} currentIndex={currentIndex} onSelect={(index) => { flushText(); setCurrentIndex(index); }} onSubmit={() => setConfirmSubmit(true)} />
+          </div>}
         </div>
       )}
 
       {error && <div role="alert" className="fixed bottom-4 left-1/2 z-40 w-[min(92vw,520px)] -translate-x-1/2 rounded-xl border border-signal-rose/30 bg-paper-card px-4 py-3 text-[11px] text-signal-rose shadow-pop">{error} <button type="button" onClick={() => setError("")} className="float-right font-bold">×</button></div>}
-      {audioObjectUrl && <audio
-        src={audioObjectUrl}
-        autoPlay
-        onTimeUpdate={(event) => setAudioPlaybackSeconds(event.currentTarget.currentTime)}
-        onLoadedMetadata={(event) => setAudioPlaybackDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
-        onEnded={releaseListeningAudio}
-        onError={() => {
-          // Without this the stage stays stuck on a recording that will never
-          // finish, and every other part reports that one is still playing.
-          releaseListeningAudio();
-          setError("This recording could not be played. Continue with the remaining parts and raise this with your instructor.");
-        }}
-      />}
       {confirmSubmit && (
         <div
           ref={submitDialogRef}

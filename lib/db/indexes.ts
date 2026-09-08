@@ -54,6 +54,26 @@ async function run(db: Db): Promise<void> {
     ),
     db.collection("streaks").createIndex({ userId: 1 }, { unique: true }),
 
+    // ── Effort points and badges ──
+    // One row per student per day; the uniqueness is what the daily cap is
+    // enforced against, so a duplicate would silently double a day's ceiling.
+    db.collection("xp_days").createIndex({ userId: 1, day: 1 }, { unique: true }),
+    // The lifetime total is summed from these rows rather than stored, so this
+    // is the index that keeps that sum cheap.
+    db.collection("xp_days").createIndex({ userId: 1 }),
+    db.collection("xp_profile").createIndex({ userId: 1 }, { unique: true }),
+    db.collection("progress_counters").createIndex({ userId: 1 }, { unique: true }),
+    // Idempotent awarding: re-evaluating badges must never duplicate one.
+    db.collection("badges_earned").createIndex(
+      { userId: 1, badgeId: 1 },
+      { unique: true },
+    ),
+    db.collection("badges_earned").createIndex({ userId: 1, earnedAt: -1 }),
+    // One wallet per student. The uniqueness is what makes the derived coin
+    // top-up safe: two wallets would each grant the same points again.
+    db.collection("coin_wallets").createIndex({ userId: 1 }, { unique: true }),
+    db.collection("learning_progress").createIndex({ userId: 1 }),
+
     // ── Sharing / monitoring ──
     db.collection("links").createIndex({ studentId: 1 }),
     db.collection("links").createIndex({ viewerEmail: 1 }),

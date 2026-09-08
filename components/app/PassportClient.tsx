@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
 import { Card, SectionTitle, Btn, Pill } from "./ui";
@@ -58,9 +59,11 @@ const EMPTY = {
 };
 
 export function PassportClient({
-  origin, demoPassport,
+  origin, demoPassport, achievements = [],
 }: {
   origin: string;
+  /** What Polaris attests, rendered separately from student-written claims. */
+  achievements?: Array<{ id: string; claim: string; signal: string; earnedAt: string }>;
   /** Seeded passport for the public demo - no database, and read-only. */
   demoPassport?: Passport;
 }) {
@@ -236,6 +239,50 @@ export function PassportClient({
 
       {error && (
         <p className="mt-3 text-[12.5px] text-rose-600">{error}</p>
+      )}
+
+      {/* ── What Polaris attests ──
+          Not editable here, and not part of `claims`, because these are not
+          the student's assertions - they are counts of work Polaris recorded.
+          Kept visible in the builder so the student can see what a reader will
+          see, but there is nothing to edit, which is the point. */}
+      {achievements.length > 0 && (
+        <Card className="mt-6 p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h3 className="text-[14.5px] font-semibold text-ink">
+              Attested by Polaris
+            </h3>
+            <Link
+              href="/achievements"
+              className="text-[12px] font-semibold text-polaris-700 hover:underline dark:text-polaris-300"
+            >
+              See all achievements
+            </Link>
+          </div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-dim">
+            Earned automatically from work you completed. These appear on your
+            public passport in their own section &mdash; you cannot edit them,
+            which is what makes them worth something to a reader.
+          </p>
+          <ul className="mt-3.5 space-y-2">
+            {achievements.map((a) => (
+              <li key={a.id} className="flex items-start gap-2.5 rounded-xl bg-paper-soft px-3.5 py-2.5">
+                <span
+                  className="mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-full bg-gradient-to-br from-polaris-400 to-polaris-600 text-white"
+                  aria-hidden
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1z" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-semibold leading-snug text-ink">{a.claim}</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-ink-muted">{a.signal}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">

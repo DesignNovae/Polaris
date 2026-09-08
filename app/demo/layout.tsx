@@ -4,6 +4,7 @@ import { TopBar } from "@/components/app/TopBar";
 import { AgentChat } from "@/components/app/AgentChat";
 import { DemoWorkspaceSeed } from "@/components/demo/DemoWorkspaceSeed";
 import { DEMO_PATHS, DEMO_USER } from "@/lib/demo/polaris";
+import { DEMO_PROGRESS } from "@/lib/demo/new-surfaces";
 
 export const metadata: Metadata = {
   title: "Live Demo",
@@ -25,7 +26,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
           demo
         />
         <div className="flex-1 min-w-0 flex flex-col h-full">
-          <TopBar basePath="/demo" demoUser={DEMO_USER} />
+          <TopBar basePath="/demo" demoUser={DEMO_USER} demoProgress={DEMO_PROGRESS} />
           <main className="polaris-scrollbar flex-1 min-h-0 overflow-y-auto">{children}</main>
         </div>
         <AgentChat
