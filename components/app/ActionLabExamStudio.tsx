@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+} from "framer-motion";
 import { Card, Icon, Pill } from "@/components/app/ui";
 import { ExamPreflight } from "@/components/exams/ExamPreflight";
 import { cn } from "@/lib/cn";
@@ -24,6 +32,42 @@ const LABELS: Record<ExamMode, { exam: string; title: string; tone: "polaris" | 
   "ielts-speaking": { exam: "IELTS", title: "Speaking", tone: "nova" },
 };
 
+type ExamCardLabel = (typeof LABELS)[ExamMode];
+type ExamGlyphName = "adaptive" | "headphones" | "math" | "pen" | "reading" | "speaking";
+
+const EXAM_VISUALS: Record<ExamMode, { glyph: ExamGlyphName; halo: string; icon: string }> = {
+  "sat-full": {
+    glyph: "adaptive",
+    halo: "bg-polaris-400/20",
+    icon: "bg-polaris-500/15 text-polaris-600 dark:text-polaris-200",
+  },
+  "sat-math-module": {
+    glyph: "math",
+    halo: "bg-polaris-300/20",
+    icon: "bg-polaris-500/15 text-polaris-600 dark:text-polaris-200",
+  },
+  "ielts-reading": {
+    glyph: "reading",
+    halo: "bg-aurora-400/20",
+    icon: "bg-aurora-500/15 text-aurora-700 dark:text-aurora-200",
+  },
+  "ielts-listening": {
+    glyph: "headphones",
+    halo: "bg-aurora-400/20",
+    icon: "bg-aurora-500/15 text-aurora-700 dark:text-aurora-200",
+  },
+  "ielts-writing": {
+    glyph: "pen",
+    halo: "bg-nova-400/20",
+    icon: "bg-nova-500/15 text-nova-700 dark:text-nova-200",
+  },
+  "ielts-speaking": {
+    glyph: "speaking",
+    halo: "bg-rose-400/20",
+    icon: "bg-rose-500/15 text-rose-700 dark:text-rose-200",
+  },
+};
+
 /** Any attempt whose immutable form can be replayed, abandoned ones included. */
 function restartableAttempt(entry: ExamCatalogEntry) {
   return entry.latestRestartableAttempt ?? entry.latestCompletedAttempt;
@@ -33,6 +77,192 @@ function coverageLabel(entry: ExamCatalogEntry): string {
   if (entry.activeAttempt) return "Resume";
   if (entry.coverage.estimatedFreshForms > 0) return "Ready";
   return restartableAttempt(entry) ? "Retake" : "Unavailable";
+}
+
+function ExamChoiceCard({
+  entry,
+  index,
+  label,
+  restartable,
+  usable,
+  onSelect,
+}: {
+  entry: ExamCatalogEntry;
+  index: number;
+  label: ExamCardLabel;
+  restartable: boolean;
+  usable: boolean;
+  onSelect: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const cardRef = useRef<HTMLButtonElement>(null);
+  const visual = EXAM_VISUALS[entry.mode];
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const spring = { stiffness: 190, damping: 23, mass: 0.6 };
+  const smoothX = useSpring(pointerX, spring);
+  const smoothY = useSpring(pointerY, spring);
+  const rotateY = useTransform(smoothX, [-0.5, 0.5], [-4.5, 4.5]);
+  const rotateX = useTransform(smoothY, [-0.5, 0.5], [3.8, -3.8]);
+  const glareX = useTransform(smoothX, [-0.5, 0.5], [32, 68]);
+  const glareY = useTransform(smoothY, [-0.5, 0.5], [28, 72]);
+  const glare = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.13), transparent 36%)`;
+
+  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (reduceMotion) return;
+    const box = cardRef.current?.getBoundingClientRect();
+    if (!box) return;
+    pointerX.set((event.clientX - box.left) / box.width - 0.5);
+    pointerY.set((event.clientY - box.top) / box.height - 0.5);
+  }, [pointerX, pointerY, reduceMotion]);
+
+  const resetPointer = useCallback(() => {
+    pointerX.set(0);
+    pointerY.set(0);
+  }, [pointerX, pointerY]);
+
+  const footerCopy = entry.activeAttempt
+    ? "Continue where you left off"
+    : restartable && entry.status !== "available"
+      ? "Take this exam again"
+      : "Review format and timing";
+  const statusTone = entry.coverage.estimatedFreshForms > 0 ? "aurora" : restartable ? "ink" : "rose";
+  const statusDot = entry.activeAttempt
+    ? "bg-rose-400"
+    : entry.coverage.estimatedFreshForms > 0
+      ? "bg-aurora-400"
+      : restartable
+        ? "bg-ink-muted"
+        : "bg-rose-400";
+
+  return (
+    <div className="h-full [perspective:1000px]">
+      <motion.button
+        ref={cardRef}
+        type="button"
+        disabled={!usable}
+        onClick={onSelect}
+        onPointerMove={onPointerMove}
+        onPointerLeave={resetPointer}
+        aria-label={`${label.title}. ${entry.questionCount} questions, ${entry.durationMinutes} minutes, ${entry.sections}. View details.`}
+        initial={reduceMotion ? false : { opacity: 0.82, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={reduceMotion || !usable ? undefined : { y: -6, scale: 1.008 }}
+        whileTap={reduceMotion || !usable ? undefined : { scale: 0.992 }}
+        transition={{ duration: 0.4, delay: reduceMotion ? 0 : Math.min(index, 5) * 0.045, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          rotateX: reduceMotion ? 0 : rotateX,
+          rotateY: reduceMotion ? 0 : rotateY,
+          transformStyle: "preserve-3d",
+        }}
+        className="group relative flex min-h-[258px] w-full flex-col overflow-hidden rounded-2xl bg-paper-card p-5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_44px_-30px_rgba(0,0,0,0.62)] transition-shadow duration-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.09),0_28px_58px_-30px_rgba(0,0,0,0.72)] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_44px_-30px_rgba(0,0,0,0.62)]"
+      >
+        <span aria-hidden className={cn("pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full blur-3xl transition-opacity duration-300 group-hover:opacity-100", visual.halo)} />
+        {!reduceMotion && (
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100"
+            style={{ backgroundImage: glare }}
+          />
+        )}
+
+        <span className="relative flex items-center justify-between gap-3" style={{ transform: "translateZ(18px)" }}>
+          <Pill tone={label.tone} className="whitespace-nowrap text-[10px]">{label.exam}</Pill>
+          <Pill tone={statusTone} className="whitespace-nowrap text-[10px]">
+            <span className={cn("h-1.5 w-1.5 rounded-full", statusDot)} />
+            {coverageLabel(entry)}
+          </Pill>
+        </span>
+
+        <span className="relative mt-7 flex items-start justify-between gap-5" style={{ transform: "translateZ(34px)" }}>
+          <span className="font-serif text-[25px] font-bold leading-[1.08] tracking-[-0.02em] text-ink">
+            {label.title}
+          </span>
+          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", visual.icon)}>
+            <ExamGlyph name={visual.glyph} />
+          </span>
+        </span>
+
+        <span className="relative mt-7 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-ink-faint/15 pt-4" style={{ transform: "translateZ(22px)" }}>
+          <ExamFact value={entry.questionCount} label="questions" />
+          <ExamFact value={entry.durationMinutes} label="minutes" />
+          <span className="col-span-2 flex min-w-0 items-baseline justify-between gap-3 border-t border-ink-faint/10 pt-3">
+            <span className="text-[11.5px] font-semibold leading-tight text-ink">{entry.sections}</span>
+            <span className="shrink-0 text-[9px] uppercase tracking-[0.12em] text-ink-muted">format</span>
+          </span>
+        </span>
+
+        <span className="relative mt-auto flex items-end justify-between gap-4 pt-6 text-[10.5px]" style={{ transform: "translateZ(28px)" }}>
+          <span className="max-w-[15ch] leading-relaxed text-ink-muted">{footerCopy}</span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-polaris-600 transition-colors group-hover:text-ink">
+            View details
+            <span className="transition-transform duration-200 group-hover:translate-x-1"><Icon.arrow size={12} /></span>
+          </span>
+        </span>
+      </motion.button>
+    </div>
+  );
+}
+
+function ExamFact({ value, label }: { value: number | string; label: string }) {
+  return (
+    <span className="min-w-0">
+      <span className="block text-[17px] font-semibold leading-tight text-ink tabular-nums">
+        {value}
+      </span>
+      <span className="mt-1 block text-[9px] uppercase tracking-[0.12em] text-ink-muted">{label}</span>
+    </span>
+  );
+}
+
+function ExamChoiceSkeleton() {
+  return (
+    <div className="min-h-[258px] rounded-2xl bg-paper-card p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_44px_-30px_rgba(0,0,0,0.62)]" aria-hidden>
+      <div className="flex items-center justify-between">
+        <span className="h-5 w-20 animate-pulse rounded-full bg-paper-deep motion-reduce:animate-none" />
+        <span className="h-5 w-14 animate-pulse rounded-full bg-paper-deep motion-reduce:animate-none" />
+      </div>
+      <div className="mt-8 flex items-start justify-between gap-6">
+        <span className="h-14 w-2/3 animate-pulse rounded-xl bg-paper-deep motion-reduce:animate-none" />
+        <span className="h-12 w-12 animate-pulse rounded-xl bg-paper-soft motion-reduce:animate-none" />
+      </div>
+      <div className="mt-7 flex gap-4 border-t border-ink-faint/15 pt-4">
+        <span className="h-9 w-12 animate-pulse rounded-lg bg-paper-soft motion-reduce:animate-none" />
+        <span className="h-9 w-12 animate-pulse rounded-lg bg-paper-soft motion-reduce:animate-none" />
+        <span className="h-9 flex-1 animate-pulse rounded-lg bg-paper-soft motion-reduce:animate-none" />
+      </div>
+    </div>
+  );
+}
+
+function ExamGlyph({ name }: { name: ExamGlyphName }) {
+  if (name === "adaptive") return <Icon.bolt size={22} />;
+  if (name === "reading") return <Icon.book size={22} />;
+  if (name === "speaking") return <Icon.mic size={22} />;
+
+  if (name === "math") {
+    return (
+      <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="3" width="16" height="18" rx="2.5" />
+        <path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" />
+      </svg>
+    );
+  }
+
+  if (name === "headphones") {
+    return (
+      <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+        <path d="M4 14a2 2 0 0 1 2-2h1v8H6a2 2 0 0 1-2-2v-4zM20 14a2 2 0 0 0-2-2h-1v8h1a2 2 0 0 0 2-2v-4z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20l4.2-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.2 16 4 20zM14.5 6.7l2.8 2.8M4 20h6" />
+    </svg>
+  );
 }
 
 export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
@@ -132,25 +362,23 @@ export function ActionLabExamStudio({ lang }: { lang: "en" | "bn" }) {
             </Card>
           )}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {(catalog?.available ?? []).map((entry) => {
+            {(catalog?.available ?? []).map((entry, index) => {
               const label = LABELS[entry.mode];
               const restartable = restartableAttempt(entry);
               const usable = entry.status === "available" || Boolean(entry.activeAttempt || restartable);
               return (
-                <button key={entry.mode} type="button" disabled={!usable} onClick={() => setSelected(entry.mode)} className="text-left disabled:cursor-not-allowed disabled:opacity-60">
-                  <Card className="group relative h-full overflow-hidden border border-ink-faint/20 p-5 transition hover:-translate-y-0.5 hover:border-polaris-500/40 hover:shadow-pop">
-                    <div className="flex items-center justify-between gap-3"><Pill tone={label.tone}>{label.exam}</Pill><Pill tone={entry.coverage.estimatedFreshForms > 0 ? "aurora" : restartable ? "ink" : "rose"}>{coverageLabel(entry)}</Pill></div>
-                    <h3 className="mt-4 font-serif text-[24px] font-bold text-ink">{label.title}</h3>
-                    <p className="mt-2 min-h-10 text-[11.5px] leading-relaxed text-ink-dim">{entry.questionCount} questions · {entry.durationMinutes} minutes · {entry.sections}</p>
-                    <div className="mt-4 flex items-center justify-between border-t border-ink-faint/15 pt-3 text-[10px] text-ink-muted">
-                      <span>{entry.activeAttempt ? "Continue where you left off" : restartable && entry.status !== "available" ? "Take this exam again" : "Review format and timing"}</span>
-                      <span className="inline-flex items-center gap-1 font-semibold text-polaris-600">View details <Icon.arrow size={11} /></span>
-                    </div>
-                  </Card>
-                </button>
+                <ExamChoiceCard
+                  key={entry.mode}
+                  entry={entry}
+                  index={index}
+                  label={label}
+                  restartable={Boolean(restartable)}
+                  usable={usable}
+                  onSelect={() => setSelected(entry.mode)}
+                />
               );
             })}
-            {!catalog && !error && Array.from({ length: 6 }, (_, index) => <div key={index} className="h-48 animate-pulse rounded-2xl border border-ink-faint/15 bg-paper-card/60" />)}
+            {!catalog && !error && Array.from({ length: 6 }, (_, index) => <ExamChoiceSkeleton key={index} />)}
           </div>
           {catalog?.recent.length ? (
             <Card className="mt-4 border border-ink-faint/15 p-5">
