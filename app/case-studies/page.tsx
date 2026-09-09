@@ -42,12 +42,107 @@ const TIER_LABELS: Record<string, string> = {
 
 const TIERS = ["All", "elite", "top10", "top50", "top100", "top200"];
 
-const ORBIT_POINTS = Array.from({ length: 18 }, (_, index) => ({
-  left: `${9 + ((index * 37) % 82)}%`,
-  top: `${8 + ((index * 53) % 82)}%`,
-  delay: (index % 7) * 0.22,
-  size: index % 5 === 0 ? 4 : 2,
-}));
+type InstitutionSource = {
+  name: string;
+  domain: string;
+  sourceLabel: string;
+  sourceUrl: string;
+};
+
+// The student narratives are illustrative. These links point to the current
+// official institution/program pages so requirements can be checked at source.
+const INSTITUTION_SOURCES: Record<string, InstitutionSource> = {
+  "cs-mit-1": {
+    name: "MIT",
+    domain: "mit.edu",
+    sourceLabel: "MIT Admissions",
+    sourceUrl: "https://mitadmissions.org/apply/",
+  },
+  "cs-stanford-1": {
+    name: "Stanford University",
+    domain: "stanford.edu",
+    sourceLabel: "Stanford Admission",
+    sourceUrl: "https://admission.stanford.edu/apply/first-year/",
+  },
+  "cs-cmu-1": {
+    name: "Carnegie Mellon SCS",
+    domain: "cmu.edu",
+    sourceLabel: "SCS Admissions",
+    sourceUrl: "https://www.cs.cmu.edu/education/undergraduate/admissions",
+  },
+  "cs-cambridge-1": {
+    name: "University of Cambridge",
+    domain: "cam.ac.uk",
+    sourceLabel: "Mathematics course",
+    sourceUrl: "https://www.undergraduate.study.cam.ac.uk/courses/mathematics-ba-hons-mmath",
+  },
+  "cs-oxford-1": {
+    name: "University of Oxford",
+    domain: "ox.ac.uk",
+    sourceLabel: "Official PPE course",
+    sourceUrl: "https://www.ox.ac.uk/admissions/undergraduate/courses/course-listing/philosophy-politics-and-economics",
+  },
+  "cs-uwaterloo-1": {
+    name: "University of Waterloo",
+    domain: "uwaterloo.ca",
+    sourceLabel: "Computer Science program",
+    sourceUrl: "https://uwaterloo.ca/future-students/programs/computer-science",
+  },
+  "cs-toronto-1": {
+    name: "University of Toronto",
+    domain: "utoronto.ca",
+    sourceLabel: "Engineering Science",
+    sourceUrl: "https://discover.engineering.utoronto.ca/programs/engineering-programs/engineering-science/",
+  },
+  "cs-nus-1": {
+    name: "NUS Computing",
+    domain: "nus.edu.sg",
+    sourceLabel: "Computer Science program",
+    sourceUrl: "https://www.comp.nus.edu.sg/programmes/ug/cs/",
+  },
+  "cs-fulbright-1": {
+    name: "Fulbright",
+    domain: "fulbrightonline.org",
+    sourceLabel: "Foreign Student Program",
+    sourceUrl: "https://foreign.fulbrightonline.org/",
+  },
+  "cs-rhodes-1": {
+    name: "Rhodes Trust",
+    domain: "rhodeshouse.ox.ac.uk",
+    sourceLabel: "Rhodes Scholarship",
+    sourceUrl: "https://www.rhodeshouse.ox.ac.uk/scholarships/the-rhodes-scholarship/",
+  },
+  "cs-tum-1": {
+    name: "Technical University of Munich",
+    domain: "tum.de",
+    sourceLabel: "Informatics B.Sc.",
+    sourceUrl: "https://www.tum.de/en/studies/degree-programs/detail/informatics-bachelor-of-science-bsc",
+  },
+  "cs-imperial-1": {
+    name: "Imperial College London",
+    domain: "imperial.ac.uk",
+    sourceLabel: "Computing program",
+    sourceUrl: "https://www.imperial.ac.uk/computing/prospective-students/courses/ug/beng-meng-computing/",
+  },
+  "cs-knight-hennessy-1": {
+    name: "Knight-Hennessy Scholars",
+    domain: "knight-hennessy.stanford.edu",
+    sourceLabel: "Official admission guide",
+    sourceUrl: "https://knight-hennessy.stanford.edu/admission",
+  },
+  "cs-gates-cam-1": {
+    name: "Gates Cambridge",
+    domain: "gatescambridge.org",
+    sourceLabel: "Cambridge funding guide",
+    sourceUrl: "https://www.postgraduate.study.cam.ac.uk/funding/applying-university-funding",
+  },
+  "cs-budget-1": {
+    name: "University of Toronto",
+    domain: "utoronto.ca",
+    sourceLabel: "Awards and scholarships",
+    sourceUrl: "https://future.utoronto.ca/scholarships",
+  },
+};
 
 export default function CaseStudiesPage() {
   const [caseStudies, setCaseStudies] = useState<CaseStudy[]>([]);
@@ -102,18 +197,11 @@ export default function CaseStudiesPage() {
     <main className="min-h-screen overflow-hidden bg-paper text-ink selection:bg-signal-rose selection:text-white">
       <Nav />
 
-      <CaseStudiesHero caseStudies={caseStudies} loading={loading} />
-
       <section
         id="evidence-library"
         data-section-theme="light"
-        className="relative scroll-mt-24 bg-paper px-4 py-20 sm:px-6 sm:py-24"
+        className="relative scroll-mt-24 bg-paper px-4 pb-20 pt-12 sm:px-6 sm:pb-24 sm:pt-16"
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[linear-gradient(to_bottom,rgba(44,24,16,0.08),transparent)]"
-        />
-
         <div className="relative mx-auto max-w-6xl">
           <div className="grid gap-6 border-b border-ink/10 pb-10 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
@@ -121,7 +209,7 @@ export default function CaseStudiesPage() {
                 Find the story that looks like your next move<span className="text-signal-rose">.</span>
               </h2>
               <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-ink-dim sm:text-base">
-                Compare the grades, tests, activities, and decisions behind each profile. Filter by region or ambition, then open a story to see what carried the application.
+                Compare illustrative student profiles, then verify current requirements through the official university and scholarship sources linked on every card.
               </p>
             </div>
 
@@ -203,201 +291,6 @@ export default function CaseStudiesPage() {
   );
 }
 
-function CaseStudiesHero({ caseStudies, loading }: { caseStudies: CaseStudy[]; loading: boolean }) {
-  const reduceMotion = useReducedMotion();
-  const countryCount = new Set(caseStudies.map((study) => study.profile.country)).size;
-  const tierCount = new Set(caseStudies.map((study) => study.profile.tier)).size;
-
-  return (
-    <section
-      data-section-theme="dark"
-      className="relative -mt-16 min-h-[760px] overflow-hidden bg-[#241510] px-4 pb-20 pt-36 text-paper sm:px-6 sm:pb-24 sm:pt-40"
-    >
-      <HeroAtmosphere />
-
-      <div className="relative mx-auto grid min-h-[590px] max-w-7xl items-center gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:gap-8">
-        <motion.div
-          initial={reduceMotion ? false : { opacity: 0.84, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 max-w-2xl"
-        >
-          <h1 className="text-balance font-sans text-[44px] font-bold leading-[0.98] tracking-[-0.035em] text-paper sm:text-6xl lg:text-[72px]">
-            Every acceptance leaves a trail. <em className="font-serif font-normal italic text-[#F5C0C9]">Learn to read it</em><span className="text-signal-rose">.</span>
-          </h1>
-          <p className="mt-7 max-w-xl text-[16px] leading-relaxed text-paper/70 sm:text-lg">
-            Real stories from accepted students. See what worked, what they had, and how they got in.
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Link
-              href="#evidence-library"
-              className="group inline-flex items-center gap-2 rounded-full bg-paper px-5 py-3 text-sm font-semibold text-ink shadow-[0_14px_38px_-18px_rgba(250,246,240,0.55)] transition-transform hover:-translate-y-0.5"
-            >
-              Explore the evidence
-              <span className="transition-transform duration-200 group-hover:translate-x-1">
-                <GArrow s={14} />
-              </span>
-            </Link>
-            <Link
-              href="/#how"
-              className="rounded-full bg-white/[0.07] px-5 py-3 text-sm font-medium text-paper ring-1 ring-inset ring-white/15 backdrop-blur-md transition-colors hover:bg-white/[0.12]"
-            >
-              How Polaris works
-            </Link>
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-paper/50">
-            <span>{loading ? "Loading the library" : `${caseStudies.length} accepted-student profiles`}</span>
-            {!loading && caseStudies.length > 0 && (
-              <>
-                <span aria-hidden className="h-1 w-1 rounded-full bg-polaris-300/60" />
-                <span>{countryCount} countries</span>
-                <span aria-hidden className="h-1 w-1 rounded-full bg-polaris-300/60" />
-                <span>{tierCount} admission tiers</span>
-              </>
-            )}
-          </div>
-        </motion.div>
-
-        <HeroEvidenceDeck caseStudies={caseStudies.slice(0, 3)} loading={loading} />
-      </div>
-
-      <div aria-hidden className="absolute inset-x-0 bottom-0 h-28 bg-[linear-gradient(to_bottom,transparent,#FAF6F0)]" />
-    </section>
-  );
-}
-
-function HeroAtmosphere() {
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <motion.div
-        className="absolute -left-[18%] top-[8%] h-[560px] w-[560px] rounded-full bg-polaris-400/20 blur-[120px]"
-        animate={reduceMotion ? undefined : { x: [0, 42, 0], y: [0, 24, 0], scale: [1, 1.08, 1] }}
-        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -right-[12%] top-[16%] h-[520px] w-[520px] rounded-full bg-aurora-500/15 blur-[130px]"
-        animate={reduceMotion ? undefined : { x: [0, -36, 0], y: [0, -30, 0] }}
-        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <div className="absolute left-[58%] top-[44%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.05]" />
-      <div className="absolute left-[58%] top-[44%] h-[410px] w-[410px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-polaris-300/[0.08]" />
-      {ORBIT_POINTS.map((point, index) => (
-        <motion.span
-          key={index}
-          className="absolute rounded-full bg-polaris-200"
-          style={{ left: point.left, top: point.top, width: point.size, height: point.size }}
-          animate={reduceMotion ? undefined : { opacity: [0.18, 0.75, 0.18], scale: [0.8, 1.35, 0.8] }}
-          transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut", delay: point.delay }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function HeroEvidenceDeck({ caseStudies, loading }: { caseStudies: CaseStudy[]; loading: boolean }) {
-  const tilt = useTilt(4.5);
-  const reduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0.82, y: 28, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 1, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
-      className="relative mx-auto h-[470px] w-full max-w-[620px]"
-      style={{ perspective: 1200 }}
-    >
-      <motion.div
-        onMouseMove={tilt.onMouseMove}
-        onMouseLeave={tilt.onMouseLeave}
-        style={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY, transformStyle: "preserve-3d" }}
-        className="absolute inset-0"
-      >
-        <motion.div
-          className="absolute left-[7%] top-[8%] w-[78%] rounded-2xl bg-[#3A251D]/88 p-5 text-paper shadow-[0_34px_90px_-36px_rgba(0,0,0,0.9)] ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-6"
-          style={{ transform: "translateZ(-34px) rotate(-6deg)", transformOrigin: "center" }}
-          animate={reduceMotion ? undefined : { y: [0, -7, 0] }}
-          transition={{ duration: 7.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <DeckCardContent study={caseStudies[1]} loading={loading} subdued />
-        </motion.div>
-
-        <motion.div
-          className="absolute bottom-[8%] right-[3%] w-[72%] rounded-2xl bg-[#1A100D]/94 p-5 text-paper shadow-[0_42px_100px_-42px_rgba(0,0,0,0.95)] ring-1 ring-inset ring-white/10 backdrop-blur-xl sm:p-6"
-          style={{ transform: "translateZ(20px) rotate(5deg)", transformOrigin: "center" }}
-          animate={reduceMotion ? undefined : { y: [0, 8, 0] }}
-          transition={{ duration: 8.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-        >
-          <DeckCardContent study={caseStudies[2]} loading={loading} subdued />
-        </motion.div>
-
-        <div
-          className="absolute left-[12%] top-[25%] z-20 w-[80%] rounded-2xl bg-paper-card p-5 text-ink shadow-[0_45px_110px_-38px_rgba(0,0,0,0.9)] sm:p-7"
-          style={{ transform: "translateZ(66px) rotate(-1.25deg)", transformOrigin: "center" }}
-        >
-          <div className="mb-5 flex items-center justify-between gap-4 border-b border-ink/10 pb-4">
-            <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-polaris-600">
-              <NorthStarMark s={16} /> Evidence profile
-            </span>
-            <span className="h-2 w-2 rounded-full bg-aurora-500 shadow-[0_4px_14px_rgba(91,140,109,0.55)]" />
-          </div>
-          <DeckCardContent study={caseStudies[0]} loading={loading} />
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function DeckCardContent({
-  study,
-  loading,
-  subdued = false,
-}: {
-  study?: CaseStudy;
-  loading: boolean;
-  subdued?: boolean;
-}) {
-  if (loading || !study) {
-    return (
-      <div className="space-y-3" aria-hidden>
-        <div className={cn("h-3 w-24 rounded-full", subdued ? "bg-white/10" : "bg-ink/10")} />
-        <div className={cn("h-5 w-4/5 rounded-md", subdued ? "bg-white/10" : "bg-ink/10")} />
-        <div className={cn("h-3 w-3/5 rounded-full", subdued ? "bg-white/[0.07]" : "bg-ink/[0.07]")} />
-      </div>
-    );
-  }
-
-  const tier = TIER_LABELS[study.profile.tier] ?? study.profile.tier;
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        <span className={cn("rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em]", subdued ? "bg-white/[0.08] text-polaris-200" : "bg-polaris-100 text-polaris-700")}>
-          {tier}
-        </span>
-        <span className={cn("truncate text-[10px]", subdued ? "text-paper/45" : "text-ink-muted")}>{study.profile.country}</span>
-      </div>
-      <h3 className={cn("mt-4 font-serif font-bold leading-snug", subdued ? "text-[15px] text-paper/88" : "text-xl text-ink sm:text-[22px]")}>
-        {study.title}
-      </h3>
-      <p className={cn("mt-3 line-clamp-2 text-xs leading-relaxed", subdued ? "text-paper/45" : "text-ink-dim")}>
-        {study.profile.school}
-      </p>
-      {!subdued && (
-        <div className="mt-5 flex flex-wrap gap-1.5">
-          {study.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full bg-paper-soft px-2.5 py-1 text-[10px] text-ink-dim">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
 function FilterGroup({
   label,
   options,
@@ -453,118 +346,200 @@ function CaseStudyCard({
   onToggle: () => void;
 }) {
   const reduceMotion = useReducedMotion();
+  const tilt = useTilt(4.25);
   const tier = TIER_LABELS[study.profile.tier] ?? study.profile.tier;
-  const institution = study.tags[0] ?? study.profile.country;
-  const initials = institution.slice(0, 2).toUpperCase();
-  const tones = [
-    "bg-polaris-100 text-polaris-700",
-    "bg-aurora-100 text-aurora-700",
-    "bg-[#F5DDE3] text-signal-rose",
+  const source = INSTITUTION_SOURCES[study.id] ?? {
+    name: study.tags[0] ?? "Institution",
+    domain: "",
+    sourceLabel: "Official information",
+    sourceUrl: "",
+  };
+  const atmospheres = [
+    "bg-polaris-300/24",
+    "bg-aurora-400/22",
+    "bg-rose-300/24",
   ];
 
   return (
-    <motion.article
+    <motion.div
       layout="position"
       initial={reduceMotion ? false : { opacity: 0.72, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 8 }}
       transition={{ duration: reduceMotion ? 0 : 0.34, delay: reduceMotion ? 0 : Math.min(index, 5) * 0.035, ease: [0.16, 1, 0.3, 1] }}
-      className="group flex h-fit flex-col overflow-hidden rounded-2xl bg-paper-card p-5 shadow-[0_18px_55px_-38px_rgba(44,24,16,0.58)] transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_26px_66px_-38px_rgba(44,24,16,0.66)] sm:p-6"
+      className="h-full [perspective:1200px]"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl font-serif text-sm font-bold", tones[index % tones.length])}>
-          {initials}
-        </div>
-        <span className={cn(
-          "rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em]",
-          study.profile.tier === "elite" ? "bg-[#F5DDE3] text-signal-rose" : "bg-polaris-100 text-polaris-700",
-        )}>
-          {tier}
-        </span>
-      </div>
+      <motion.article
+        onMouseMove={tilt.onMouseMove}
+        onMouseLeave={tilt.onMouseLeave}
+        whileHover={reduceMotion ? undefined : { y: -7, scale: 1.01 }}
+        transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          rotateX: reduceMotion ? 0 : tilt.rotateX,
+          rotateY: reduceMotion ? 0 : tilt.rotateY,
+          transformStyle: "preserve-3d",
+        }}
+        className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-paper-card p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_20px_58px_-38px_rgba(44,24,16,0.62)] transition-shadow duration-300 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_34px_72px_-38px_rgba(44,24,16,0.72)] sm:p-6"
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full opacity-60 blur-3xl transition-[opacity,transform] duration-500 group-hover:scale-110 group-hover:opacity-100",
+            atmospheres[index % atmospheres.length],
+          )}
+        />
 
-      <h3 className="mt-5 text-balance font-serif text-lg font-bold leading-snug text-ink sm:text-[19px]">
-        {study.title}
-      </h3>
-      <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-        {study.profile.school} <span aria-hidden>·</span> {study.profile.country}
-      </p>
-
-      <div className="mt-5 flex flex-wrap gap-1.5">
-        {study.tags.slice(0, 5).map((tag) => (
-          <span key={tag} className="rounded-full bg-paper-soft px-2.5 py-1 text-[10.5px] text-ink-dim">
-            {tag}
-          </span>
-        ))}
-      </div>
-
-      <AnimatePresence initial={false}>
-        {expanded && !study.locked && (
-          <motion.div
-            initial={reduceMotion ? false : { height: 0, opacity: 0, filter: "blur(4px)" }}
-            animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
-            exit={{ height: 0, opacity: 0, filter: "blur(4px)" }}
-            transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <div className="mt-6 border-t border-ink/10 pt-5">
-              <dl className="grid gap-4 sm:grid-cols-2">
-                <ProfileFact label="Academic record" value={study.profile.gpa} />
-                <ProfileFact label="Tests" value={study.profile.tests} />
-              </dl>
-
-              {study.profile.ecs && study.profile.ecs.length > 0 && (
-                <div className="mt-5">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.17em] text-ink-muted">Activities</div>
-                  <ul className="mt-2.5 space-y-2">
-                    {study.profile.ecs.map((activity) => (
-                      <li key={activity} className="flex gap-2.5 text-xs leading-relaxed text-ink-dim">
-                        <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-500" />
-                        {activity}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {study.whatWorked && (
-                <div className="mt-5 rounded-xl bg-aurora-100/65 p-4">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-aurora-700">
-                    <NorthStarMark s={13} /> What moved the decision
-                  </div>
-                  <p className="mt-2.5 text-[13px] leading-relaxed text-ink">{study.whatWorked}</p>
-                </div>
-              )}
+        <div className="relative flex items-start justify-between gap-3" style={{ transform: "translateZ(34px)" }}>
+          <div className="flex min-w-0 items-center gap-3">
+            <InstitutionMark source={source} />
+            <div className="min-w-0">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-aurora-700">Official institution</div>
+              <div className="mt-1 line-clamp-2 text-[11px] font-semibold leading-tight text-ink-dim">{source.name}</div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+          <span className={cn(
+            "shrink-0 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em]",
+            study.profile.tier === "elite" ? "bg-[#F5DDE3] text-signal-rose" : "bg-polaris-100 text-polaris-700",
+          )}>
+            {tier}
+          </span>
+        </div>
 
-      <div className="mt-6 border-t border-ink/10 pt-4">
-        {study.locked ? (
-          <Link
-            href="/#pricing"
-            className="group/link flex w-full items-center justify-between gap-3 text-left text-xs font-semibold text-polaris-600 transition-colors hover:text-ink"
-            title={upgradeMessage || "Upgrade to Pro to read the full analysis"}
-          >
-            <span className="flex items-center gap-2">
-              <LockIcon /> Unlock the full analysis
+        <div className="relative" style={{ transform: "translateZ(24px)" }}>
+          <h3 className="mt-6 text-balance font-serif text-lg font-bold leading-snug text-ink sm:text-[19px]">
+            {study.title}
+          </h3>
+          <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+            {study.profile.school} <span aria-hidden>·</span> {study.profile.country}
+          </p>
+          {source.sourceUrl ? (
+            <a
+              href={source.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-aurora-700 underline decoration-aurora-500/30 underline-offset-4 transition-colors hover:text-ink focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aurora-500/50"
+              aria-label={`Open ${source.sourceLabel} on the official website`}
+            >
+              {source.sourceLabel}
+              <span aria-hidden className="-rotate-45"><GArrow s={11} /></span>
+            </a>
+          ) : (
+            <span className="mt-3 block text-[10.5px] font-medium text-ink-muted">Source link pending</span>
+          )}
+        </div>
+
+        <div className="relative mt-5 flex flex-wrap gap-1.5" style={{ transform: "translateZ(18px)" }}>
+          {study.tags.slice(0, 5).map((tag) => (
+            <span key={tag} className="rounded-full bg-paper-soft px-2.5 py-1 text-[10.5px] text-ink-dim">
+              {tag}
             </span>
-            <span className="transition-transform group-hover/link:translate-x-1"><GArrow s={13} /></span>
-          </Link>
-        ) : (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={onToggle}
-            className="flex w-full items-center justify-between gap-3 text-left text-xs font-semibold text-polaris-600 transition-colors hover:text-ink"
-          >
-            <span>{expanded ? "Close analysis" : "Read the full analysis"}</span>
-            <ChevronIcon open={expanded} />
-          </button>
-        )}
-      </div>
-    </motion.article>
+          ))}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && !study.locked && (
+            <motion.div
+              initial={reduceMotion ? false : { height: 0, opacity: 0, filter: "blur(4px)" }}
+              animate={{ height: "auto", opacity: 1, filter: "blur(0px)" }}
+              exit={{ height: 0, opacity: 0, filter: "blur(4px)" }}
+              transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="mt-6 border-t border-ink/10 pt-5">
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  <ProfileFact label="Academic record" value={study.profile.gpa} />
+                  <ProfileFact label="Tests" value={study.profile.tests} />
+                </dl>
+
+                {study.profile.ecs && study.profile.ecs.length > 0 && (
+                  <div className="mt-5">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.17em] text-ink-muted">Activities</div>
+                    <ul className="mt-2.5 space-y-2">
+                      {study.profile.ecs.map((activity) => (
+                        <li key={activity} className="flex gap-2.5 text-xs leading-relaxed text-ink-dim">
+                          <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-aurora-500" />
+                          {activity}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {study.whatWorked && (
+                  <div className="mt-5 rounded-xl bg-aurora-100/65 p-4">
+                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-aurora-700">
+                      <NorthStarMark s={13} /> What moved the decision
+                    </div>
+                    <p className="mt-2.5 text-[13px] leading-relaxed text-ink">{study.whatWorked}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="relative mt-auto border-t border-ink/10 pt-4" style={{ transform: "translateZ(22px)" }}>
+          {study.locked ? (
+            <Link
+              href="/#pricing"
+              className="group/link flex w-full items-center justify-between gap-3 text-left text-xs font-semibold text-polaris-600 transition-colors hover:text-ink"
+              title={upgradeMessage || "Upgrade to Pro to read the full analysis"}
+            >
+              <span className="flex items-center gap-2">
+                <LockIcon /> Unlock the full analysis
+              </span>
+              <span className="transition-transform group-hover/link:translate-x-1"><GArrow s={13} /></span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={onToggle}
+              className="flex w-full items-center justify-between gap-3 text-left text-xs font-semibold text-polaris-600 transition-colors hover:text-ink"
+            >
+              <span>{expanded ? "Close analysis" : "Read the full analysis"}</span>
+              <ChevronIcon open={expanded} />
+            </button>
+          )}
+        </div>
+      </motion.article>
+    </motion.div>
+  );
+}
+
+function InstitutionMark({ source }: { source: InstitutionSource }) {
+  const initials = source.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+  const logoUrl = source.domain
+    ? `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(`https://${source.domain}`)}&sz=128`
+    : "";
+
+  return (
+    <span className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white text-[11px] font-bold text-polaris-700 shadow-[0_14px_28px_-18px_rgba(44,24,16,0.5)] ring-1 ring-inset ring-ink/[0.08]">
+      <span aria-hidden>{initials}</span>
+      {logoUrl && (
+        // The favicon service fetches the mark published by the institution's
+        // own domain. Initials remain underneath as a resilient fallback.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          aria-hidden
+          src={logoUrl}
+          width="38"
+          height="38"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="absolute h-[38px] w-[38px] object-contain"
+          onError={(event) => { event.currentTarget.hidden = true; }}
+        />
+      )}
+    </span>
   );
 }
 

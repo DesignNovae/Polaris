@@ -62,9 +62,9 @@ export function GemmaDiscoveryRefresh({
           <div className="flex items-center gap-2"><Pill tone="aurora"><Icon.spark size={11} /> Polaris AI</Pill>{trace && <span className="text-[9px] text-ink-muted">{trace}</span>}</div>
           <h3 className="mt-2 font-serif text-[17px] font-bold text-ink">{bn ? "প্রমাণভিত্তিক তালিকা হালনাগাদ করুন" : "Refresh the evidence-backed list"}</h3>
         </div>
-        <div className="flex min-w-0 flex-1 gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void refresh(); }} className="h-10 min-w-0 flex-1 rounded-xl border border-ink-faint/20 bg-bg/70 px-3 text-[12px] text-ink outline-none focus:border-aurora-500" />
-          <Btn variant="accent" disabled={busy || query.trim().length < 2} onClick={() => void refresh()} icon={<Icon.spark size={12} />}>{busy ? (bn ? "Polaris খুঁজছে…" : "Refreshing…") : (bn ? "Polaris দিয়ে হালনাগাদ" : "Refresh with Polaris")}</Btn>
+          <Btn className="w-full justify-center sm:w-auto" variant="accent" disabled={busy || query.trim().length < 2} onClick={() => void refresh()} icon={<Icon.spark size={12} />}>{busy ? (bn ? "Polaris খুঁজছে…" : "Refreshing…") : (bn ? "Polaris দিয়ে হালনাগাদ" : "Refresh with Polaris")}</Btn>
         </div>
       </div>
       {error && <p className="mt-2 text-[10.5px] text-signal-rose">{error}</p>}

@@ -19,13 +19,44 @@ export function OfflineProvider() {
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
-    if (
-      process.env.NODE_ENV !== "production" ||
-      typeof navigator === "undefined" ||
-      !("serviceWorker" in navigator)
-    ) {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
+
+    if (process.env.NODE_ENV !== "production") {
+      // A production worker can survive a later `next dev` session on the same
+      // localhost origin. Its cache-first build assets then return yesterday's
+      // app chunks under today's stable development URLs, which can crash the
+      // React tree before the page hydrates. Retire Polaris workers and caches
+      // whenever a healthy development bundle gets a chance to mount.
+      const retireProductionCache = async () => {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.allSettled(
+          registrations
+            .filter((registration) => {
+              const worker = registration.active ?? registration.waiting ?? registration.installing;
+              return worker ? new URL(worker.scriptURL).pathname === "/sw.js" : false;
+            })
+            .map((registration) => registration.unregister()),
+        );
+
+        if ("caches" in window) {
+          const cacheNames = await window.caches.keys();
+          await Promise.allSettled(
+            cacheNames
+              .filter((name) => name.startsWith("polaris-"))
+              .map((name) => window.caches.delete(name)),
+          );
+        }
+      };
+
+      void retireProductionCache().catch((err) => {
+        // Cache cleanup is defensive; it must never become a new render error.
+        console.warn("[pwa] development cache cleanup failed:", err);
+      });
+      return;
+    }
+
     navigator.serviceWorker.register("/sw.js").catch((err) => {
       // Registration failing must never break the page.
       console.warn("[pwa] service worker registration failed:", err);

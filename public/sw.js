@@ -19,10 +19,13 @@
  * does not lose the attempt.
  */
 
-const VERSION = "polaris-v1";
+const VERSION = "polaris-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const DATA_CACHE = `${VERSION}-data`;
 const QUEUE_DB = "polaris-outbox";
+const IS_LOCAL_DEVELOPMENT = ["localhost", "127.0.0.1", "::1"].includes(
+  self.location.hostname,
+);
 
 /** Shell routes worth having available cold. */
 const SHELL_ROUTES = ["/offline", "/roadmap", "/deadlines"];
@@ -123,6 +126,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Production workers sometimes remain installed after switching the same
+  // origin back to `next dev`. Development chunk URLs are stable rather than
+  // content-hashed, so serving an old cached chunk can crash hydration.
+  if (IS_LOCAL_DEVELOPMENT) return;
   if (isNeverCached(url)) return;
 
   if (url.pathname.startsWith("/api/")) {
