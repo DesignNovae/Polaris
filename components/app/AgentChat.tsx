@@ -637,7 +637,7 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
       <button
         onClick={() => setMobileOpen(true)}
         aria-label="Open Strategist chat"
-        className="xl:hidden fixed bottom-5 right-5 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-polaris-500 to-nova-500 text-white flex items-center justify-center shadow-pop active:scale-95 transition-transform"
+        className="xl:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-polaris-500 to-nova-500 text-white flex items-center justify-center shadow-pop active:scale-95 transition-transform"
       >
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8.5 8.5 0 1 1-3.4-6.8L21 4l-1.2 3.6A8.5 8.5 0 0 1 21 12z"/></svg>
       </button>

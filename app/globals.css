@@ -337,6 +337,32 @@ html:has(.polaris-workspace-shell) body::-webkit-scrollbar {
 }
 
 /* Consistent product scrollers for nested workspaces and floating controls. */
+.workspace-topbar {
+  container: workspace-toolbar / inline-size;
+}
+
+/* The resizable Strategist rail changes the column, not the viewport. */
+@container workspace-toolbar (max-width: 1000px) {
+  .workspace-topbar .workspace-topbar-row { gap: 12px; padding-inline: 16px; }
+  .workspace-topbar .workspace-search { flex: none; margin-left: 0; }
+  .workspace-topbar .workspace-search-trigger { display: inline-flex; }
+  .workspace-topbar .workspace-search-field { display: none; }
+  .workspace-topbar .workspace-secondary, .workspace-topbar .workspace-separator { display: none; }
+}
+
+@container workspace-toolbar (max-width: 740px) {
+  .workspace-topbar .workspace-account-name { display: none; }
+  .workspace-topbar .workspace-agent-label { display: none; }
+  .workspace-topbar .workspace-agent > span:last-child { padding-inline: 10px; }
+}
+
+@container workspace-toolbar (max-width: 540px) {
+  .workspace-topbar .workspace-progress { display: none; }
+  .workspace-topbar .workspace-title { flex: 1; min-width: 0; }
+  .workspace-topbar .workspace-title > div:last-child { max-width: 130px; }
+  .workspace-topbar .workspace-topbar-row { gap: 8px; padding-inline: 12px; }
+}
+
 .polaris-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(178, 118, 76, 0.58) rgba(49, 36, 28, 0.22);

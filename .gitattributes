@@ -1,0 +1,6 @@
+
+# Preserve the verified ThreeUI source hashes on Windows checkouts.
+vendor/threeui-gallery/** -text
+public/threeui/threeui.css -text
+public/synthralos-halftone.html -text
+public/threeui/polaris-koi.html -text
