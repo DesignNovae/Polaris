@@ -1,0 +1,53 @@
+.metal {
+  --light-x: 50%;
+  --light-y: 0%;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 2px;
+  border-radius: 999px;
+  background: conic-gradient(from 115deg, #6e5242, #e7be90 12%, #769dba 21%, #312722 30%, #a48a74 45%, #fff0d8 52%, #bc8ba6 62%, #6f8d9a 72%, #38281f 84%, #cba17c);
+  color: #faf6f0;
+  box-shadow: 0 10px 24px -10px #080504, inset 0 1px 0 #fce5ca80;
+  text-decoration: none;
+  transition: box-shadow 220ms, transform 220ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.metalSurface {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 110px 65px at var(--light-x) var(--light-y), #8e73604d, transparent), linear-gradient(180deg, #302722, #171311 65%, #241b17);
+  box-shadow: inset 0 1px 2px #f9e3cb26, inset 0 -2px 4px #000;
+  overflow: hidden;
+}
+.metalSurface::after {
+  content: "";
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(from 45deg at 50% 50%, transparent 35%, #efd5b826 45%, #a4c3de30 50%, transparent 60%);
+  opacity: 0;
+  transform: rotate(-35deg);
+  transition: transform 650ms cubic-bezier(.16,1,.3,1), opacity 300ms;
+}
+.metalContent { position: relative; display: inline-flex; gap: 10px; align-items: center; padding: 13px 23px; font-size: 14px; font-weight: 600; }
+.metal:hover { box-shadow: 0 14px 30px -10px #080504, 0 5px 18px -8px #e1b58e80; }
+.metal:hover .metalSurface::after, .metal:focus-visible .metalSurface::after { opacity: 1; transform: rotate(30deg); }
+.metal:active { transform: scale(.97); }
+.metal:focus-visible { outline: 2px solid #f3d5b5; outline-offset: 5px; border-radius: 999px; }
+.secondary { background: linear-gradient(150deg, #ad9784, #42332a 45%, #8a7563); }
+.secondary .metalContent { font-weight: 500; padding-inline: 21px; }
+.secondary .metalSurface { background: radial-gradient(ellipse 100px 60px at var(--light-x) var(--light-y), #b59c8030, transparent), #2b211c; }
+
+@media (prefers-reduced-motion: reduce) {
+  .metal, .metalSurface::after { transition: none; }
+  .metal:active { transform: none; }
+  .metalSurface::after { display: none; }
+}
+@media (forced-colors: active) {
+  .metal { border: 1px solid ButtonText; }
+  .metalSurface { display: none; }
+}

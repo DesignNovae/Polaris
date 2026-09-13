@@ -1,0 +1,27 @@
+:root { --field: transparent; --paper: #faf6f0; --muted: #c4b2a5; --accent: #b8546a; }
+html, body { background: transparent; color-scheme: light; }
+body::before, .fluid-pastels-background, .orbital-field { display: none; }
+.stack-scene { width: min(66vw, 52vh); }
+.artwork { --panel: #342219 !important; --ink: #faf6f0 !important; --accent-card: #b8546a !important; }
+.image-field { height: 58%; }
+.copy-panel { inset: 58% 0 0; display: flex; flex-direction: column; padding: 5cqw 6.7cqw 3.5cqw; }
+.copy { position: static; font-size: 7.5cqw; line-height: 1.05; letter-spacing: -.025em; margin: 0; }
+.polaris-detail { position: static; margin: 4cqw 0 3cqw; color: #ddcfc3; font-size: 4.2cqw; line-height: 1.45; }
+.brand-lockup { display: none; }
+.polaris-controls { display: flex; align-items: center; justify-content: space-between; margin-top: auto; font-size: 12px; }
+.polaris-controls button { width: 40px; height: 40px; border: 1px solid #795543; border-radius: 50%; background: transparent; color: #faf6f0; font-size: 18px; cursor: pointer; }
+.polaris-explore { align-self: flex-start; margin-top: auto; border: 0; background: transparent; color: #f4c6d2; font-size: 12px; min-height: 38px; padding: 6px 0; cursor: pointer; }
+.polaris-controls button:hover,.polaris-explore:hover { background: #58392c; }
+.polaris-controls button:focus-visible,.polaris-explore:focus-visible { outline: 3px solid #d58ca0; outline-offset: 2px; }
+.polaris-close { position: absolute; z-index: 8; top: 10px; right: 10px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: #2c1810; color: #faf6f0; font: 22px/1 Inter, sans-serif; cursor: pointer; touch-action: manipulation; }
+.polaris-close::before { content: ""; position: absolute; inset: -7px; }
+.stack-shell { cursor: default; touch-action: pan-y; }
+.polaris-close:hover { background: #58392c; }
+.polaris-close:focus-visible { outline: 3px solid #d58ca0; outline-offset: 3px; }
+.polaris-close,.polaris-explore { opacity: 0; pointer-events: none; }
+.hanko { width: 5cqw; height: 5cqw; background: #b8546a; }
+.hanko span { display: none; }
+.hanko::before { border: 0; background: #faf6f0; clip-path: polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%); }
+.interaction-hint { display: none; }
+.stack-shell:focus-visible .artwork { outline: 3px solid #d58ca0; outline-offset: 5px; }
+@media(max-width: 480px) { .stack-scene { width: min(66vw, 52vh); } }

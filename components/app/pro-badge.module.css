@@ -1,0 +1,44 @@
+.badge {
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 64px;
+  height: 28px;
+  margin-left: auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #583920;
+  color: #fff7e9;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+}
+
+.badge canvas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  /* Grade the original blue light to Polaris copper without altering its flow. */
+  filter: hue-rotate(170deg) saturate(0.65);
+}
+
+.badge > span {
+  text-shadow: 0 1px 3px #1c110b, 0 0 5px #1c110b;
+}
+
+.badge[data-mode="light"] {
+  background: #eed0a9;
+  color: #422817;
+}
+
+.badge[data-mode="light"] canvas {
+  filter: none;
+}
+
+.badge[data-mode="light"] > span {
+  text-shadow: 0 1px 1px #fff5e5;
+}

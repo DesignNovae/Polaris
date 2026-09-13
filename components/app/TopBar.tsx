@@ -157,6 +157,12 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
 
   function toggleAgent() {
     const k = "polaris.agentOpen";
+    if (window.matchMedia("(max-width: 1279px)").matches) {
+      localStorage.setItem(k, "true");
+      document.documentElement.dataset.agentOpen = "true";
+      window.dispatchEvent(new Event("polaris:openAgentRail"));
+      return;
+    }
     const next = localStorage.getItem(k) === "false" ? "true" : "false";
     localStorage.setItem(k, next);
     document.documentElement.dataset.agentOpen = next;
@@ -168,12 +174,12 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
   }
 
   return (
-    <header className="app-glass-dark h-14 sticky top-0 z-20 text-paper shadow-[0_10px_28px_-16px_rgba(0,0,0,0.55)]">
+    <header className="workspace-topbar app-glass-dark h-14 shrink-0 sticky top-0 z-20 text-paper shadow-[0_10px_28px_-16px_rgba(0,0,0,0.55)]">
       {/* gradient hairline instead of a flat border */}
       <span aria-hidden className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-polaris-400/40 to-transparent" />
 
-      <div className="h-full px-4 sm:px-6 flex items-center gap-3 sm:gap-4">
-        <div className="min-w-0 shrink-0">
+      <div className="workspace-topbar-row h-full px-4 sm:px-6 flex items-center gap-3 sm:gap-4">
+        <div className="workspace-title min-w-0 shrink-0">
           <div className="hidden sm:block text-[10px] uppercase tracking-[0.22em] text-paper/55">{t.eyebrow}</div>
           <div className="font-serif text-[15px] font-bold text-paper leading-none sm:mt-0.5 truncate max-w-[120px] sm:max-w-none">{t.title}</div>
         </div>
@@ -182,15 +188,15 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
         <WorkspaceSearch basePath={basePath} lang={lang} />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <ProgressPill basePath={basePath} demoSummary={demoProgress} />
-          <div className="hidden sm:block h-6 w-px bg-white/[0.10] mx-0.5" />
-                    <Link href={basePath || "/roadmap"} className="hidden md:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] hover:-translate-y-px transition-all">
+          <div className="workspace-progress"><ProgressPill basePath={basePath} demoSummary={demoProgress} /></div>
+          <div className="workspace-separator hidden sm:block h-6 w-px bg-white/[0.10] mx-0.5" />
+                    <Link href={basePath || "/roadmap"} className="workspace-secondary hidden md:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper hover:bg-white/[0.10] hover:-translate-y-px transition-all">
             New task
           </Link>
-                    <Link href={basePath || "/roadmap"} className="hidden lg:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 text-paper/75 hover:bg-white/[0.06] hover:text-paper transition-colors">
+                    <Link href={basePath || "/roadmap"} className="workspace-secondary hidden lg:inline-flex h-8 px-3 rounded-lg text-[13px] font-medium items-center gap-1.5 text-paper/75 hover:bg-white/[0.06] hover:text-paper transition-colors">
             Replan
           </Link>
-          <div className="hidden md:block h-6 w-px bg-white/[0.10] mx-1" />
+          <div className="workspace-separator hidden md:block h-6 w-px bg-white/[0.10] mx-1" />
 
           <button
             type="button"
@@ -228,7 +234,8 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
           <button
             onClick={toggleAgent}
             title={insightCount > 0 ? `${insightCount} new signal${insightCount === 1 ? "" : "s"} for the Strategist` : "Open the Strategist"}
-            className="hidden xl:inline-flex relative rounded-xl p-[1.5px] group hover:-translate-y-px transition-transform"
+            aria-label="Toggle Strategist"
+            className="workspace-agent inline-flex relative rounded-xl p-[1.5px] group hover:-translate-y-px transition-transform"
           >
             {/* gradient halo */}
             <span aria-hidden className={cn(
@@ -240,7 +247,7 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
             )}
             <span className="relative h-[33px] px-3 rounded-[10.5px] bg-ink text-paper text-[13px] font-semibold inline-flex items-center gap-2">
               <SparkGlyph />
-              Strategist
+              <span className="workspace-agent-label">Strategist</span>
               {insightCount > 0 ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-aurora-400/20 text-aurora-200 px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
                   <span className="h-1.5 w-1.5 rounded-full bg-aurora-400 animate-pulse" />
@@ -267,7 +274,7 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
               title="Account"
             >
               <HeaderAvatar url={avatarUrl} initials={initials} size={26} tone={planTone} />
-              <span className="hidden md:inline text-[12.5px] font-medium text-paper truncate max-w-[120px]">
+              <span className="workspace-account-name hidden md:inline text-[12.5px] font-medium text-paper truncate max-w-[120px]">
                 {name || "Account"}
               </span>
               <ChevGlyph open={profileOpen} />

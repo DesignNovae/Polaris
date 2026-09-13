@@ -57,7 +57,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   return (
     <div
       className={cn(
-        "relative min-w-0 2xl:ml-6 2xl:flex-1 2xl:max-w-[420px]",
+        "workspace-search relative min-w-0 2xl:ml-6 2xl:flex-1 2xl:max-w-[420px]",
         mobileOpen ? "absolute inset-x-3 z-40 2xl:static 2xl:inset-auto" : "shrink-0 2xl:shrink",
       )}
     >
@@ -67,7 +67,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label={lang === "bn" ? "খুঁজুন" : "Search"}
-          className="2xl:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
+          className="workspace-search-trigger 2xl:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
         >
           <SearchGlyph />
         </button>
@@ -75,7 +75,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
 
       <label className={cn(
         "h-9 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:bg-white/[0.09] focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]",
-        mobileOpen ? "flex" : "hidden 2xl:flex",
+        mobileOpen ? "flex" : "workspace-search-field hidden 2xl:flex",
       )}>
         <SearchGlyph />
         <input

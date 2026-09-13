@@ -1,0 +1,23 @@
+.section {
+  background: #faf6f0;
+  padding: 48px 24px;
+  overflow: hidden;
+}
+.frame {
+  width: 100%;
+  max-width: 1280px;
+  height: clamp(380px, 58vw, 760px);
+  margin-inline: auto;
+  overflow: hidden;
+}
+@media (max-width: 640px) {
+  .section { padding: 24px 0; }
+  .frame { height: 420px; }
+}
+.interactive { position: relative; width: 100%; height: 100%; touch-action: none; user-select: none; cursor: grab; }
+.dragSurface { position: absolute; inset: 0; }
+.interactive[data-dragging] , .interactive[data-dragging] .cardHit { cursor: grabbing; }
+.dragHint { position: absolute; bottom: 12px; width: 100%; text-align: center; color: #795d4d; font-size: 12px; pointer-events: none; }
+.cardHit { position: absolute; left: 0; top: 0; width: 512px; height: 384px; border: 0; padding: 0; border-radius: 22%; background: transparent; transform-origin: 0 0; visibility: hidden; cursor: pointer; }
+.cardHit:hover { box-shadow: inset 0 0 0 5px #d58ca0aa; }
+.cardHit:focus-visible { outline: 8px solid #b8546a; outline-offset: 4px; }

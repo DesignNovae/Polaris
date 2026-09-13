@@ -18,6 +18,7 @@ import { Pill, KBD } from "./ui";
 import { PathSwitcher } from "./PathSwitcher";
 import { StreakWidget } from "./StreakWidget";
 import { cn } from "@/lib/cn";
+import { ProBadge } from "./ProBadge";
 import { CompassLogo } from "@/components/Nav";
 
 type Props = {
@@ -213,16 +214,7 @@ function PlanBadge({ plan }: { plan: Plan }) {
       </span>
     );
   }
-  if (plan === "pro") {
-    return (
-      <span className="ml-auto relative inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[10.5px] font-bold tracking-wider uppercase text-white shadow-sm overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #C47D4E 0%, #8B5E3C 60%, #5C3D26 130%)" }}
-      >
-        <span className="h-1 w-1 rounded-full bg-polaris-100 shadow-[0_0_6px_rgba(255,255,255,0.6)]"/>
-        Pro
-      </span>
-    );
-  }
+  if (plan === "pro") return <ProBadge />;
   return (
     <span className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[10.5px] font-bold tracking-wider uppercase text-paper/85 bg-white/[0.10] ring-1 ring-inset ring-white/[0.18]">
       Free

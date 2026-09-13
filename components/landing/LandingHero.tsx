@@ -9,7 +9,7 @@
  * reply, fit ring, deadline countdown) with satellite insight cards.
  */
 
-import Link from "next/link";
+import { LiquidMetalLink } from "./LiquidMetalLink";
 import { useSession } from "@/components/SessionProvider";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/cn";
@@ -106,23 +106,21 @@ export function LandingHero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Link
+              <LiquidMetalLink
                 href={session ? "/roadmap" : "/demo"}
-                className="group relative inline-flex items-center gap-2 rounded-full bg-paper px-6 py-3.5 text-[14px] font-semibold text-ink hover:bg-paper-soft transition-colors shadow-[0_12px_40px_-12px_rgba(250,246,240,0.45)]"
               >
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-aurora-500 opacity-75 animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-aurora-500" />
                 </span>
                 {session ? "Open your roadmap" : "Try the live Polaris demo"}
                 <span className="transition-transform duration-200 group-hover:translate-x-1"><GArrow /></span>
-              </Link>
-              <Link
+              </LiquidMetalLink>
+              <LiquidMetalLink
                 href="#how"
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/15 px-5 py-3.5 text-[13.5px] font-medium text-paper hover:bg-white/15 transition-colors"
+                secondary
               >
                 See the product
-              </Link>
+              </LiquidMetalLink>
             </motion.div>
 
             <motion.div
