@@ -1,8 +1,10 @@
 """Bounded media decoding and timestamped local speech recognition."""
 import math
+import os
 from pathlib import Path
 import re
 import subprocess
+from urllib.parse import urlparse
 
 from config import CACHE
 
@@ -10,6 +12,8 @@ CHUNK_SECONDS = 8.0
 MAX_SECONDS = 7200
 MAX_UPLOAD = 100 * 1024 * 1024
 YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+YOUTUBE_PROXY_ENV = "POLARIS_YOUTUBE_PROXY"
+PROXY_ENV_NAMES = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
 
 
 def chunk_index(seconds, duration):
@@ -35,6 +39,27 @@ def audio_duration(path):
     return duration
 
 
+def youtube_proxy():
+    """Return the downloader proxy, ignoring only stale loopback proxies.
+
+    The desktop app can inherit a dead localhost proxy from a development
+    shell. Remote proxies remain untouched, and ``POLARIS_YOUTUBE_PROXY`` can
+    explicitly select or disable a proxy (an empty value means direct access).
+    """
+    explicit = os.getenv(YOUTUBE_PROXY_ENV)
+    if explicit is not None:
+        return explicit
+    values = [os.getenv(name) for name in PROXY_ENV_NAMES if os.getenv(name)]
+    if not values:
+        return None
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    for value in values:
+        parsed = urlparse(value if "://" in value else f"http://{value}")
+        if parsed.hostname not in loopback:
+            return None
+    return ""
+
+
 def download_youtube(video_id, directory):
     if not YOUTUBE_ID.fullmatch(video_id):
         raise ValueError("Invalid YouTube video ID")
@@ -48,6 +73,9 @@ def download_youtube(video_id, directory):
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         "match_filter": lambda info, **_: "Video exceeds 2 hours" if (info.get("duration") or 0) > MAX_SECONDS else None,
     }
+    proxy = youtube_proxy()
+    if proxy is not None:
+        options["proxy"] = proxy
     try:
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=True)

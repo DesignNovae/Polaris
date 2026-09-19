@@ -24,6 +24,28 @@ if (!existsSync(python)) {
 }
 const worker = spawn(python, ["-m", "uvicorn", "worker:app", "--host", "127.0.0.1", "--port", "8765", "--no-access-log"], {
   cwd: path.join(root, "services", "signing"), stdio: "inherit", windowsHide: true,
+  env: signingWorkerEnvironment(),
 });
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => worker.kill());
 worker.on("exit", (code) => process.exit(code ?? 1));
+
+function signingWorkerEnvironment() {
+  const environment = { ...process.env };
+  const names = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"];
+  const values = names.map((name) => environment[name]).filter(Boolean);
+  const loopback = new Set(["127.0.0.1", "localhost", "::1"]);
+  const isLoopback = (value) => {
+    try {
+      const parsed = new URL(value.includes("://") ? value : `http://${value}`);
+      return loopback.has(parsed.hostname);
+    } catch {
+      return false;
+    }
+  };
+  // Codex and some local shells leave a dead localhost proxy behind. Remove it
+  // only when every inherited proxy is loopback; real remote proxies stay in use.
+  if (values.length && values.every(isLoopback)) {
+    for (const name of names) delete environment[name];
+  }
+  return environment;
+}
