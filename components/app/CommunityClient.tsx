@@ -28,6 +28,43 @@ type Msg = {
   createdAt: string;
 };
 
+function normaliseMessages(value: unknown): Msg[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: Msg[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item as Record<string, unknown>;
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    if (!id || seen.has(id) || typeof raw.text !== "string" || typeof raw.userId !== "string"
+      || typeof raw.userName !== "string" || typeof raw.authorRole !== "string"
+      || typeof raw.createdAt !== "string") continue;
+    seen.add(id);
+    out.push({
+      id,
+      channel: typeof raw.channel === "string" ? raw.channel : "general",
+      userId: raw.userId,
+      userName: raw.userName,
+      authorRole: raw.authorRole,
+      mine: raw.mine === true,
+      text: raw.text,
+      createdAt: raw.createdAt,
+    });
+  }
+  return out;
+}
+
+function mergeMessages(current: Msg[], incoming: Msg[]): Msg[] {
+  const seen = new Set(current.map((message) => message.id));
+  const merged = [...current];
+  for (const message of incoming) {
+    if (seen.has(message.id)) continue;
+    seen.add(message.id);
+    merged.push(message);
+  }
+  return merged.slice(-200);
+}
+
 const TONE_DOT: Record<Channel["tone"], string> = {
   polaris: "bg-polaris-400",
   aurora:  "bg-aurora-500",
@@ -57,13 +94,6 @@ export function CommunityClient({
 
 const channel = getChannel(channelId)!;
 
-  /* Load messages*/
-  useEffect(() => {
-    fetch("/api/community?channel=" + channelId)
-      .then((res) => res.json())
-      .then((data) => setMessages(data));
-  }, [channelId]);
-
   const grouped = useMemo(() => {
     const out = new Map<ChannelKind, Channel[]>();
     for (const c of CHANNELS) out.set(c.kind, [...(out.get(c.kind) ?? []), c]);
@@ -90,13 +120,9 @@ const channel = getChannel(channelId)!;
         const r = await fetch(url, { cache: "no-store" });
         if (!r.ok || cancelled) return;
         const d = await r.json();
-        const fresh = (d.messages ?? []) as Msg[];
+        const fresh = normaliseMessages(d.messages);
         if (fresh.length) {
-          setMessages((cur) => {
-            const seen = new Set(cur.map((m) => m.id));
-            const merged = [...cur, ...fresh.filter((m) => !seen.has(m.id))];
-            return merged.slice(-200);
-          });
+          setMessages((cur) => mergeMessages(cur, fresh));
           scrollToEnd();
         }
       } catch { /* offline blip - next poll retries */ }
@@ -152,7 +178,9 @@ const channel = getChannel(channelId)!;
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setSendErr(d?.error ?? "Couldn't send."); return; }
-      setMessages((cur) => [...cur, d.message as Msg]);
+      const message = normaliseMessages([d.message])[0];
+      if (!message) { setSendErr("The message could not be loaded. Please retry."); return; }
+      setMessages((cur) => mergeMessages(cur, [message]));
       setText("");
       scrollToEnd();
     } finally {

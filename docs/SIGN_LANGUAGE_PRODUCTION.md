@@ -17,6 +17,8 @@ In Action Lab → Video Learning, enable the interpreter and select ASL. Choose 
 
 In Mock Exams → IELTS Listening, enable signing before playing a part. The worker is checked before the one-play recording is claimed. Use the recording's Play control when signing is ready. Pause, seek, and speed changes follow the recording. The exam timer continues during pauses: this is sign-supported practice, not a claim of standardized IELTS accommodations. Written transcripts and answer keys are not returned to the signing panel.
 
+The worker removes an inherited proxy only when every proxy value points to the local machine (a common stale `127.0.0.1` development proxy). Remote or corporate proxies are preserved. Set `POLARIS_YOUTUBE_PROXY` before starting the worker when YouTube requires a specific proxy; an empty value forces direct access.
+
 ## Playback and inference
 
 The worker transcribes actual audio with timestamped local Whisper, then generates eight-second sections with SignSparK. It prioritizes the requested section and prepares two sections ahead. Each section is sampled independently from its speech text, with no observed signing keyframes. When a preceding pose is available, a 0.2-second transition blends joint rotations and facial expressions after generation. Frames at and after 0.2 seconds remain exactly as generated. Three.js renders the resulting SMPL-X vertices at 25 fps.

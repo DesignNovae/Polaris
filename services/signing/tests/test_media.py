@@ -1,7 +1,7 @@
 import math
 import pytest
 
-from media import chunk_index, words_in_window
+from media import chunk_index, words_in_window, youtube_proxy
 
 
 def test_seek_at_end_and_arbitrary_future_position():
@@ -21,3 +21,19 @@ def test_asr_context_overlap_does_not_repeat_or_drop_boundary_words():
     assert first == "a"
     assert second == "workshop tomorrow"
     assert first + " " + second == "a workshop tomorrow"
+
+
+def test_youtube_proxy_ignores_only_loopback_proxy(monkeypatch):
+    monkeypatch.delenv("POLARIS_YOUTUBE_PROXY", raising=False)
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+    monkeypatch.setenv("HTTP_PROXY", "http://localhost:9")
+    monkeypatch.setenv("ALL_PROXY", "http://[::1]:9")
+    assert youtube_proxy() == ""
+
+
+def test_youtube_proxy_preserves_explicit_remote_proxy(monkeypatch):
+    monkeypatch.delenv("POLARIS_YOUTUBE_PROXY", raising=False)
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:8080")
+    assert youtube_proxy() is None
+    monkeypatch.setenv("POLARIS_YOUTUBE_PROXY", "socks5://proxy.example:1080")
+    assert youtube_proxy() == "socks5://proxy.example:1080"
