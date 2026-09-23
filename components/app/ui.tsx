@@ -6,6 +6,7 @@
  */
 
 import { cn } from "@/lib/cn";
+import { GlassButton } from "@/components/ui/GlassButton";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 
 type Tone = "polaris" | "nova" | "aurora" | "ink" | "rose";
@@ -113,6 +114,7 @@ type BtnProps = {
 } & ComponentProps<"button">;
 
 export function Btn({ variant = "primary", size = "md", icon, className, children, ...rest }: BtnProps) {
+  if (variant === "primary" || variant === "accent") return <GlassButton {...rest} size={size} icon={icon} className={className}>{children}</GlassButton>;
   const sizes = { sm: "h-7 px-2.5 text-xs gap-1.5", md: "h-9 px-3.5 text-[13px] gap-2", lg: "h-11 px-5 text-sm gap-2" } as const;
   const variants = {
     primary: "bg-ink text-paper hover:bg-polaris-700",

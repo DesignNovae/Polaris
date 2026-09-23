@@ -12,7 +12,7 @@ Polaris turns a distant university goal into the next concrete task, keeps the p
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF?style=flat-square&logo=clerk&logoColor=white)
 ![Gemma](https://img.shields.io/badge/AI-Gemma%204-8B5E3C?style=flat-square&logo=google&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-134%20passing-43705A?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-144%20passing-43705A?style=flat-square)
 
 [Quick start](#quick-start) · [Architecture](#architecture) · [Configuration](#configuration) · [ASL setup](docs/SIGN_LANGUAGE_PRODUCTION.md) · [Retrieval design](docs/RAG.md)
 
@@ -198,6 +198,10 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). The authenticated workspace uses MongoDB. `/demo` provides seeded product views, but the application still loads its environment configuration; it is not a replacement for configuring the required keys. Some live Action Lab features require sign-in.
 
+Use `npm run dev` during editing. For a production preview, stop the running server before rebuilding, then run `npm run build` and `npm run start`. An open tab can still reference chunks from a previous build; refresh it after replacing the build. Polaris also attempts one guarded reload for a failed application chunk, and disables service-worker caching on localhost. Other application errors are not automatically reloaded.
+
+Keep only one server on port 3000. On Windows, an old listener on `::` can coexist with one bound to `127.0.0.1`, causing `localhost` to reach different builds. Check `Get-NetTCPConnection -LocalPort 3000 -State Listen` when a refresh appears to alternate between working and failing pages; stop the stale Polaris process before starting the replacement.
+
 ### Optional AI guidance
 
 Set `GEMMA_API_KEY` in `.env.local` to enable the Google AI Studio integration. Prepare the retrieval corpus with:
@@ -287,6 +291,8 @@ Use [`.env.local.example`](.env.local.example) for application settings and the 
 | `POLARIS_SIGNING_TOKEN`, `POLARIS_SMPLX_PATH` | Server-only worker authentication and licensed model location. |
 
 ## Development and verification
+
+The notification bell opens a floating paper over the current page. Administrators can draft and publish notices with images, logos, links, expiry, and role/plan audiences at `/admin/notices`. Shared glass buttons and a transparent Polaris loading orb are integrated across the workspace. See [notices and effects](docs/NOTICES_AND_EFFECTS.md) for setup, delivery behavior, source provenance, and tests.
 
 | Command | Purpose |
 | --- | --- |

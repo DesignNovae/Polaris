@@ -18,6 +18,7 @@ import { useSession, useSignOut } from "@/components/SessionProvider";
 import { useLang } from "@/lib/i18n/LangProvider";
 import { PLAN_LABELS } from "@/lib/features";
 import { cn } from "@/lib/cn";
+import { NoticeBell } from "@/components/notices/NoticeBell";
 
 type NavLink = { href: string; label: string; accent?: boolean };
 type Theme = "dark" | "light";
@@ -208,6 +209,7 @@ export function Nav() {
               <div className="h-9 w-24" />
             ) : session ? (
               <>
+                <NoticeBell />
                 <Link
                   href="/account"
                   className={cn(
@@ -262,6 +264,7 @@ export function Nav() {
           </div>
 
           {/* Mobile hamburger */}
+          <div className="xl:hidden"><NoticeBell /></div>
           <button
             onClick={() => setOpen((o) => !o)}
             className={cn(

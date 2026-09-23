@@ -36,6 +36,7 @@
   ],
   "exclude": [
     "node_modules",
-    "vendor/threeui-gallery"
+    "vendor/threeui-gallery",
+    "vendor/threeui/notice-effects"
   ]
 }

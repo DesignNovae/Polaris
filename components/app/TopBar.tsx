@@ -26,6 +26,8 @@ import { getMissingFields } from "@/lib/profile";
 import { cn } from "@/lib/cn";
 import { useLang } from "@/lib/i18n/LangProvider";
 import { WorkspaceSearch } from "@/components/app/WorkspaceSearch";
+import { GlassButton } from "@/components/ui/GlassButton";
+import { NoticeBell } from "@/components/notices/NoticeBell";
 
 const TITLES: Record<string, { eyebrow: string; title: string }> = {
   roadmap:      { eyebrow: "Workspace", title: "Roadmap" },
@@ -46,6 +48,7 @@ const TITLES: Record<string, { eyebrow: string; title: string }> = {
   billing:      { eyebrow: "Account",   title: "Billing" },
   transactions: { eyebrow: "Account",   title: "Transactions" },
   settings:     { eyebrow: "Account",   title: "Settings" },
+  notices:      { eyebrow: "Workspace", title: "Notices" },
 };
 
 type TopBarProps = {
@@ -231,21 +234,16 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
           </button>
 
           {/* ─── Strategist - the luminous one ─── */}
-          <button
+          <NoticeBell demo={!!demoUser} />
+          <GlassButton
+            type="button"
+            size="sm"
             onClick={toggleAgent}
             title={insightCount > 0 ? `${insightCount} new signal${insightCount === 1 ? "" : "s"} for the Strategist` : "Open the Strategist"}
             aria-label="Toggle Strategist"
-            className="workspace-agent inline-flex relative rounded-xl p-[1.5px] group hover:-translate-y-px transition-transform"
+            className="workspace-agent"
           >
-            {/* gradient halo */}
-            <span aria-hidden className={cn(
-              "absolute inset-0 rounded-xl bg-gradient-to-r from-polaris-400 via-nova-400 to-aurora-400 transition-opacity",
-              insightCount > 0 ? "opacity-90" : "opacity-50 group-hover:opacity-80",
-            )} />
-            {insightCount > 0 && (
-              <span aria-hidden className="absolute -inset-1 rounded-xl bg-polaris-400/25 blur-md animate-pulse" />
-            )}
-            <span className="relative h-[33px] px-3 rounded-[10.5px] bg-ink text-paper text-[13px] font-semibold inline-flex items-center gap-2">
+            <span className="inline-flex items-center gap-2">
               <SparkGlyph />
               <span className="workspace-agent-label">Strategist</span>
               {insightCount > 0 ? (
@@ -257,7 +255,7 @@ export function TopBar({ basePath = "", demoUser, demoProgress }: TopBarProps = 
                 <span className="h-1.5 w-1.5 rounded-full bg-paper/30" aria-hidden />
               )}
             </span>
-          </button>
+          </GlassButton>
 
           {/* ─── Account menu ─── */}
           <div className="relative" ref={profileRef}>

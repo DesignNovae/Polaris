@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import { GemmaKeyCard } from "@/components/app/GemmaKeyCard";
 import { track } from "@/lib/analytics";
+import { PolarisLoading } from "@/components/ui/PolarisLoading";
 
 const ActionLabExamStudio = dynamic(() => import("@/components/app/ActionLabExamStudio").then((module) => module.ActionLabExamStudio), { loading: PanelLoading });
 const GemmaEssayStudio = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaEssayStudio), { loading: PanelLoading });
@@ -26,7 +27,7 @@ const GemmaNotesStudio = dynamic(() => import("@/components/app/GemmaStudioPanel
 const GemmaVideoLearning = dynamic(() => import("@/components/app/GemmaStudioPanels").then((module) => module.GemmaVideoLearning), { loading: PanelLoading });
 
 function PanelLoading() {
-  return <div className="grid min-h-64 place-items-center rounded-2xl border border-ink-faint/15 bg-paper-card/60 text-[11px] text-ink-muted">Opening workspace…</div>;
+  return <PolarisLoading label="Opening your workspace" />;
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;

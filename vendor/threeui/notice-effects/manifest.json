@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/shaders/neuform-isolated/NeuformIsolatedEffects.tsx",
+    "sha256": "fe9856234253bc3c1a13b3afb84f3d84644dfa6d578e7203bb3e1dd5eced1b75"
+  },
+  {
+    "path": "src/shaders/neuform-isolated/sources/glassmorphism-cta.html",
+    "sha256": "b535a5f6e778924906fa1625cf610841b847d52c17487dad83215dd5921a3863"
+  },
+  {
+    "path": "src/shaders/threeui.css",
+    "sha256": "efe4447139f1358dd8e9be68edf6fa46cbefbd1de423a4d6c439ca61d2c8eccf"
+  },
+  {
+    "path": "src/shaders/brand-orbs/BrandOrbs.tsx",
+    "sha256": "f3370948bddb1a8af0ac00355067eb79ff39e48214499f1e663b29a71a425d79"
+  },
+  {
+    "path": "src/shaders/brand-orbs/sources/brand-orbs-v2.html",
+    "sha256": "c2733de8cf7ba5fa4723297b600e9a0ad6949779fb0ab0734c9a95fb26443314"
+  },
+  {
+    "path": "src/shaders/3d-paper/sources/3d-paper.html",
+    "sha256": "8ec1b71c0dbcafbadf908100ae2a08045d0a1087c00a09d28245ef19366c7353"
+  },
+  {
+    "path": "src/shaders/3d-paper/sources/3d-paper-site-of-the-year.html",
+    "sha256": "fdef93fa96a3927430ef35411af70568c56b9488921aead8f36be36800689b7d"
+  },
+  {
+    "path": "src/shaders/3d-paper/sources/3d-paper-japanese.html",
+    "sha256": "4e929b9c3feaa635c6bc45e5c556243395318d4d7feb4d6a85190768b3b9f738"
+  },
+  {
+    "path": "src/shaders/3d-paper/sources/3d-paper-certificate.html",
+    "sha256": "0cb83da723e1a54f1a2e1124bc26a27d608afc3ba42ec0b116807e2e2ae5fb32"
+  },
+  {
+    "path": "src/shaders/3d-paper/ThreeDPaper.tsx",
+    "sha256": "c2c8d1e9a0baf69c9e477e270ccde0254d6270918c106b62dffb5c7931223b20"
+  }
+]

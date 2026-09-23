@@ -15,7 +15,10 @@ import { OfflineProvider } from "@/components/OfflineProvider";
 import { SmoothScroll } from "@/lib/animations/SmoothScroll";
 import { ThemeProvider } from "@/components/app/ThemeProvider";
 import { THEME_PREFLIGHT_SCRIPT } from "@/lib/theme/preflight";
+import { CHUNK_RECOVERY_SCRIPT } from "@/lib/chunk-recovery";
 import { appOrigin } from "@/lib/env";
+import { LoadingActivity } from "@/components/ui/LoadingActivity";
+import { NoticeOverlay } from "@/components/notices/NoticeOverlay";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -81,6 +84,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: CHUNK_RECOVERY_SCRIPT }}
+        />
         {/* Preflight: set data-theme before hydration to avoid a flash.
             suppressHydrationWarning because some Chrome extensions inject
             attributes/content into <script> tags before React hydrates. */}
@@ -101,8 +108,10 @@ export default function RootLayout({
             {/* useSearchParams needs a Suspense boundary in the app router. */}
             <Suspense fallback={null}>
               <AnalyticsBoundary />
+              <NoticeOverlay />
             </Suspense>
             <OfflineProvider />
+            <LoadingActivity />
           </ThemeProvider>
         </SessionProvider>
       </body>
