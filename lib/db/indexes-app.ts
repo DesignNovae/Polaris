@@ -11,6 +11,9 @@ import type { Db } from "mongodb";
 
 export async function ensureAppIndexes(db: Db): Promise<void> {
   await Promise.all([
+    db.collection("notices").createIndex({ status: 1, publishedAt: -1 }),
+    db.collection("notice_reads").createIndex({ userId: 1, noticeId: 1 }, { unique: true }),
+    db.collection("notice_media").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection("deadlines").createIndex({ userId: 1, date: 1 }),
     db.collection("deadlines").createIndex({ userId: 1, milestoneId: 1 }),
     db.collection("task_audit").createIndex({ userId: 1, milestoneId: 1, at: -1 }),

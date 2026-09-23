@@ -23,7 +23,8 @@ export function OfflineProvider() {
       return;
     }
 
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" ||
+        ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname)) {
       // A production worker can survive a later `next dev` session on the same
       // localhost origin. Its cache-first build assets then return yesterday's
       // app chunks under today's stable development URLs, which can crash the

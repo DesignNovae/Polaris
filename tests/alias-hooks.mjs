@@ -26,6 +26,7 @@ function firstFile(base) {
 }
 
 function resolveToFile(specifier, parentURL) {
+  if (specifier === "next/server") return firstFile(path.join(root, "node_modules/next/server.js"));
   if (specifier.startsWith("@/")) return firstFile(path.join(root, specifier.slice(2)));
   if (!specifier.startsWith("./") && !specifier.startsWith("../")) return null;
   if (!parentURL?.startsWith("file:")) return null;

@@ -4,3 +4,5 @@ vendor/threeui-gallery/** -text
 public/threeui/threeui.css -text
 public/synthralos-halftone.html -text
 public/threeui/polaris-koi.html -text
+vendor/threeui/notice-effects/** -text -whitespace
+public/effects/*.html -text -whitespace
