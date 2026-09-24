@@ -23,6 +23,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [canType, setCanType] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   // Route changes should not leave a search panel over the next page.
   useEffect(() => {
@@ -38,7 +39,15 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   }, []);
 
   useEffect(() => {
-    if (open) document.getElementById("top-search")?.focus();
+    if (!open) {
+      setCanType(false);
+      return;
+    }
+    document.getElementById("top-search")?.focus();
+    // Some browsers ignore autocomplete="off" and fill the focused text field
+    // with the signed-in email. Focus while read-only, then enable typing.
+    const frame = requestAnimationFrame(() => setCanType(true));
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {
@@ -91,6 +100,11 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
         <SearchGlyph />
         <input
           id="top-search"
+          type="search"
+          name="workspace-query"
+          autoComplete="off"
+          readOnly={!canType}
+          aria-label={lang === "bn" ? "কর্মক্ষেত্রে খুঁজুন" : "Search workspace"}
           value={query}
           onFocus={() => setOpen(true)}
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
