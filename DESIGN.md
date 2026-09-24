@@ -97,7 +97,7 @@ Brown glass buttons provide tactile emphasis. A large transparent Polaris orb su
 - Brown glass CTAs with restrained lift and a moving border highlight.
 - Transparent graphic-only loading connected to pending work.
 
-Evidence: `components/notices/`, `components/ui/GlassButton.tsx`, `components/ui/PolarisLoading.tsx`, `components/ui/LoadingActivity.tsx`, `components/ui/effects.module.css`, and `assets/notice-paper-art.js`. Inherited font and theme values come from `app/layout.tsx` and `app/globals.css`. Feature behavior and provenance remain in [NOTICES_AND_EFFECTS.md](docs/NOTICES_AND_EFFECTS.md).
+Evidence: `components/notices/`, `components/ui/GlassButton.tsx`, `components/ui/PolarisLoading.tsx`, `components/ui/effects.module.css`, and `assets/notice-paper-art.js`. Inherited font and theme values come from `app/layout.tsx` and `app/globals.css`. Feature behavior and provenance remain in [NOTICES_AND_EFFECTS.md](docs/NOTICES_AND_EFFECTS.md).
 
 ## Colors
 
@@ -158,7 +158,7 @@ The notification bell is a compact icon button with an unread badge. Page contro
 
 ### Polaris loading
 
-`PolarisLoadingScreen` places the shared orb at viewport center. `PolarisLoading` offers the same graphic with a polite screen-reader status for component rendering. `LoadingActivity` waits (800ms) before displaying foreground API activity; concurrent work is tracked independently, and background polling is excluded. Feature-owned streaming progress continues after headers arrive. The orb pauses when offscreen or hidden and respects reduced motion.
+`PolarisLoadingScreen` places the shared orb at viewport center for route transitions. `PolarisLoading` offers the same graphic with a polite screen-reader status for components that request it. API work uses its feature's own progress state to avoid overlapping indicators. The orb pauses when offscreen or hidden and respects reduced motion.
 
 The sidecar contains standalone HTML/CSS specimens of actual UI primitives. These are design references, not substitutes for the React behavior or the sandboxed WebGL renderers. Generated effect files are built from the supplied source and artwork adapter; do not hand-edit them.
 

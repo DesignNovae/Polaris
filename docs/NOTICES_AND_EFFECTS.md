@@ -28,7 +28,7 @@ Uploads accept still JPEG, PNG, and WebP files up to 2 MB and 16 megapixels. Sha
 
 - `GlassButton` is the shared brown glass CTA. It is used by primary/accent workspace buttons, the Strategist control, and notice publishing. It preserves native button semantics, disabled state, focus, and reduced motion.
 - `PolarisLoadingScreen` renders only the transparent 192px Polaris orb, with a screen-reader status. Root, workspace, demo, admin, and notice route loading boundaries use it.
-- `LoadingActivity` also shows the orb for same-origin foreground API requests that take more than 800ms. Concurrent requests are tracked independently. Background polling and requests with `X-Polaris-Background: 1` do not interrupt the page. Streaming responses keep their feature’s progress feedback after response headers arrive.
+- Route loading boundaries show the orb while navigation is pending. API requests use the loading state of their own feature, so a roadmap spinner or notice status never competes with a second screen-wide loader.
 - `PolarisLoading` provides the same graphic inside a component waiting for data or rendering.
 
 Both renderers run in script-only sandboxed frames. Notice content is passed as bounded text and validated WebP data, never as interpolated HTML. The paper preserves the supplied bending, inertia, hover light, and material; its artwork uses Polaris content and brown accents. Long messages continue across paper pages. A semantic text representation remains available to assistive technology, and WebGL failures show a readable paper fallback. Offscreen/hidden paper frames are unmounted; the orb pauses when hidden or offscreen and respects reduced motion.

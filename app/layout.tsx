@@ -17,7 +17,6 @@ import { ThemeProvider } from "@/components/app/ThemeProvider";
 import { THEME_PREFLIGHT_SCRIPT } from "@/lib/theme/preflight";
 import { CHUNK_RECOVERY_SCRIPT } from "@/lib/chunk-recovery";
 import { appOrigin } from "@/lib/env";
-import { LoadingActivity } from "@/components/ui/LoadingActivity";
 import { NoticeOverlay } from "@/components/notices/NoticeOverlay";
 
 const inter = Inter({
@@ -111,7 +110,6 @@ export default function RootLayout({
               <NoticeOverlay />
             </Suspense>
             <OfflineProvider />
-            <LoadingActivity />
           </ThemeProvider>
         </SessionProvider>
       </body>

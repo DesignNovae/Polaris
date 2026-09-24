@@ -23,11 +23,12 @@ export function AdminTabs() {
           <Link
             key={t.href}
             href={t.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-full px-4 py-1.5 text-sm transition-colors duration-150",
+              "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-150",
               active
-                ? "bg-polaris-500 text-white"
-                : "text-ink-dim hover:bg-polaris-50 hover:text-ink border border-polaris-200 bg-white",
+                ? "border-polaris-500 bg-polaris-500 text-white"
+                : "border-polaris-500/25 bg-bg-card text-ink hover:bg-bg-soft",
             )}
           >
             {t.label}
