@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { KBD } from "./ui";
 import { cn } from "@/lib/cn";
 
@@ -93,11 +92,10 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
         />
         <span className="hidden md:inline-flex"><KBD>⌘K</KBD></span>
       </label>
-      <AnimatePresence>
-        {open && (
-          <>
-            <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
-            <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#1d1512] p-2 shadow-2xl">
+      {open && (
+        <>
+          <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#1d1512] p-2 shadow-2xl">
               <div className="px-2 pb-1.5 pt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-paper/40">{lang === "bn" ? "কর্মক্ষেত্রের ফলাফল" : "Workspace results"}</div>
               {results.map((item, index) => (
                 <button key={item.id} onClick={() => go(item.id)} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.08]", index === 0 && normalized && "bg-white/[0.05]")}>
@@ -108,10 +106,9 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
               ))}
               {results.length === 0 && <div className="px-3 py-8 text-center text-[11.5px] text-paper/50">{lang === "bn" ? "কোনো কর্মক্ষেত্রের ফল পাওয়া যায়নি" : "No workspace result found"}</div>}
               {normalized && <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent("polaris:strategist-draft", { detail: { draft: query } })); }} className="mt-1 flex w-full items-center gap-3 rounded-xl border border-polaris-400/20 bg-polaris-400/[0.08] px-3 py-2.5 text-left text-[11.5px] font-semibold text-polaris-100"><span>✦</span>{lang === "bn" ? `Polaris-কে জিজ্ঞেস করুন: “${query}”` : `Ask Polaris: “${query}”`}</button>}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          </div>
+        </>
+      )}
     </div>
   );
 }
