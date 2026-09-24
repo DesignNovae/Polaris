@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { KBD } from "./ui";
 import { cn } from "@/lib/cn";
@@ -21,25 +21,25 @@ const ITEMS = [
 
 export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: Lang }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  /**
-   * The app sidebar leaves the top bar less room than the viewport breakpoints
-   * imply. Keep search compact until the full field and every account action
-   * can coexist without either control collapsing.
-   */
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // Route changes should not leave a search panel over the next page.
+  useEffect(() => {
+    setOpen(false);
+    setQuery("");
+  }, [pathname]);
   // Expanding the compact field should put the caret in it, including when
   // the global keyboard shortcut opens search.
   useEffect(() => {
-    const openSearch = () => setMobileOpen(true);
+    const openSearch = () => setOpen(true);
     window.addEventListener("polaris:openSearch", openSearch);
     return () => window.removeEventListener("polaris:openSearch", openSearch);
   }, []);
 
   useEffect(() => {
-    if (mobileOpen) document.getElementById("top-search")?.focus();
-  }, [mobileOpen]);
+    if (open) document.getElementById("top-search")?.focus();
+  }, [open]);
 
   const normalized = query.trim().toLowerCase();
   const results = useMemo(() => {
@@ -49,7 +49,6 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
 
   const go = (id: string) => {
     setOpen(false);
-    setMobileOpen(false);
     setQuery("");
     router.push(`${basePath}/${id}`.replace(/\/+/g, "/"));
   };
@@ -57,15 +56,17 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
   return (
     <div
       className={cn(
-        "workspace-search relative min-w-0 2xl:ml-6 2xl:flex-1 2xl:max-w-[420px]",
-        mobileOpen ? "absolute inset-x-3 z-40 2xl:static 2xl:inset-auto" : "shrink-0 2xl:shrink",
+        "workspace-search min-w-0",
+        open
+          ? "absolute inset-x-3 top-2 z-40"
+          : "relative shrink-0 2xl:ml-6 2xl:flex-1 2xl:max-w-[420px] 2xl:shrink",
       )}
     >
-      {/* Compact trigger while the complete search field would crowd the bar. */}
-      {!mobileOpen && (
+      {/* Keep the toolbar compact until search opens over its full width. */}
+      {!open && (
         <button
           type="button"
-          onClick={() => setMobileOpen(true)}
+          onClick={() => setOpen(true)}
           aria-label={lang === "bn" ? "খুঁজুন" : "Search"}
           className="workspace-search-trigger 2xl:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-inset ring-white/[0.10] text-paper/70 hover:bg-white/[0.10] transition-all"
         >
@@ -74,8 +75,8 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
       )}
 
       <label className={cn(
-        "h-9 items-center gap-2 rounded-xl bg-white/[0.06] px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:bg-white/[0.09] focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]",
-        mobileOpen ? "flex" : "workspace-search-field hidden 2xl:flex",
+        "h-9 items-center gap-2 rounded-xl px-3 text-paper/70 ring-1 ring-inset ring-white/[0.10] transition-all focus-within:ring-polaris-400/70 focus-within:shadow-[0_0_0_3px_rgba(196,125,78,0.16),0_4px_16px_-6px_rgba(196,125,78,0.25)]",
+        open ? "flex bg-[#241a16]" : "workspace-search-field hidden bg-white/[0.06] focus-within:bg-white/[0.09] 2xl:flex",
       )}>
         <SearchGlyph />
         <input
@@ -85,7 +86,7 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && results[0]) { event.preventDefault(); go(results[0].id); }
-            if (event.key === "Escape") { setOpen(false); setMobileOpen(false); }
+            if (event.key === "Escape") setOpen(false);
           }}
           placeholder={lang === "bn" ? "খুঁজুন বা খুলুন…" : "Search or open…"}
           className="min-w-0 flex-1 bg-transparent text-[13px] text-paper outline-none placeholder:text-paper/40"
@@ -95,8 +96,8 @@ export function WorkspaceSearch({ basePath, lang }: { basePath: string; lang: La
       <AnimatePresence>
         {open && (
           <>
-            <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => { setOpen(false); setMobileOpen(false); }} />
-            <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#1d1512]/95 p-2 shadow-2xl backdrop-blur-xl">
+            <button aria-label="Close search" className="fixed inset-0 z-30 cursor-default" onClick={() => setOpen(false)} />
+            <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} className="absolute left-0 right-0 top-11 z-40 overflow-hidden rounded-2xl border border-white/[0.10] bg-[#1d1512] p-2 shadow-2xl">
               <div className="px-2 pb-1.5 pt-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-paper/40">{lang === "bn" ? "কর্মক্ষেত্রের ফলাফল" : "Workspace results"}</div>
               {results.map((item, index) => (
                 <button key={item.id} onClick={() => go(item.id)} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.08]", index === 0 && normalized && "bg-white/[0.05]")}>
