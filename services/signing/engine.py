@@ -88,16 +88,21 @@ class SignEngine:
         self.models = {}
 
     @staticmethod
-    def readiness():
-        settings = config()
+    def motion_readiness():
+        """Motion needs only the networks; the licensed mesh is required only to build vertices."""
         missing = [stream for stream in CHANNELS if not (CACHE / "models" / stream / "ema_0.9999_200000.pt").is_file()]
         if missing:
             return False, "Model download incomplete: " + ", ".join(missing)
-        if not Path(settings["smplx"]).is_file():
-            return False, "Configure the licensed SMPLX_NEUTRAL.npz file"
         if not (CACHE / "SignSparK/signspark/unet_model.py").is_file():
             return False, "Install the pinned SignSparK source"
         return True, "Models installed"
+
+    @classmethod
+    def readiness(cls):
+        ready, message = cls.motion_readiness()
+        if ready and not Path(config()["smplx"]).is_file():
+            return False, "Configure the licensed SMPLX_NEUTRAL.npz file"
+        return ready, message
 
     def _state(self, stream):
         import torch
@@ -225,10 +230,11 @@ class SignEngine:
                 vertices.append(result.vertices.numpy())
         return np.concatenate(vertices).astype("<f4"), self.mesh.faces.astype("<u4")
 
-    def generate(self, text, seconds, identity, output, cancelled=lambda: False, previous_path=None):
+    def motion(self, text, seconds, identity, cancelled=lambda: False, previous_path=None):
+        """Generate one section's joined pose streams on the GPU, without building a mesh."""
         import numpy as np
         import torch
-        ready, reason = self.readiness()
+        ready, reason = self.motion_readiness()
         if not ready:
             raise RuntimeError(reason)
         if not torch.cuda.is_available():
@@ -261,8 +267,16 @@ class SignEngine:
             for joint, angle in [(4, -1.2), (5, 1.2)]:
                 rest = Rotation.from_rotvec([0, 0, angle]).as_matrix()[:2].reshape(6)
                 streams["body"][0, :, joint * 6:joint * 6 + 6] = rest
+        return join_motion_boundary(streams, previous), frames, started, phases
+
+    def generate(self, text, seconds, identity, output, cancelled=lambda: False, previous_path=None):
+        import numpy as np
+        import torch
+        ready, reason = self.readiness()
+        if not ready:
+            raise RuntimeError(reason)
+        streams, frames, started, phases = self.motion(text, seconds, identity, cancelled, previous_path)
         stage_start = time.monotonic()
-        streams = join_motion_boundary(streams, previous)
         vertices, faces = self._vertices(streams)
         phases["meshSeconds"] = round(time.monotonic() - stage_start, 3)
         if not np.isfinite(vertices).all():

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "signing:worker": "node scripts/signing-worker.mjs",
     "signing:test": ".cache/signing/venv/Scripts/python.exe -m pytest services/signing/tests -q",
+    "signing:pregenerate": ".cache/signing/venv/Scripts/python.exe services/signing/pregenerate.py",
     "prebuild": "node scripts/validate-deployment-env.mjs",
     "build": "next build",
     "start": "next start",

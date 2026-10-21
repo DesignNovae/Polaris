@@ -1,0 +1,5 @@
+*
+!services/signing/
+!assets/exams/ielts-listening/
+services/signing/**/__pycache__
+services/signing/.pytest_cache
