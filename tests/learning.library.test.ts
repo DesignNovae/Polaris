@@ -43,6 +43,11 @@ test("saved, continue and completed views use the account's progress independent
   assert.deepEqual(filterLibrary(LEARNING_LIBRARY, { ...all, view: "completed" }, progress).map((v) => v.id), [c.id]);
   assert.equal(filterLibrary(LEARNING_LIBRARY, { ...all, view: "saved" }, {}).length, 0);
 });
+test("the ASL-ready view lists only lessons with prepared signing", () => {
+  const [a, , c] = LEARNING_LIBRARY;
+  assert.deepEqual(filterLibrary(LEARNING_LIBRARY, { ...all, view: "asl" }, {}, new Set([c.id, a.id])).map((v) => v.id), [a.id, c.id]);
+  assert.equal(filterLibrary(LEARNING_LIBRARY, { ...all, view: "asl" }, {}).length, 0);
+});
 test("progress rejects forged owner fields, invalid paths and impossible positions", () => {
   assert.ok(progressPatchSchema.safeParse({ videoId: "sat-math-linear", saved: true }).success);
   assert.ok(progressPatchSchema.safeParse({ videoId: "sat-math-linear", position: 40, duration: 200 }).success);

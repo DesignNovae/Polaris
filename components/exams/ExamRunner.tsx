@@ -11,6 +11,7 @@ import { INTERPRETER_COPY } from "@/components/interpreter/copy";
 import { useInterpreterSettings } from "@/lib/interpreter/hooks/useInterpreterSettings";
 import { MediaElementClockSource } from "@/lib/interpreter/synchronization/clocks/MediaElementClockSource";
 import type { LiveSigningJob } from "@/lib/interpreter/model/live";
+import { LIVE_SIGNING_ENABLED } from "@/lib/interpreter/model/pregenerated";
 
 type SaveState = "saved" | "saving" | "error";
 type PublicResponse = { answer: string | null; flagged: boolean; hasRecording?: boolean };
@@ -126,6 +127,8 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   const [audioPlaybackSeconds, setAudioPlaybackSeconds] = useState(0);
   const [audioPlaybackDuration, setAudioPlaybackDuration] = useState(0);
   const [interpreterSettings, updateInterpreter] = useInterpreterSettings();
+  // Exam signing needs the live GPU worker; settings are shared with lessons, so gate on both.
+  const examSigning = LIVE_SIGNING_ENABLED && interpreterSettings.enabled;
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [signingClock, setSigningClock] = useState<MediaElementClockSource | null>(null);
   const [preparingPlayback, setPreparingPlayback] = useState(false);
@@ -157,11 +160,11 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   }, [audioElement]);
 
   useEffect(() => {
-    if (audioElement && !interpreterSettings.enabled) {
+    if (audioElement && !examSigning) {
       if (audioElement.ended) { setAudioObjectUrl(null); setActiveAudioPart(null); }
       else startPreparedAudio();
     }
-  }, [audioElement, interpreterSettings.enabled, startPreparedAudio]);
+  }, [audioElement, examSigning, startPreparedAudio]);
 
   const onSigningPlaybackError = useCallback(() => {
     setPreparingPlayback(false);
@@ -169,7 +172,7 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   }, []);
 
   useEffect(() => {
-    if (!interpreterSettings.enabled || interpreterSettings.language !== "ase" || !activeAudioPart || signingJobId) return;
+    if (!examSigning || interpreterSettings.language !== "ase" || !activeAudioPart || signingJobId) return;
     const controller = new AbortController();
     audioElement?.pause();
     setPreparingPlayback(true);
@@ -178,7 +181,7 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
       .then((job) => { if (!controller.signal.aborted) setSigningJobId(job.id); })
       .catch((cause) => { if (!controller.signal.aborted) { setError(cause instanceof Error ? cause.message : "Signing failed."); setPreparingPlayback(false); } });
     return () => controller.abort();
-  }, [interpreterSettings.enabled, interpreterSettings.language, activeAudioPart, signingJobId, audioElement, sessionId]);
+  }, [examSigning, interpreterSettings.language, activeAudioPart, signingJobId, audioElement, sessionId]);
   const [recordingSupported, setRecordingSupported] = useState<boolean | null>(null);
   const [microphoneStatus, setMicrophoneStatus] = useState<MicrophoneStatus>("checking");
   const [microphoneCheckBusy, setMicrophoneCheckBusy] = useState(false);
@@ -487,7 +490,7 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
     preparingPlaybackRef.current = true;
     setPreparingPlayback(true);
     try {
-        if (interpreterSettings.enabled) {
+        if (examSigning) {
           if (interpreterSettings.language !== "ase") throw new Error("Select ASL for live signing. The recording has not been used.");
           const job = await apiJson<LiveSigningJob>("/api/interpreter/live", { method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kind: "exam", sessionId, part, language: "ase" }) });
@@ -520,7 +523,7 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
   if (!session) return <main className="mx-auto h-full max-w-xl overflow-y-auto p-8 text-center"><h1 className="font-serif text-[28px] font-bold">Exam unavailable</h1><p className="mt-3 text-sm text-signal-rose">{error}</p><button onClick={() => void load()} className="mt-5 rounded-lg bg-ink px-4 py-2 text-sm text-paper">Try again</button></main>;
 
   const item = session.items[currentIndex];
-  const signingListening = session.mode === "ielts-listening" && interpreterSettings.enabled;
+  const signingListening = session.mode === "ielts-listening" && examSigning;
   if (item) currentItemIdRef.current = item.id;
   const response = item ? session.responses[item.id] ?? { answer: null, flagged: false } : { answer: null, flagged: false };
   const unanswered = session.items.length - session.answeredCount;
@@ -674,16 +677,18 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
                 onPlay={item.stimulus.mediaUrl ? () => void playListeningPart(item.stimulus!.mediaUrl!) : undefined}
               /></div>}
               {session.mode === "ielts-listening" && <div className="mb-5 space-y-3">
-                <InterpreterToggle enabled={interpreterSettings.enabled} onChange={(enabled) => updateInterpreter({ enabled })} copy={INTERPRETER_COPY.en} />
+                {LIVE_SIGNING_ENABLED
+                  ? <InterpreterToggle enabled={interpreterSettings.enabled} onChange={(enabled) => updateInterpreter({ enabled })} copy={INTERPRETER_COPY.en} />
+                  : <p className="text-xs leading-relaxed text-ink-dim">ASL signing for exam recordings needs the live signing server, which is not running in this demo. Lessons marked ASL ready in Video Learning include prepared signing.</p>}
                 {audioObjectUrl && <audio
-                  ref={setAudioElement} src={audioObjectUrl} controls={interpreterSettings.enabled}
-                  aria-label="Listening recording" className={interpreterSettings.enabled ? "w-full" : "hidden"}
+                  ref={setAudioElement} src={audioObjectUrl} controls={examSigning}
+                  aria-label="Listening recording" className={examSigning ? "w-full" : "hidden"}
                   onTimeUpdate={(event) => setAudioPlaybackSeconds(event.currentTarget.currentTime)}
                   onLoadedMetadata={(event) => setAudioPlaybackDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
-                  onEnded={() => { if (interpreterSettings.enabled) setPreparingPlayback(false); else releaseListeningAudio(); }}
+                  onEnded={() => { if (examSigning) setPreparingPlayback(false); else releaseListeningAudio(); }}
                   onError={() => { releaseListeningAudio(); setError("This recording could not be played. Continue with the remaining parts and raise this with your instructor."); }}
                 />}
-                {interpreterSettings.enabled && <>
+                {examSigning && <>
                   <p className="text-xs leading-relaxed text-ink-dim">Sign-supported practice. Pause or seek in the recording; the exam timer continues. The written transcript remains hidden.</p>
                   {audioElement && <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={releaseListeningAudio} className="min-h-10 rounded-lg border border-ink-faint/25 px-3 text-xs font-semibold text-ink">Finish this recording</button>

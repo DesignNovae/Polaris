@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import time
 
@@ -58,8 +59,72 @@ def source_for(target, sources):
     return download_youtube(target["youtubeId"], directory)
 
 
-def run(target, output, sources, engine, transcriber, steps):
+def to_device(array):
+    import torch
+    return torch.from_numpy(array).cuda()
+
+
+def generate(pending, folder, source, duration, source_hash, engine, transcriber):
+    """Batch the GPU stage one network at a time; results equal per-section live generation.
+
+    The live worker keeps all three networks ready, which needs every 5.6 GB checkpoint
+    mapped at once. Here each phase saves its results in folder/work, so only one
+    checkpoint is open and one network is on the GPU, and an interrupted run resumes.
+    """
     import numpy as np
+    from engine import CHANNELS, join_motion_boundary, section_frames, section_seed, silence_streams
+    work = folder / "work"
+    work.mkdir(exist_ok=True)
+    texts_path = work / "texts.json"
+    texts = json.loads(texts_path.read_text(encoding="utf-8")) if texts_path.exists() else {}
+    started = time.monotonic()
+    for number, index in enumerate(pending, 1):
+        if str(index) not in texts:
+            texts[str(index)] = list(transcriber.transcribe(source, index, duration))
+            texts_path.write_text(json.dumps(texts), encoding="utf-8")
+        if number % 10 == 0 or number == len(pending):
+            print(f"  transcribed {number}/{len(pending)} sections", flush=True)
+    for index in pending:
+        path = work / f"{index}.emb.npy"
+        if texts[str(index)][0] and not path.exists():
+            embedding = engine._text(texts[str(index)][0])
+            np.save(path, np.asarray(embedding.cpu() if hasattr(embedding, "cpu") else embedding, dtype="float32"))
+    engine.release(encoder=True)
+    print(f"  encoded text ({time.monotonic() - started:.0f} s so far)", flush=True)
+    spoken = [index for index in pending if texts[str(index)][0]]
+    for offset, stream in enumerate(CHANNELS):
+        stage = time.monotonic()
+        for number, index in enumerate(spoken, 1):
+            path = work / f"{index}.{stream}.npy"
+            if path.exists():
+                continue
+            speech, start, end = texts[str(index)]
+            motion = engine._sample(stream, to_device(np.load(work / f"{index}.emb.npy")), section_frames(end - start),
+                                    section_seed(f"{source_hash}:{index}") + offset, lambda: False)
+            np.save(path.with_suffix(".tmp.npy"), motion)
+            path.with_suffix(".tmp.npy").replace(path)
+            rate = (time.monotonic() - stage) / number
+            print(f"  {stream} {number}/{len(spoken)}; ~{rate * (len(spoken) - number) / 60:.0f} min left for {stream}", flush=True)
+        engine.release(stream)
+    for index in pending:
+        speech, start, end = texts[str(index)]
+        streams = ({stream: np.load(work / f"{index}.{stream}.npy") for stream in CHANNELS} if speech
+                   else silence_streams(section_frames(end - start)))
+        previous = {}
+        if (folder / f"{index - 1}.npz").is_file():
+            with np.load(folder / f"{index - 1}.npz", allow_pickle=False) as values:
+                previous = {stream: values[stream] for stream in CHANNELS}
+        streams = join_motion_boundary(streams, previous)
+        path = folder / f"{index}.npz"
+        with path.with_suffix(".tmp").open("wb") as handle:
+            np.savez_compressed(handle, **streams, start=np.float64(start), end=np.float64(end),
+                                frames=np.int32(section_frames(end - start)), text=np.array(speech))
+        path.with_suffix(".tmp").replace(path)
+    shutil.rmtree(work, ignore_errors=True)
+    print(f"  {len(pending)} sections done in {(time.monotonic() - started) / 60:.1f} min", flush=True)
+
+
+def run(target, output, sources, engine, transcriber, steps):
     from engine import REVISION, SOURCE_REVISION
     from media import CHUNK_SECONDS, audio_duration
     folder = output / target["id"]
@@ -75,36 +140,21 @@ def run(target, output, sources, engine, transcriber, steps):
     info = {"format": FORMAT, "id": target["id"], "kind": target["kind"], "title": target["title"],
             "youtubeId": target.get("youtubeId"), "part": target.get("part"), "duration": duration,
             "chunkSeconds": CHUNK_SECONDS, "sections": count, "sourceHash": source_hash, "steps": steps,
+            "precision": engine.precision(),
             "modelRevision": REVISION, "sourceRevision": SOURCE_REVISION, "fps": 25, "language": "ase"}
     previous_info = folder / "source.json"
     if previous_info.exists():
         recorded = json.loads(previous_info.read_text(encoding="utf-8"))
-        if recorded.get("sourceHash") != source_hash or recorded.get("steps") != steps:
-            # A different recording or step count would make kept sections inconsistent with new ones.
-            print(f"  source or step count changed; regenerating {target['id']} from the start", flush=True)
+        if any(recorded.get(key) != info[key] for key in ("sourceHash", "steps", "precision")):
+            # A different recording, step count, or precision would make kept sections inconsistent with new ones.
+            print(f"  source, step count, or precision changed; regenerating {target['id']} from the start", flush=True)
             for stale in folder.glob("*.npz"):
                 stale.unlink()
+            shutil.rmtree(folder / "work", ignore_errors=True)
     previous_info.write_text(json.dumps(info, indent=2), encoding="utf-8")
-    started = time.monotonic()
-    generated = 0
-    for index in range(count):
-        path = folder / f"{index}.npz"
-        if section_valid(path):
-            continue
-        speech, start, end = transcriber.transcribe(source, index, duration)
-        streams, frames, _, phases = engine.motion(speech, end - start, f"{source_hash}:{index}",
-                                                   previous_path=folder / f"{index - 1}.npz")
-        temporary = path.with_suffix(".tmp")
-        with temporary.open("wb") as handle:
-            np.savez_compressed(handle, **streams, start=np.float64(start), end=np.float64(end),
-                                frames=np.int32(frames), text=np.array(speech))
-        temporary.replace(path)
-        generated += 1
-        elapsed = time.monotonic() - started
-        remaining = sum(not (folder / f"{i}.npz").exists() for i in range(index + 1, count))
-        print(f"  section {index + 1}/{count} ({start:.0f}-{end:.0f} s) "
-              f"{'silence' if not speech else f'{len(speech.split())} words'}; "
-              f"~{elapsed / generated * remaining / 60:.0f} min left for this video", flush=True)
+    pending = [index for index in range(count) if not section_valid(folder / f"{index}.npz")]
+    if pending:
+        generate(pending, folder, source, duration, source_hash, engine, transcriber)
     info["complete"] = all(section_valid(folder / f"{i}.npz") for i in range(count))
     previous_info.write_text(json.dumps(info, indent=2), encoding="utf-8")
     return info

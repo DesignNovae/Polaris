@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PlaybackClockSource } from "@/lib/interpreter/synchronization/clocks/types";
 import { SigningBuffer } from "@/lib/interpreter/model/buffer";
 import { liveJobSchema, parseMeshChunk, signingChunkIndex, type LiveSigningInput, type LiveSigningJob, type MeshChunk } from "@/lib/interpreter/model/live";
+import { pregeneratedAssetUrl, pregeneratedJob } from "@/lib/interpreter/model/pregenerated";
 import type { Lang } from "./copy";
 
 async function jsonRequest(url: string, init?: RequestInit): Promise<LiveSigningJob> {
@@ -33,7 +34,8 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
   const sourceRef = useRef(source);
   const refreshRef = useRef<() => void>(() => {});
   sourceRef.current = source;
-  const inputKey = input.kind === "youtube" ? `youtube:${input.videoId}` : `job:${input.jobId}`;
+  const inputKey = input.kind === "youtube" ? `youtube:${input.videoId}` : input.kind === "static" ? `static:${input.mediaId}` : `job:${input.jobId}`;
+  const prepared = input.kind === "static";
   const bn = lang === "bn";
 
   useEffect(() => {
@@ -50,7 +52,10 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
     buffer.current = new SigningBuffer();
 
     const loadAsset = async (asset: string) => {
-      const response = await fetch(`/api/interpreter/live/${current!.id}?asset=${asset}`, { signal: controller.signal, cache: "no-store" });
+      // Prepared sections are immutable static files, so the browser may cache them.
+      const response = input.kind === "static"
+        ? await fetch(pregeneratedAssetUrl(input.mediaId, asset), { signal: controller.signal })
+        : await fetch(`/api/interpreter/live/${current!.id}?asset=${asset}`, { signal: controller.signal, cache: "no-store" });
       if (!response.ok) throw new Error("The signing section could not load. Retry the interpreter.");
       return response.arrayBuffer();
     };
@@ -58,7 +63,10 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
       if (fetching || controller.signal.aborted) return;
       fetching = true;
       try {
-        if (!current) {
+        if (input.kind === "static") {
+          current ??= pregeneratedJob(input.mediaId);
+          if (!current) throw new Error(bn ? "এই পাঠের জন্য ASL প্রস্তুত করা হয়নি।" : "ASL signing has not been prepared for this lesson.");
+        } else if (!current) {
           current = input.kind === "job"
             ? await jsonRequest(`/api/interpreter/live/${input.jobId}`, { signal: controller.signal })
             : await jsonRequest("/api/interpreter/live", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -70,7 +78,7 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
         setJob(current);
         const time = sourceRef.current?.read().currentTime ?? 0;
         const focus = signingChunkIndex(time, current.duration, current.chunkSeconds);
-        if (focus !== lastFocus) {
+        if (focus !== lastFocus && input.kind !== "static") {
           await jsonRequest(`/api/interpreter/live/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ seconds: time }), signal: controller.signal });
           lastFocus = focus;
@@ -88,7 +96,9 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
             const descriptor = current.chunks[index];
             const data = await loadAsset(String(index));
             if (controller.signal.aborted) return;
-            chunks.current.set(index, parseMeshChunk(data, index, descriptor.start, descriptor.end));
+            const chunk = await parseMeshChunk(data, index, descriptor.start, descriptor.end);
+            if (controller.signal.aborted) return;
+            chunks.current.set(index, chunk);
           }
           for (const index of chunks.current.keys()) if (Math.abs(index - focus) > 3) chunks.current.delete(index);
         }
@@ -225,14 +235,15 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
     <div className="relative overflow-hidden rounded-xl bg-[#eff2ef]">
       <canvas ref={canvasRef} aria-label={bn ? "সাংকেতিক ভাষার থ্রিডি দোভাষী" : "3D sign language interpreter"} className="aspect-[4/3] w-full" />
       {(waiting || error || !rendererReady) && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#eff2ef]/95 p-6 text-center text-sm leading-relaxed text-[#2C1810]" role="status">
-        <p>{error || (job ? labels[job.phase] || "Preparing signing…" : "Connecting to the local signing worker…")}</p>
+        <p>{error || (prepared ? (bn ? "প্রস্তুত সাংকেতিক অংশ লোড হচ্ছে…" : "Loading the prepared signing…")
+          : job ? labels[job.phase] || "Preparing signing…" : "Connecting to the local signing worker…")}</p>
         {!error && <p className="text-xs">{bn ? "প্রস্তুত হলে ভিডিও ও দোভাষী একই সাথে চলবে।" : "Playback waits for the figure. You can pause or seek while it prepares."}</p>}
         {error ? <button type="button" onClick={() => onRetry ? onRetry() : setRetry((n) => n + 1)} className="min-h-10 rounded-lg border border-[#2C1810]/30 px-4 font-semibold">{bn ? "আবার চেষ্টা করুন" : "Retry signing"}</button>
           : <button type="button" onClick={() => { buffer.current.pauseByUser(); source?.pause?.(); }} className="min-h-10 rounded-lg border border-[#2C1810]/30 px-4 text-xs font-semibold">{bn ? "প্রস্তুত হলেও থামিয়ে রাখুন" : "Keep playback paused"}</button>}
       </div>}
     </div>
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-dim">
-      <p>ASL · SignSparK · {bn ? "ভাষাগত যাচাই বাকি" : "Linguistic review pending"}</p>
+      <p>ASL · SignSparK · {prepared ? (bn ? "আগে থেকে তৈরি · " : "Generated in advance · ") : ""}{bn ? "ভাষাগত যাচাই বাকি" : "Linguistic review pending"}</p>
       {source?.play && <button type="button" className="min-h-10 rounded-lg border border-ink-faint/25 px-3 font-semibold text-ink"
         onClick={() => { const playing = source.read().playing || buffer.current.resumeRequested; if (playing) { buffer.current.pauseByUser(); source.pause?.(); } else { Promise.resolve(source.play?.()).catch(() => setError("Use the recording’s Play button to allow audio playback.")); } }}>
         {bn ? "রেকর্ডিং চালান / থামান" : "Play / pause recording"}

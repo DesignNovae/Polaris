@@ -31,7 +31,8 @@ export function resumePosition(progress?: VideoProgress): number {
 }
 
 export type LibraryFilters = { exam: string; topic: string; query: string; level: string; length: string; view: string; sort: string };
-export function filterLibrary(videos: LibraryVideo[], filters: LibraryFilters, progress: LibraryProgress): LibraryVideo[] {
+/** `signReady` lists lessons with prepared ASL signing, for the "asl" view. */
+export function filterLibrary(videos: LibraryVideo[], filters: LibraryFilters, progress: LibraryProgress, signReady: ReadonlySet<string> = new Set()): LibraryVideo[] {
   const words = filters.query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const result = videos.filter((v) => {
     const record = progress[v.id];
@@ -40,7 +41,8 @@ export function filterLibrary(videos: LibraryVideo[], filters: LibraryFilters, p
       && (filters.topic === "All" || filters.topic === v.topic)
       && (filters.level === "All" || filters.level === v.level)
       && (filters.length === "All" || (filters.length === "short" ? v.durationSeconds < 600 : filters.length === "medium" ? v.durationSeconds >= 600 && v.durationSeconds < 1800 : v.durationSeconds >= 1800))
-      && (filters.view === "all" || (filters.view === "saved" ? record?.saved : filters.view === "continue" ? resumePosition(record) >= 5 : record?.completed))
+      && (filters.view === "all" || (filters.view === "saved" ? record?.saved : filters.view === "continue" ? resumePosition(record) >= 5
+        : filters.view === "asl" ? signReady.has(v.id) : record?.completed))
       && words.every((word) => searchable.includes(word));
   });
   if (filters.sort === "shortest") result.sort((a, b) => a.durationSeconds - b.durationSeconds);

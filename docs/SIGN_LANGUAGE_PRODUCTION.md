@@ -108,31 +108,8 @@ The downloader resumes bounded ranges and verifies each file's pinned SHA-256 be
 - No transcript, answer key, or source filesystem path appears in job responses.
 - Maximum four jobs, two per user, one inference queue, two-section lookahead, one-hour inactivity expiry, and 3 GiB of meshes per job. Browser memory retains nearby sections only.
 - Jobs are transient and cleared on worker restart. Retry re-imports a retained file or recreates an exam job.
-- Without `POLARIS_SIGNING_URL`, Next reaches the worker on loopback, so both must run on the same machine. A hosted worker is described below.
-
-## Hosting the worker for all users
-
-Browsers never talk to the worker. Every request goes through the authenticated Next routes, which forward it with the bearer token and a hashed owner id. Hosting therefore only requires putting the worker on a GPU machine that Next can reach over HTTPS.
-
-1. **GPU host.** Use any NVIDIA host with at least 8 GB VRAM, about 30 GB of persistent disk, and Docker with the NVIDIA container toolkit. Examples: a university GPU server, a RunPod or Vast.ai pod (RTX 3090/4090, A4000, or L4), or the development laptop. Run **one always-on instance**. Jobs live in process memory, so autoscaled or scale-to-zero serverless GPUs (Modal, ZeroGPU, and similar) would lose jobs between requests and add cold starts of more than a minute.
-2. **Build and run.** From the repository root:
-
-   ```bash
-   docker build -f services/signing/Dockerfile -t polaris-signing .
-   docker run -d --restart unless-stopped --gpus all -p 127.0.0.1:8765:8765 \
-     -v polaris-signing:/app/.cache/signing -e POLARIS_SIGNING_TOKEN=$(openssl rand -hex 32) polaris-signing
-   ```
-
-   The first boot clones pinned SignSparK and downloads and verifies the 16.7 GB of checkpoints into the volume. Copy your licensed `SMPLX_NEUTRAL.npz` to `smplx/SMPLX_NEUTRAL.npz` inside the volume, for example with `docker cp`, then restart the container. Record the token: Next needs the same value.
-3. **TLS.** The worker serves plain HTTP. Expose it only through HTTPS, using a Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:8765`, or a named tunnel for a stable hostname), Caddy, or the provider's HTTPS proxy. Next refuses a non-HTTPS remote URL.
-4. **Point Next at it.** In the deployment environment (for example Vercel → Settings → Environment Variables), set `POLARIS_SIGNING_URL=https://<worker host>` and `POLARIS_SIGNING_TOKEN=<token>`, then redeploy.
-
-Capacity is unchanged: four concurrent jobs, two per user, and one GPU queue. At the 50-step default, one GPU serves only a few simultaneous viewers without buffering. Set `-e POLARIS_SIGNING_STEPS=10` for faster generation.
-
-Hosted limits:
-- Vercel limits function request bodies to about 4.5 MB, so large video/audio imports fail when the Next app runs there. Lessons, exams, and YouTube links are unaffected because they send small JSON requests.
-- YouTube often blocks downloads from datacenter IPs. Set `POLARIS_YOUTUBE_PROXY` on the worker if needed, or rely on imports and catalogue lessons.
-- The checkpoints are licensed for non-commercial research and SMPL-X under its own non-commercial terms. A public, commercial deployment needs separate permission. Keep the SMPL-X file in the private volume, never in the image or repository.
+- Without `POLARIS_SIGNING_URL`, Next reaches the worker on loopback, so both must run on the same machine.
+- Sections travel to the browser as compact PLS2 (`services/signing/compact.py`): every frame and vertex, positioned within 0.1 mm of the model output, about 3 MB per eight seconds.
 
 ## Accuracy and limits
 
