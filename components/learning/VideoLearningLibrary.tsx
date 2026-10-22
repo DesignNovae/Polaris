@@ -25,6 +25,7 @@ import { useLearningProgress } from "./useLearningProgress";
 
 const initialFilters: LibraryFilters = { exam: "IELTS", topic: "All", query: "", level: "All", length: "All", view: "all", sort: "recommended" };
 const control = "min-h-11 rounded-lg border border-ink-faint/30 bg-paper-card px-3 text-sm text-ink";
+const SIGN_NOTICE_KEY = "polaris:asl-notice";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink-faint/30 px-3 text-sm font-medium text-ink transition-colors hover:bg-paper-deep disabled:opacity-50";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-paper transition-colors hover:bg-polaris-700 hover:text-white disabled:opacity-50";
 
@@ -54,6 +55,12 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
   const [importError, setImportError] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [unavailable, setUnavailable] = useState<string[]>([]);
+  // Starts hidden so server and first client render match; storage decides after mount.
+  const [signNoticeHidden, setSignNoticeHidden] = useState(true);
+  useEffect(() => {
+    try { setSignNoticeHidden(localStorage.getItem(SIGN_NOTICE_KEY) === "hidden"); } catch { setSignNoticeHidden(false); }
+  }, []);
+  const hideSignNotice = () => { setSignNoticeHidden(true); try { localStorage.setItem(SIGN_NOTICE_KEY, "hidden"); } catch { /* still hidden for this visit */ } };
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string }[]>([]);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -231,6 +238,12 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-dim">{t("Find your next lesson. Build a skill, follow a learning path, or pick up where you left off.", "পরের পাঠ খুঁজুন। দক্ষতা বাড়ান, শেখার পথ অনুসরণ করুন অথবা আগের পাঠ চালিয়ে যান।")}</p></div>
         <p className="pt-1 text-sm text-ink-dim">{available.length} {t("curated lessons", "বাছাই করা পাঠ")} · IELTS & SAT</p>
       </header>
+      {!LIVE_SIGNING_ENABLED && PREGENERATED_SIGNING_IDS.size > 0 && !signNoticeHidden && <div role="note" className="relative rounded-xl border border-ink-faint/25 p-4 pr-14 sm:flex sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5"><p className="text-sm font-semibold text-ink">{t("ASL interpreter is available on selected lessons.", "নির্বাচিত পাঠে ASL দোভাষী পাওয়া যায়।")}</p>
+          <p className="text-sm leading-relaxed text-ink-dim">{t("Generating 3D sign language takes significant GPU computation, so we’ve handpicked specific videos to feature ASL interpretation.", "থ্রিডি সাংকেতিক ভাষা তৈরি করতে অনেক GPU গণনা লাগে, তাই আমরা নির্দিষ্ট কিছু ভিডিও বেছে নিয়ে সেগুলোতে ASL ব্যাখ্যা যোগ করেছি।")}</p></div>
+        <button type="button" className={cn(secondary, "mt-3 shrink-0 sm:mt-0")} onClick={showSignReady}>{t("Show ASL-ready lessons", "ASL প্রস্তুত পাঠ দেখান")}</button>
+        <button type="button" className="absolute right-1.5 top-1.5 grid min-h-11 min-w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-paper-deep" aria-label={t("Dismiss ASL notice", "ASL বার্তা বন্ধ করুন")} onClick={hideSignNotice}><Icon.close /></button>
+      </div>}
       {progressError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-faint/30 p-3 text-sm text-ink">
         <p>{t("Your saved lessons or progress could not sync. You can keep browsing.", "সংরক্ষিত পাঠ বা অগ্রগতি সিঙ্ক হয়নি। আপনি পাঠ দেখতে পারবেন।")}</p><button type="button" onClick={retry} className={secondary}>{t("Retry sync", "আবার সিঙ্ক করুন")}</button></div>}
       <div className="space-y-4">
@@ -260,7 +273,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
             <button type="button" className="group relative block w-full overflow-hidden rounded-xl bg-paper-deep text-left" aria-label={`${position >= 5 ? t("Resume", "চালিয়ে যান") : t("Watch", "দেখুন")}: ${tr(video.title)}`}
               onClick={() => chooseVideo(video, matches.map((v) => v.id))}>
               <Thumbnail video={video} /><span className="absolute bottom-2 right-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold tabular-nums text-white">{formatTime(video.durationSeconds)}</span>
-              {PREGENERATED_SIGNING_IDS.has(video.id) && <span className="absolute right-2 top-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold text-white">{t("ASL ready", "ASL প্রস্তুত")}</span>}
+              {PREGENERATED_SIGNING_IDS.has(video.id) && <span title={t("ASL signing prepared for this lesson", "এই পাঠের জন্য ASL প্রস্তুত")} className="absolute right-2 top-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold text-white">{t("ASL ready", "ASL প্রস্তুত")}</span>}
               {record?.completed && <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded bg-black/85 px-2 py-1 text-xs font-medium text-white"><Icon.check />{t("Completed", "সম্পন্ন")}</span>}
               {position >= 5 && <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40"><span className="block h-full bg-polaris-400" style={{ width: `${Math.min(100, position / (record?.duration || video.durationSeconds) * 100)}%` }} /></span>}
             </button>
