@@ -42,7 +42,7 @@ const bangla = Hind_Siliguri({
 
 const banglaSerif = Noto_Serif_Bengali({
   subsets: ["bengali", "latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "700"],
   variable: "--font-bangla-serif",
   display: "swap",
 });
