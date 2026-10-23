@@ -38,6 +38,7 @@ const bangla = Hind_Siliguri({
   weight: ["400", "500", "600", "700"],
   variable: "--font-bangla",
   display: "swap",
+  preload: false,
 });
 
 const banglaSerif = Noto_Serif_Bengali({
@@ -45,6 +46,7 @@ const banglaSerif = Noto_Serif_Bengali({
   weight: ["400", "700"],
   variable: "--font-bangla-serif",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
