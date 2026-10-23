@@ -238,7 +238,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-dim">{t("Find your next lesson. Build a skill, follow a learning path, or pick up where you left off.", "পরের পাঠ খুঁজুন। দক্ষতা বাড়ান, শেখার পথ অনুসরণ করুন অথবা আগের পাঠ চালিয়ে যান।")}</p></div>
         <p className="pt-1 text-sm text-ink-dim">{available.length} {t("curated lessons", "বাছাই করা পাঠ")} · IELTS & SAT</p>
       </header>
-      {!LIVE_SIGNING_ENABLED && PREGENERATED_SIGNING_IDS.size > 0 && !signNoticeHidden && <div role="note" className="relative rounded-xl border border-ink-faint/25 p-4 pr-14 sm:flex sm:items-center sm:gap-4">
+      {!LIVE_SIGNING_ENABLED && PREGENERATED_SIGNING_IDS.size > 0 && !signNoticeHidden && <div role="note" className="relative rounded-xl border-2 border-nova-500/80 bg-nova-500/[0.07] p-4 pr-14 sm:flex sm:items-center sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1.5"><p className="text-sm font-semibold text-ink">{t("ASL interpreter is available on selected lessons.", "নির্বাচিত পাঠে ASL দোভাষী পাওয়া যায়।")}</p>
           <p className="text-sm leading-relaxed text-ink-dim">{t("Generating 3D sign language takes significant GPU computation, so we’ve handpicked specific videos to feature ASL interpretation.", "থ্রিডি সাংকেতিক ভাষা তৈরি করতে অনেক GPU গণনা লাগে, তাই আমরা নির্দিষ্ট কিছু ভিডিও বেছে নিয়ে সেগুলোতে ASL ব্যাখ্যা যোগ করেছি।")}</p></div>
         <button type="button" className={cn(secondary, "mt-3 shrink-0 sm:mt-0")} onClick={showSignReady}>{t("Show ASL-ready lessons", "ASL প্রস্তুত পাঠ দেখান")}</button>
@@ -262,7 +262,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-faint/25 pb-3">
         <div role="group" aria-label={t("Your library", "আপনার পাঠাগার")} className="flex flex-wrap gap-1">{[["all", t("All lessons", "সব পাঠ")], ...(PREGENERATED_SIGNING_IDS.size ? [["asl", t("ASL ready", "ASL প্রস্তুত")]] : []), ["continue", t("Continue watching", "দেখা চালিয়ে যান")], ["saved", t("Saved", "সংরক্ষিত")], ["completed", t("Completed", "সম্পন্ন")]].map(([view, label]) => <button key={view} type="button" aria-pressed={filters.view === view} onClick={() => changeFilters({ view })}
-          className={cn("min-h-11 rounded-lg px-3 text-sm text-ink transition-colors hover:bg-paper-deep", filters.view === view && "bg-paper-deep font-semibold")}>{label}</button>)}</div>
+          className={cn("min-h-11 rounded-lg px-3 text-sm text-ink transition-colors hover:bg-paper-deep", filters.view === view && "bg-paper-deep font-semibold", view === "asl" && "asl-beam mx-1 border border-nova-500/50 font-semibold")}>{label}</button>)}</div>
         <p role="status" className="text-sm tabular-nums text-ink-dim">{matches.length} {t(matches.length === 1 ? "lesson" : "lessons", "পাঠ")}</p>
       </div>
       {matches.length === 0 ? <div className="py-10 text-center"><h3 className="font-serif text-xl font-bold text-ink">{filters.view === "saved" ? t("Save a lesson for later", "পরে দেখার জন্য পাঠ সংরক্ষণ করুন") : filters.view === "continue" ? t("Your next lesson starts here", "আপনার পরের পাঠ এখানেই") : filters.view === "completed" ? t("Build your learning record", "শেখার রেকর্ড তৈরি করুন") : filters.view === "asl" ? t("No ASL-ready lessons match", "কোনো ASL প্রস্তুত পাঠ মেলেনি") : t("No lessons match these filters", "এই ফিল্টারে কোনো পাঠ পাওয়া যায়নি")}</h3>
@@ -273,7 +273,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
             <button type="button" className="group relative block w-full overflow-hidden rounded-xl bg-paper-deep text-left" aria-label={`${position >= 5 ? t("Resume", "চালিয়ে যান") : t("Watch", "দেখুন")}: ${tr(video.title)}`}
               onClick={() => chooseVideo(video, matches.map((v) => v.id))}>
               <Thumbnail video={video} /><span className="absolute bottom-2 right-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold tabular-nums text-white">{formatTime(video.durationSeconds)}</span>
-              {PREGENERATED_SIGNING_IDS.has(video.id) && <span title={t("ASL signing prepared for this lesson", "এই পাঠের জন্য ASL প্রস্তুত")} className="absolute right-2 top-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold text-white">{t("ASL ready", "ASL প্রস্তুত")}</span>}
+              {PREGENERATED_SIGNING_IDS.has(video.id) && <span title={t("ASL signing prepared for this lesson", "এই পাঠের জন্য ASL প্রস্তুত")} className="asl-shine absolute right-2 top-2 rounded-md border border-polaris-200/70 bg-polaris-500 px-2 py-1 text-xs font-semibold text-white shadow-md shadow-black/40">{t("ASL ready", "ASL প্রস্তুত")}</span>}
               {record?.completed && <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded bg-black/85 px-2 py-1 text-xs font-medium text-white"><Icon.check />{t("Completed", "সম্পন্ন")}</span>}
               {position >= 5 && <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40"><span className="block h-full bg-polaris-400" style={{ width: `${Math.min(100, position / (record?.duration || video.durationSeconds) * 100)}%` }} /></span>}
             </button>

@@ -551,6 +551,40 @@ html { overflow-x: hidden; }
   .exam-content-enter { animation: none; }
 }
 
+/* ASL-ready filter: a short copper light travels around the border. */
+@property --asl-beam-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes asl-beam { to { --asl-beam-angle: 360deg; } }
+.asl-beam { position: relative; isolation: isolate; }
+.asl-beam::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--asl-beam-angle), transparent 0deg 270deg, rgba(234, 195, 151, 0.35) 300deg, #EAC397 340deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: asl-beam 3s linear infinite;
+  pointer-events: none;
+}
+
+/* ASL-ready badge: a light sweep crosses it every few seconds. */
+@keyframes asl-shine { 0%, 60% { transform: translateX(-130%); } 90%, 100% { transform: translateX(130%); } }
+.asl-shine { overflow: hidden; }
+.asl-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  transform: translateX(-130%);
+  animation: asl-shine 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .asl-beam::before, .asl-shine::after { animation: none; display: none; }
+}
+
 /* Markdown body - fine-tuned typographic rhythm + smooth streaming feel. */
 .markdown-body > * + * { margin-top: 0.7rem; }
 .markdown-body > h2 + *,
