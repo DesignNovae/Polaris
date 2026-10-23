@@ -9,7 +9,9 @@ import type { LiveSigningJob } from "./live";
  * where a signing worker is reachable to keep live generation for everything else.
  */
 type Section = [start: number, end: number, frames: number, silence: boolean];
-type Entry = { youtubeId: string; duration: number; chunkSeconds: number; steps: number; generatedAt: string; sections: Section[] };
+type Entry = { youtubeId: string; duration: number; chunkSeconds: number; steps: number; generatedAt: string; sections: Section[];
+  /** The English each section was signed from, by section index; "" for silence. */
+  captions?: string[] };
 
 // JSON imports type tuples loosely; the export script is the source of this shape.
 const videos: Record<string, Entry> = (manifest as unknown as { videos?: Record<string, Entry> }).videos ?? {};
@@ -32,6 +34,10 @@ export function pregeneratedJob(mediaId: string): LiveSigningJob | null {
     chunks: Object.fromEntries(entry.sections.map(([start, end, frames, silence], index) =>
       [String(index), { start, end, frames, fps: 25, seconds: 0, silence, review: "unreviewed" as const }])),
   };
+}
+
+export function pregeneratedCaptions(mediaId: string): readonly string[] | null {
+  return videos[mediaId]?.captions ?? null;
 }
 
 export function pregeneratedAssetUrl(mediaId: string, asset: string) {

@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { PlaybackClockSource } from "@/lib/interpreter/synchronization/clocks/types";
 import { SigningBuffer } from "@/lib/interpreter/model/buffer";
 import { liveJobSchema, parseMeshChunk, signingChunkIndex, type LiveSigningInput, type LiveSigningJob, type MeshChunk } from "@/lib/interpreter/model/live";
-import { pregeneratedAssetUrl, pregeneratedJob } from "@/lib/interpreter/model/pregenerated";
+import { pregeneratedAssetUrl, pregeneratedCaptions, pregeneratedJob } from "@/lib/interpreter/model/pregenerated";
+import { cn } from "@/lib/cn";
 import type { Lang } from "./copy";
+
+const controlButton = "min-h-10 flex-1 rounded-lg border border-ink-faint/25 px-2 font-semibold text-ink transition-colors hover:bg-paper-deep";
 
 async function jsonRequest(url: string, init?: RequestInit): Promise<LiveSigningJob> {
   const response = await fetch(url, { cache: "no-store", ...init });
@@ -36,6 +39,10 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
   sourceRef.current = source;
   const inputKey = input.kind === "youtube" ? `youtube:${input.videoId}` : input.kind === "static" ? `static:${input.mediaId}` : `job:${input.jobId}`;
   const prepared = input.kind === "static";
+  // Prepared lessons carry the exact English each section was signed from; live jobs never expose text.
+  const captions = input.kind === "static" ? pregeneratedCaptions(input.mediaId) : null;
+  const [captionIndex, setCaptionIndex] = useState(0);
+  const [showCaption, setShowCaption] = useState(true);
   const bn = lang === "bn";
 
   useEffect(() => {
@@ -179,7 +186,7 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
         const metadata = jobRef.current;
         const time = snapshot?.currentTime ?? 0;
         const index = signingChunkIndex(time, metadata?.duration ?? 0, metadata?.chunkSeconds ?? 8);
-        if (index !== requestedIndex) { requestedIndex = index; refreshRef.current(); }
+        if (index !== requestedIndex) { requestedIndex = index; setCaptionIndex(index); refreshRef.current(); }
         const chunk = chunks.current.get(index);
         const available = Boolean(chunk && topologyRef.current && snapshot && !snapshot.lost && !error);
         if (snapshot && sourceRef.current?.pause && sourceRef.current?.play) {
@@ -242,18 +249,26 @@ export function LiveSigningPlayer({ input, source, lang, onReady, onError, onRet
           : <button type="button" onClick={() => { buffer.current.pauseByUser(); source?.pause?.(); }} className="min-h-10 rounded-lg border border-[#2C1810]/30 px-4 text-xs font-semibold">{bn ? "প্রস্তুত হলেও থামিয়ে রাখুন" : "Keep playback paused"}</button>}
       </div>}
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-dim">
-      <p>ASL · SignSparK · {prepared ? (bn ? "আগে থেকে তৈরি · " : "Generated in advance · ") : ""}{bn ? "ভাষাগত যাচাই বাকি" : "Linguistic review pending"}</p>
-      {source?.play && <button type="button" className="min-h-10 rounded-lg border border-ink-faint/25 px-3 font-semibold text-ink"
+    {captions && showCaption && <div className="rounded-md bg-paper-deep/40 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-polaris-400">{bn ? "যে ইংরেজি সংকেত করা হচ্ছে" : "English being signed"}</p>
+        <button type="button" aria-label={bn ? "ইংরেজি লুকান" : "Hide English"} onClick={() => setShowCaption(false)}
+          className="-my-1 rounded px-1.5 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:text-ink">{bn ? "লুকান" : "Hide"}</button>
+      </div>
+      <p className="mt-0.5 text-[13px] leading-snug text-ink-dim" aria-live="polite">{captions[captionIndex] || (bn ? "এই অংশে কোনো কথা নেই।" : "No speech in this part.")}</p>
+    </div>}
+    {(source?.play || source?.seekTo) && <div className="flex gap-2 text-xs">
+      {source?.seekTo && <button type="button" aria-label={bn ? "১০ সেকেন্ড পেছনে" : "Back 10 seconds"} onClick={() => source.seekTo?.(Math.max(0, source.read().currentTime - 10))}
+        className={controlButton}>{bn ? "−১০ সে" : "−10 s"}</button>}
+      {source?.play && <button type="button" aria-label={bn ? "রেকর্ডিং চালান বা থামান" : "Play or pause the recording"} className={cn(controlButton, "flex-[1.4]")}
         onClick={() => { const playing = source.read().playing || buffer.current.resumeRequested; if (playing) { buffer.current.pauseByUser(); source.pause?.(); } else { Promise.resolve(source.play?.()).catch(() => setError("Use the recording’s Play button to allow audio playback.")); } }}>
-        {bn ? "রেকর্ডিং চালান / থামান" : "Play / pause recording"}
+        {bn ? "চালান / থামান" : "Play / Pause"}
       </button>}
-      {source?.seekTo && <div className="flex gap-2">
-        <button type="button" onClick={() => source.seekTo?.(Math.max(0, source.read().currentTime - 10))}
-          className="min-h-10 rounded-lg border border-ink-faint/25 px-3 font-semibold text-ink">{bn ? "১০ সেকেন্ড পেছনে" : "Back 10 seconds"}</button>
-        <button type="button" onClick={() => { const state = source.read(); source.seekTo?.(Math.min(state.duration || 7200, state.currentTime + 10)); }}
-          className="min-h-10 rounded-lg border border-ink-faint/25 px-3 font-semibold text-ink">{bn ? "১০ সেকেন্ড সামনে" : "Forward 10 seconds"}</button>
-      </div>}
-    </div>
+      {source?.seekTo && <button type="button" aria-label={bn ? "১০ সেকেন্ড সামনে" : "Forward 10 seconds"} onClick={() => { const state = source.read(); source.seekTo?.(Math.min(state.duration || 7200, state.currentTime + 10)); }}
+        className={controlButton}>{bn ? "+১০ সে" : "+10 s"}</button>}
+    </div>}
+    {captions && !showCaption && <button type="button" onClick={() => setShowCaption(true)}
+      className="self-start rounded-md border border-ink-faint/25 px-2.5 py-1.5 text-[11px] font-medium text-ink-dim transition-colors hover:text-ink">{bn ? "ইংরেজি দেখান" : "Show English"}</button>}
+    <p className="truncate text-[11px] text-ink-muted">ASL · SignSparK{prepared ? (bn ? " · আগে থেকে তৈরি" : " · pre-generated") : ""}</p>
   </div>;
 }

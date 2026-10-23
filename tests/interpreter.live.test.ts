@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SigningBuffer } from "../lib/interpreter/model/buffer";
 import { parseMeshChunk, signingChunkIndex, youtubeVideoId } from "../lib/interpreter/model/live";
-import { hasPregeneratedSigning, pregeneratedAssetUrl, pregeneratedJob } from "../lib/interpreter/model/pregenerated";
+import { hasPregeneratedSigning, pregeneratedAssetUrl, pregeneratedCaptions, pregeneratedJob } from "../lib/interpreter/model/pregenerated";
 import pregenerated from "../data/interpreter/pregenerated.json";
 import { LOST_SNAPSHOT } from "../lib/interpreter/synchronization/clocks/types";
 
@@ -77,6 +77,7 @@ test("compact PLS2 sections from the Python worker decode to the original vertic
 test("prepared signing exposes every listed section as a ready job and nothing else", () => {
   assert.equal(pregeneratedJob("not-a-prepared-lesson"), null);
   assert.equal(hasPregeneratedSigning("not-a-prepared-lesson"), false);
+  assert.equal(pregeneratedCaptions("not-a-prepared-lesson"), null);
   assert.equal(pregeneratedAssetUrl("sat-rw-evidence", "3"), "/signing/sat-rw-evidence/3.pls2");
   assert.equal(pregeneratedAssetUrl("sat-rw-evidence", "topology"), "/signing/topology.bin");
   for (const [id, entry] of Object.entries((pregenerated as unknown as { videos: Record<string, { sections: unknown[]; duration: number }> }).videos)) {
@@ -84,5 +85,6 @@ test("prepared signing exposes every listed section as a ready job and nothing e
     assert.equal(job.phase, "ready");
     assert.equal(Object.keys(job.chunks).length, entry.sections.length);
     assert.ok(Math.ceil(entry.duration / job.chunkSeconds) === entry.sections.length, `${id} covers its whole duration`);
+    assert.equal(pregeneratedCaptions(id)?.length, entry.sections.length, `${id} has one caption per section`);
   }
 });

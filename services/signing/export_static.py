@@ -24,13 +24,15 @@ def main():
     parser.add_argument("--source", type=Path, default=ROOT / ".cache/signing/pregenerated")
     parser.add_argument("--output", type=Path, default=ROOT / "public/signing")
     parser.add_argument("--only", help="Comma-separated catalogue ids to export (default: every complete lesson)")
+    parser.add_argument("--manifest-only", action="store_true",
+                        help="Refresh timing and captions in the manifest without rebuilding or rewriting mesh files")
     args = parser.parse_args()
 
     import numpy as np
     import compact
     from engine import CHANNELS, FPS, SignEngine
     from config import config
-    if not Path(config()["smplx"]).is_file():
+    if not args.manifest_only and not Path(config()["smplx"]).is_file():
         sys.exit("Configure the licensed SMPLX_NEUTRAL.npz (worker-config.json \"smplx\" or POLARIS_SMPLX_PATH).")
 
     wanted = {value.strip() for value in args.only.split(",")} if args.only else None
@@ -53,26 +55,36 @@ def main():
     for folder, info in chosen:
         target = args.output / info["id"]
         target.mkdir(parents=True, exist_ok=True)
-        sections, size = [], 0
+        sections, captions, size = [], [], 0
         for index in range(info["sections"]):
             with np.load(folder / f"{index}.npz", allow_pickle=False) as values:
                 streams = {name: values[name] for name in CHANNELS}
                 start, end, frames = float(values["start"]), float(values["end"]), int(values["frames"])
-                silence = not str(values["text"]).strip()
+                text = " ".join(str(values["text"]).split())
+                silence = not text
+            sections.append([round(start, 3), round(end, 3), frames, silence])
+            captions.append(text)
+            if args.manifest_only:
+                continue
             vertices, faces = engine._vertices(streams)
             data = compact.encode_array(vertices, FPS)
             path = target / f"{index}.pls2"
             path.write_bytes(data)
             size += len(data)
-            sections.append([round(start, 3), round(end, 3), frames, silence])
             if index == 0 and not (args.output / "topology.bin").exists():
                 (args.output / "topology.bin").write_bytes(faces.astype("<u4").tobytes())
             print(f"  {info['id']} {index + 1}/{info['sections']}: {len(data) / 1024 ** 2:.2f} MB", flush=True)
-        # Transcripts stay out of the public manifest; only timing is needed for playback.
+        # Lesson captions are the exact English each section was signed from (public YouTube
+        # lessons only; exam parts are never exported, so no answers reach the manifest).
+        generated = videos.get(info["id"], {}).get("generatedAt") if args.manifest_only else None
         videos[info["id"]] = {"youtubeId": info["youtubeId"], "duration": round(info["duration"], 3),
                               "chunkSeconds": info["chunkSeconds"], "steps": info["steps"],
-                              "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "sections": sections}
+                              "generatedAt": generated or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                              "sections": sections, "captions": captions}
         total += size
+        if args.manifest_only:
+            print(f"{info['id']}: {len(sections)} sections, captions refreshed", flush=True)
+            continue
         print(f"{info['id']}: {len(sections)} sections, {size / 1024 ** 2:.0f} MB "
               f"(largest {max((target / f'{i}.pls2').stat().st_size for i in range(len(sections))) / 1024 ** 2:.2f} MB)", flush=True)
     # Static hosts that read _headers (Cloudflare Pages, Netlify) then allow the site to fetch these files.
