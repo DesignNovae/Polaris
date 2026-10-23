@@ -11,13 +11,23 @@ async function workerConfig() {
   try { local = JSON.parse(await readFile(path.join(process.cwd(), ".cache/signing/worker-config.json"), "utf8")); } catch { /* env configuration is also supported */ }
   const token = process.env.POLARIS_SIGNING_TOKEN || local.token;
   if (!token || token.length < 32) throw new HttpError(503, "The local signing worker is not configured. Start npm run signing:worker.");
-  return token;
+  return { token, base: workerBase() };
+}
+
+// A hosted worker is reached over HTTPS only; the bearer token must never cross the network in clear text.
+function workerBase() {
+  const configured = process.env.POLARIS_SIGNING_URL?.trim().replace(/\/+$/, "");
+  if (!configured) return "http://127.0.0.1:8765";
+  const url = new URL(configured);
+  if (url.protocol !== "https:" && !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname))
+    throw new HttpError(503, "POLARIS_SIGNING_URL must use HTTPS for a remote signing worker.");
+  return configured;
 }
 
 export async function signingWorker(userId: string, endpoint: string, init: RequestInit & { duplex?: "half" } = {}) {
-  const token = await workerConfig();
+  const { token, base } = await workerConfig();
   try {
-    const response = await fetch(`http://127.0.0.1:8765${endpoint}`, {
+    const response = await fetch(`${base}${endpoint}`, {
       ...init, cache: "no-store", signal: init.signal ?? AbortSignal.timeout(120_000),
       headers: { ...Object.fromEntries(new Headers(init.headers)), Authorization: `Bearer ${token}`,
         "X-Signing-Owner": createHash("sha256").update(userId).digest("hex") },

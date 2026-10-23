@@ -15,6 +15,8 @@ def config():
         "smplx": os.environ.get("POLARIS_SMPLX_PATH", value.get("smplx", "")),
         "steps": int(os.environ.get("POLARIS_SIGNING_STEPS", "50")),
         "guidance": float(os.environ.get("POLARIS_SIGNING_GUIDANCE", "1")),
+        # "auto" picks FP32 on GTX 16-series GPUs and FP16 elsewhere; "fp16" or "fp32" forces one.
+        "precision": os.environ.get("POLARIS_SIGNING_PRECISION", "auto"),
     }
 
 

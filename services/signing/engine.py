@@ -79,6 +79,29 @@ def join_motion_boundary(streams, previous):
     return streams
 
 
+def section_frames(seconds):
+    return max(1, min(304, math.ceil(seconds * FPS)))
+
+
+def section_seed(identity):
+    """Per-section seed; stream i samples with seed + i."""
+    return int(hashlib.sha256(identity.encode()).hexdigest()[:8], 16)
+
+
+def silence_streams(frames):
+    """Silence is an explicit resting pose, never a stand-in for translated speech."""
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+    identity_rotation = np.array([1, 0, 0, 0, 1, 0], dtype="float32")
+    streams = {name: np.tile(identity_rotation, (2 if name == "hand" else 1, frames, channels // 6))
+               for name, channels in CHANNELS.items() if name != "face"}
+    streams["face"] = np.concatenate([np.tile(identity_rotation, (1, frames, 1)), np.zeros((1, frames, 50), dtype="float32")], axis=2)
+    for joint, angle in [(4, -1.2), (5, 1.2)]:
+        rest = Rotation.from_rotvec([0, 0, angle]).as_matrix()[:2].reshape(6)
+        streams["body"][0, :, joint * 6:joint * 6 + 6] = rest
+    return streams
+
+
 class SignEngine:
     def __init__(self):
         self.encoder = None
@@ -88,16 +111,51 @@ class SignEngine:
         self.models = {}
 
     @staticmethod
-    def readiness():
-        settings = config()
+    def motion_readiness():
+        """Motion needs only the networks; the licensed mesh is required only to build vertices."""
         missing = [stream for stream in CHANNELS if not (CACHE / "models" / stream / "ema_0.9999_200000.pt").is_file()]
         if missing:
             return False, "Model download incomplete: " + ", ".join(missing)
-        if not Path(settings["smplx"]).is_file():
-            return False, "Configure the licensed SMPLX_NEUTRAL.npz file"
         if not (CACHE / "SignSparK/signspark/unet_model.py").is_file():
             return False, "Install the pinned SignSparK source"
         return True, "Models installed"
+
+    @classmethod
+    def readiness(cls):
+        ready, message = cls.motion_readiness()
+        if ready and not Path(config()["smplx"]).is_file():
+            return False, "Configure the licensed SMPLX_NEUTRAL.npz file"
+        return ready, message
+
+    @staticmethod
+    def precision():
+        """Network precision. GTX 16-series GPUs produced NaN motion under FP16, so they use FP32."""
+        choice = config()["precision"]
+        if choice == "auto":
+            import torch
+            choice = "fp32" if "GTX 16" in torch.cuda.get_device_name() else "fp16"
+        if choice not in ("fp16", "fp32"):
+            raise ValueError("POLARIS_SIGNING_PRECISION must be auto, fp16, or fp32")
+        return choice
+
+    def release(self, stream=None, encoder=False):
+        """Free a stream's network and CPU weights (and optionally the text encoder).
+
+        On Windows each memory-mapped checkpoint is charged against the commit limit
+        in full, so a batch run keeps only one 5.6 GB checkpoint open at a time.
+        """
+        import torch
+        if encoder:
+            self.encoder = None
+        if stream:
+            self.models.pop(stream, None)
+        # Loaded networks hold their own GPU copies; only the encoder borrows the hand checkpoint's memory.
+        keep = {"hand"} if self.encoder is not None else set()
+        for name in list(self.states):
+            if name not in keep:
+                del self.states[name]
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def _state(self, stream):
         import torch
@@ -162,7 +220,8 @@ class SignEngine:
             with torch.device("meta"):
                 model = CachedTextUNet(njoints=CHANNELS[stream], attention=False, dataset=stream,
                                         latent_dim=512, unet_out_mult=8, length_mask_conditioned=True)
-            weights = {k: v.to(device="cuda", dtype=torch.float16) if v.is_floating_point() else v.to("cuda")
+            dtype = torch.float32 if self.precision() == "fp32" else torch.float16
+            weights = {k: v.to(device="cuda", dtype=dtype) if v.is_floating_point() else v.to("cuda")
                        for k, v in self._state(stream).items() if not k.startswith("text_enc_model.")}
             model.load_state_dict(weights, strict=True, assign=True)
             for module in model.modules():
@@ -185,7 +244,7 @@ class SignEngine:
         mask = (torch.arange(length, device="cuda") < frames).reshape(1, 1, length).expand(count, -1, -1)
         conditions = {"text": [""] * count, "mask": mask}
         try:
-            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.float16):
+            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.float16, enabled=self.precision() == "fp16"):
                 for step in range(steps):
                     if cancelled():
                         raise InterruptedError("Signing generation cancelled")
@@ -225,10 +284,11 @@ class SignEngine:
                 vertices.append(result.vertices.numpy())
         return np.concatenate(vertices).astype("<f4"), self.mesh.faces.astype("<u4")
 
-    def generate(self, text, seconds, identity, output, cancelled=lambda: False, previous_path=None):
+    def motion(self, text, seconds, identity, cancelled=lambda: False, previous_path=None):
+        """Generate one section's joined pose streams on the GPU, without building a mesh."""
         import numpy as np
         import torch
-        ready, reason = self.readiness()
+        ready, reason = self.motion_readiness()
         if not ready:
             raise RuntimeError(reason)
         if not torch.cuda.is_available():
@@ -241,28 +301,28 @@ class SignEngine:
         if previous_path and Path(previous_path).is_file():
             with np.load(previous_path, allow_pickle=False) as values:
                 previous = {name: values[name] for name in CHANNELS}
-        frames = max(1, min(304, math.ceil(seconds * FPS)))
+        frames = section_frames(seconds)
         if text:
             embedding = self._text(text)
             phases["textSeconds"] = round(time.monotonic() - started, 3)
-            seed = int(hashlib.sha256(identity.encode()).hexdigest()[:8], 16)
+            seed = section_seed(identity)
             streams = {}
             for index, stream in enumerate(CHANNELS):
                 stage_start = time.monotonic()
                 streams[stream] = self._sample(stream, embedding, frames, seed + index, cancelled)
                 phases[f"{stream}Seconds"] = round(time.monotonic() - stage_start, 3)
         else:
-            # Silence is an explicit resting pose, never a stand-in for translated speech.
-            identity_rotation = np.array([1, 0, 0, 0, 1, 0], dtype="float32")
-            streams = {name: np.tile(identity_rotation, (2 if name == "hand" else 1, frames, channels // 6))
-                       for name, channels in CHANNELS.items() if name != "face"}
-            streams["face"] = np.concatenate([np.tile(identity_rotation, (1, frames, 1)), np.zeros((1, frames, 50), dtype="float32")], axis=2)
-            from scipy.spatial.transform import Rotation
-            for joint, angle in [(4, -1.2), (5, 1.2)]:
-                rest = Rotation.from_rotvec([0, 0, angle]).as_matrix()[:2].reshape(6)
-                streams["body"][0, :, joint * 6:joint * 6 + 6] = rest
+            streams = silence_streams(frames)
+        return join_motion_boundary(streams, previous), frames, started, phases
+
+    def generate(self, text, seconds, identity, output, cancelled=lambda: False, previous_path=None):
+        import numpy as np
+        import torch
+        ready, reason = self.readiness()
+        if not ready:
+            raise RuntimeError(reason)
+        streams, frames, started, phases = self.motion(text, seconds, identity, cancelled, previous_path)
         stage_start = time.monotonic()
-        streams = join_motion_boundary(streams, previous)
         vertices, faces = self._vertices(streams)
         phases["meshSeconds"] = round(time.monotonic() - stage_start, 3)
         if not np.isfinite(vertices).all():
@@ -285,4 +345,4 @@ class SignEngine:
         return {"seconds": round(time.monotonic() - started, 3), "frames": frames, "fps": FPS,
                 "peakVramMB": round(torch.cuda.max_memory_allocated() / 1024 ** 2),
                 "modelRevision": REVISION, "sourceRevision": SOURCE_REVISION, "silence": not bool(text),
-                "steps": config()["steps"], "review": "unreviewed", **phases}
+                "steps": config()["steps"], "precision": self.precision(), "review": "unreviewed", **phases}

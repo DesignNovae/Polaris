@@ -17,13 +17,15 @@ import { ImportedLessonPlayer } from "@/components/interpreter/ImportedLessonPla
 import { INTERPRETER_COPY } from "@/components/interpreter/copy";
 import { useInterpreterSettings } from "@/lib/interpreter/hooks/useInterpreterSettings";
 import type { PlaybackClockSource } from "@/lib/interpreter/synchronization/clocks/types";
-import { liveJobSchema, youtubeVideoId } from "@/lib/interpreter/model/live";
+import { liveJobSchema, youtubeVideoId, type LiveSigningInput } from "@/lib/interpreter/model/live";
+import { hasPregeneratedSigning, LIVE_SIGNING_ENABLED, PREGENERATED_SIGNING_IDS } from "@/lib/interpreter/model/pregenerated";
 import { describeMedia } from "@/lib/interpreter/bootstrap";
 import { gemmaHeaders } from "@/lib/gemma/browser-key";
 import { useLearningProgress } from "./useLearningProgress";
 
 const initialFilters: LibraryFilters = { exam: "IELTS", topic: "All", query: "", level: "All", length: "All", view: "all", sort: "recommended" };
 const control = "min-h-11 rounded-lg border border-ink-faint/30 bg-paper-card px-3 text-sm text-ink";
+const SIGN_NOTICE_KEY = "polaris:asl-notice";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink-faint/30 px-3 text-sm font-medium text-ink transition-colors hover:bg-paper-deep disabled:opacity-50";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-paper transition-colors hover:bg-polaris-700 hover:text-white disabled:opacity-50";
 
@@ -53,6 +55,12 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
   const [importError, setImportError] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [unavailable, setUnavailable] = useState<string[]>([]);
+  // Starts hidden so server and first client render match; storage decides after mount.
+  const [signNoticeHidden, setSignNoticeHidden] = useState(true);
+  useEffect(() => {
+    try { setSignNoticeHidden(localStorage.getItem(SIGN_NOTICE_KEY) === "hidden"); } catch { setSignNoticeHidden(false); }
+  }, []);
+  const hideSignNotice = () => { setSignNoticeHidden(true); try { localStorage.setItem(SIGN_NOTICE_KEY, "hidden"); } catch { /* still hidden for this visit */ } };
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string }[]>([]);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -70,7 +78,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
   const catalogSelected = LEARNING_LIBRARY.find((v) => v.id === selectedId);
   const currentPath = LEARNING_PATHS.find((p) => p.id === pathId);
   const available = useMemo(() => LEARNING_LIBRARY.filter((v) => !unavailable.includes(v.id)), [unavailable]);
-  const matches = useMemo(() => filterLibrary(available, filters, progress), [available, filters, progress]);
+  const matches = useMemo(() => filterLibrary(available, filters, progress, PREGENERATED_SIGNING_IDS), [available, filters, progress]);
   const topics = filters.exam === "All" ? [...new Set(Object.values(LEARNING_SECTIONS).flat())] : LEARNING_SECTIONS[filters.exam as "IELTS" | "SAT"];
   const queuedVideos = queue.map((id) => available.find((v) => v.id === id)).filter((v): v is LibraryVideo => Boolean(v));
   const validSuggestions = suggestions.filter((item) => available.some((video) => video.id === item.id));
@@ -80,6 +88,11 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
     setFilters((current) => ({ ...current, ...patch })); setLimit(12);
     aiAbort.current?.abort(); setSuggestions([]); setAiError(""); setAiBusy(false);
   };
+  // Prepared signing plays anywhere; other catalogue videos need the live worker, which hosted demos lack.
+  const signingInput = (video: LearningVideo): LiveSigningInput | undefined => imported ? { kind: "job", jobId: imported.jobId }
+    : hasPregeneratedSigning(video.id) ? { kind: "static", mediaId: video.id }
+    : LIVE_SIGNING_ENABLED ? { kind: "youtube", videoId: video.youtubeId } : undefined;
+  const showSignReady = () => { changeFilters({ ...initialFilters, exam: "All", view: "asl" }); libraryRef.current?.scrollIntoView({ block: "start" }); };
   const chooseVideo = (video: LearningVideo, ids?: string[], nextPath?: string | null) => {
     importAbort.current?.abort(); setImportBusy(false);
     if (ids) { setQueue(ids); setPathId(nextPath ?? null); }
@@ -190,7 +203,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
         media={<div className="overflow-hidden rounded-2xl border border-ink-faint/25 bg-paper-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-faint/20 p-3">
             <InterpreterToggle enabled={interpreter.enabled} onChange={(enabled) => updateInterpreter({ enabled })} copy={INTERPRETER_COPY[lang]} />
-            <span className="text-xs text-ink-dim">{imported ? t("Your media", "আপনার মিডিয়া") : `${selected.exam} · ${tr(selected.topic)}`}</span>
+            <span className="text-xs text-ink-dim">{imported ? t("Your media", "আপনার মিডিয়া") : `${selected.exam} · ${tr(selected.topic)}`}{!imported && hasPregeneratedSigning(selected.id) && <> · <span className="font-semibold text-ink">{t("ASL ready", "ASL প্রস্তুত")}</span></>}</span>
           </div>
           {imported ? <ImportedLessonPlayer key={imported.url} url={imported.url} title={imported.title} onSource={setClock} />
             : <LessonPlayer key={selected.id} videoId={selected.youtubeId} title={selected.title} onSource={setClock} onState={onPlayerState}
@@ -206,7 +219,8 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
           </div>
         </div>}
         panel={<InterpreterPanel mediaId={imported?.jobId ?? selected.id} source={clock} lang={lang} className="h-full"
-          liveInput={imported ? { kind: "job", jobId: imported.jobId } : { kind: "youtube", videoId: selected.youtubeId }}
+          liveInput={signingInput(selected)}
+          signingUnavailable={signingInput(selected) ? undefined : { onShowSupported: PREGENERATED_SIGNING_IDS.size ? showSignReady : undefined }}
           onLiveRetry={imported ? () => { if (!importBusy) void importFile(imported.file); } : undefined} />} />
       {queuedVideos.length > 1 && <div className="rounded-xl border border-ink-faint/25 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-ink">{currentPath ? tr(currentPath.title) : t("In this selection", "এই তালিকার পাঠ")}</h3>
@@ -224,6 +238,12 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-dim">{t("Find your next lesson. Build a skill, follow a learning path, or pick up where you left off.", "পরের পাঠ খুঁজুন। দক্ষতা বাড়ান, শেখার পথ অনুসরণ করুন অথবা আগের পাঠ চালিয়ে যান।")}</p></div>
         <p className="pt-1 text-sm text-ink-dim">{available.length} {t("curated lessons", "বাছাই করা পাঠ")} · IELTS & SAT</p>
       </header>
+      {!LIVE_SIGNING_ENABLED && PREGENERATED_SIGNING_IDS.size > 0 && !signNoticeHidden && <div role="note" className="relative rounded-xl border border-ink-faint/25 p-4 pr-14 sm:flex sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1 space-y-1.5"><p className="text-sm font-semibold text-ink">{t("ASL interpreter is available on selected lessons.", "নির্বাচিত পাঠে ASL দোভাষী পাওয়া যায়।")}</p>
+          <p className="text-sm leading-relaxed text-ink-dim">{t("Generating 3D sign language takes significant GPU computation, so we’ve handpicked specific videos to feature ASL interpretation.", "থ্রিডি সাংকেতিক ভাষা তৈরি করতে অনেক GPU গণনা লাগে, তাই আমরা নির্দিষ্ট কিছু ভিডিও বেছে নিয়ে সেগুলোতে ASL ব্যাখ্যা যোগ করেছি।")}</p></div>
+        <button type="button" className={cn(secondary, "mt-3 shrink-0 sm:mt-0")} onClick={showSignReady}>{t("Show ASL-ready lessons", "ASL প্রস্তুত পাঠ দেখান")}</button>
+        <button type="button" className="absolute right-1.5 top-1.5 grid min-h-11 min-w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-paper-deep" aria-label={t("Dismiss ASL notice", "ASL বার্তা বন্ধ করুন")} onClick={hideSignNotice}><Icon.close /></button>
+      </div>}
       {progressError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-ink-faint/30 p-3 text-sm text-ink">
         <p>{t("Your saved lessons or progress could not sync. You can keep browsing.", "সংরক্ষিত পাঠ বা অগ্রগতি সিঙ্ক হয়নি। আপনি পাঠ দেখতে পারবেন।")}</p><button type="button" onClick={retry} className={secondary}>{t("Retry sync", "আবার সিঙ্ক করুন")}</button></div>}
       <div className="space-y-4">
@@ -241,11 +261,11 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-faint/25 pb-3">
-        <div role="group" aria-label={t("Your library", "আপনার পাঠাগার")} className="flex flex-wrap gap-1">{[["all", t("All lessons", "সব পাঠ")], ["continue", t("Continue watching", "দেখা চালিয়ে যান")], ["saved", t("Saved", "সংরক্ষিত")], ["completed", t("Completed", "সম্পন্ন")]].map(([view, label]) => <button key={view} type="button" aria-pressed={filters.view === view} onClick={() => changeFilters({ view })}
+        <div role="group" aria-label={t("Your library", "আপনার পাঠাগার")} className="flex flex-wrap gap-1">{[["all", t("All lessons", "সব পাঠ")], ...(PREGENERATED_SIGNING_IDS.size ? [["asl", t("ASL ready", "ASL প্রস্তুত")]] : []), ["continue", t("Continue watching", "দেখা চালিয়ে যান")], ["saved", t("Saved", "সংরক্ষিত")], ["completed", t("Completed", "সম্পন্ন")]].map(([view, label]) => <button key={view} type="button" aria-pressed={filters.view === view} onClick={() => changeFilters({ view })}
           className={cn("min-h-11 rounded-lg px-3 text-sm text-ink transition-colors hover:bg-paper-deep", filters.view === view && "bg-paper-deep font-semibold")}>{label}</button>)}</div>
         <p role="status" className="text-sm tabular-nums text-ink-dim">{matches.length} {t(matches.length === 1 ? "lesson" : "lessons", "পাঠ")}</p>
       </div>
-      {matches.length === 0 ? <div className="py-10 text-center"><h3 className="font-serif text-xl font-bold text-ink">{filters.view === "saved" ? t("Save a lesson for later", "পরে দেখার জন্য পাঠ সংরক্ষণ করুন") : filters.view === "continue" ? t("Your next lesson starts here", "আপনার পরের পাঠ এখানেই") : filters.view === "completed" ? t("Build your learning record", "শেখার রেকর্ড তৈরি করুন") : t("No lessons match these filters", "এই ফিল্টারে কোনো পাঠ পাওয়া যায়নি")}</h3>
+      {matches.length === 0 ? <div className="py-10 text-center"><h3 className="font-serif text-xl font-bold text-ink">{filters.view === "saved" ? t("Save a lesson for later", "পরে দেখার জন্য পাঠ সংরক্ষণ করুন") : filters.view === "continue" ? t("Your next lesson starts here", "আপনার পরের পাঠ এখানেই") : filters.view === "completed" ? t("Build your learning record", "শেখার রেকর্ড তৈরি করুন") : filters.view === "asl" ? t("No ASL-ready lessons match", "কোনো ASL প্রস্তুত পাঠ মেলেনি") : t("No lessons match these filters", "এই ফিল্টারে কোনো পাঠ পাওয়া যায়নি")}</h3>
         <p className="mx-auto mt-2 max-w-lg text-sm text-ink-dim">{t("Explore the library or clear your filters to see more lessons.", "আরও পাঠ দেখতে পাঠাগার দেখুন অথবা ফিল্টার মুছে দিন।")}</p><button type="button" className={cn(secondary, "mt-4")} onClick={() => changeFilters({ ...initialFilters, exam: "All" })}>{t("Show all lessons", "সব পাঠ দেখান")}</button></div>
         : <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 2xl:grid-cols-3">{matches.slice(0, limit).map((video) => {
           const record = progress[video.id]; const position = resumePosition(record);
@@ -253,6 +273,7 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
             <button type="button" className="group relative block w-full overflow-hidden rounded-xl bg-paper-deep text-left" aria-label={`${position >= 5 ? t("Resume", "চালিয়ে যান") : t("Watch", "দেখুন")}: ${tr(video.title)}`}
               onClick={() => chooseVideo(video, matches.map((v) => v.id))}>
               <Thumbnail video={video} /><span className="absolute bottom-2 right-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold tabular-nums text-white">{formatTime(video.durationSeconds)}</span>
+              {PREGENERATED_SIGNING_IDS.has(video.id) && <span title={t("ASL signing prepared for this lesson", "এই পাঠের জন্য ASL প্রস্তুত")} className="absolute right-2 top-2 rounded bg-black/85 px-2 py-1 text-xs font-semibold text-white">{t("ASL ready", "ASL প্রস্তুত")}</span>}
               {record?.completed && <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded bg-black/85 px-2 py-1 text-xs font-medium text-white"><Icon.check />{t("Completed", "সম্পন্ন")}</span>}
               {position >= 5 && <span className="absolute inset-x-0 bottom-0 h-1 bg-black/40"><span className="block h-full bg-polaris-400" style={{ width: `${Math.min(100, position / (record?.duration || video.durationSeconds) * 100)}%` }} /></span>}
             </button>
@@ -290,19 +311,21 @@ export function VideoLearningLibrary({ lang }: { lang: "en" | "bn" }) {
       </details>
       <details className="rounded-xl border border-ink-faint/25 p-4">
         <summary className="min-h-7 cursor-pointer font-semibold text-ink">{t("Learn from your own video", "নিজের ভিডিও দিয়ে শিখুন")}</summary>
-        <p className="mt-3 text-sm leading-relaxed text-ink-dim">{t("Add an English video or audio file for ASL signing. Playback buffers while new sections are prepared.", "ASL-এর জন্য ইংরেজি ভিডিও বা অডিও দিন। নতুন অংশ প্রস্তুত হওয়ার সময় প্লেব্যাক অপেক্ষা করবে।")}</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-dim">{LIVE_SIGNING_ENABLED
+          ? t("Add an English video or audio file for ASL signing. Playback buffers while new sections are prepared.", "ASL-এর জন্য ইংরেজি ভিডিও বা অডিও দিন। নতুন অংশ প্রস্তুত হওয়ার সময় প্লেব্যাক অপেক্ষা করবে।")
+          : t("Watch any YouTube lesson here. Live ASL signing for your own videos needs a GPU signing server, which isn’t running in this demo; lessons marked ASL ready include prepared signing.", "এখানে যেকোনো YouTube পাঠ দেখুন। নিজের ভিডিওর লাইভ ASL-এর জন্য GPU সার্ভার লাগে, যা এই ডেমোতে চালু নেই; ASL প্রস্তুত পাঠে আগে থেকে তৈরি সংকেত আছে।")}</p>
         <div className="mt-4 flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1.5 text-sm text-ink-dim"><span>{t("YouTube link", "YouTube লিংক")}</span><input type="url" className={cn(control, "w-full")} value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" /></label>
           <button type="button" className={primary} disabled={importBusy} onClick={() => {
             const id = youtubeVideoId(videoUrl); if (!id) { setImportError(t("Enter a valid HTTPS YouTube video link.", "সঠিক HTTPS YouTube ভিডিও লিংক দিন।")); return; }
             chooseVideo({ id: `youtube:${id}`, youtubeId: id, title: t("Your YouTube video", "আপনার YouTube ভিডিও"), exam: "IELTS", topic: "Imported media", source: "YouTube", duration: "", officialUrl: "" }, []);
             updateInterpreter({ enabled: true, language: "ase" });
           }}>{t("Load video", "ভিডিও চালু করুন")}</button>
-          <label className={cn(secondary, "cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-polaris-500")}>
+          {LIVE_SIGNING_ENABLED && <label className={cn(secondary, "cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-polaris-500")}>
             {importBusy ? t("Importing…", "আমদানি হচ্ছে…") : t("Import video / audio", "ভিডিও / অডিও দিন")}
             <input type="file" className="sr-only" accept="video/mp4,video/webm,audio/mpeg,audio/wav,audio/mp4,audio/ogg" disabled={importBusy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); event.target.value = ""; }} />
-          </label>
+          </label>}
         </div>
-        <p className="mt-3 text-xs leading-relaxed text-ink-dim">{t("MP4, WebM, MP3, WAV, M4A or Ogg · up to 100 MB and 2 hours. If YouTube audio is unavailable, import the original file.", "MP4, WebM, MP3, WAV, M4A অথবা Ogg · সর্বোচ্চ ১০০ এমবি ও ২ ঘণ্টা। YouTube অডিও না পেলে মূল ফাইল দিন।")}</p>
+        {LIVE_SIGNING_ENABLED && <p className="mt-3 text-xs leading-relaxed text-ink-dim">{t("MP4, WebM, MP3, WAV, M4A or Ogg · up to 100 MB and 2 hours. If YouTube audio is unavailable, import the original file.", "MP4, WebM, MP3, WAV, M4A অথবা Ogg · সর্বোচ্চ ১০০ এমবি ও ২ ঘণ্টা। YouTube অডিও না পেলে মূল ফাইল দিন।")}</p>}
         {importError && <p role="alert" className="mt-3 text-sm text-ink">{importError}</p>}
       </details>
     </section>

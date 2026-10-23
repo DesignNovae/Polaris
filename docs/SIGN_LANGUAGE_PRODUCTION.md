@@ -108,7 +108,8 @@ The downloader resumes bounded ranges and verifies each file's pinned SHA-256 be
 - No transcript, answer key, or source filesystem path appears in job responses.
 - Maximum four jobs, two per user, one inference queue, two-section lookahead, one-hour inactivity expiry, and 3 GiB of meshes per job. Browser memory retains nearby sections only.
 - Jobs are transient and cleared on worker restart. Retry re-imports a retained file or recreates an exam job.
-- Next and the worker must run on the same machine. A hosted application cannot use its own loopback address to reach a student's laptop; remote deployment needs a separately secured GPU service.
+- Without `POLARIS_SIGNING_URL`, Next reaches the worker on loopback, so both must run on the same machine.
+- Sections travel to the browser as compact PLS2 (`services/signing/compact.py`): every frame and vertex, positioned within 0.1 mm of the model output, about 3 MB per eight seconds.
 
 ## Accuracy and limits
 

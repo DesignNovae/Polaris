@@ -59,6 +59,8 @@ desktop.ini
 
 # ---- Local tooling / generated artifacts ----
 /.cache/
+# Pre-generated signing meshes (services/signing/export_static.py): hundreds of MB, hosted separately.
+/public/signing/
 **/__pycache__/
 *.pyc
 /.turbo/

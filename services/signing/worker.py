@@ -18,6 +18,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+import compact
 from config import CACHE, ROOT, config
 from engine import SignEngine
 from media import CHUNK_SECONDS, MAX_UPLOAD, Transcriber, audio_duration, chunk_index, download_youtube
@@ -131,6 +132,7 @@ class Jobs:
                 target = job.directory / f"{index}.bin"
                 metrics = self.engine.generate(text, end - start, f"{job.source_hash}:{index}", target,
                     lambda: job.cancelled or self.stop.is_set(), job.directory / f"{index - 1}.poses.npz")
+                compact.write(target)
                 metrics["asrSeconds"] = round(asr_seconds, 3)
                 metrics["sourceHash"] = job.source_hash
                 with self.lock:
@@ -144,6 +146,7 @@ class Jobs:
                         total -= path.stat().st_size
                         path.unlink()
                         path.with_suffix(".poses.npz").unlink(missing_ok=True)
+                        path.with_suffix(".pls2").unlink(missing_ok=True)
                         del job.chunks[old]
                     job.phase = "ready"
             except InterruptedError:
@@ -301,7 +304,8 @@ def asset(identity: str, asset: str, owner=Depends(authenticate)):
         job = manager.get(identity, owner)
         if asset != "topology" and (not re.fullmatch(r"\d{1,3}", asset) or int(asset) not in job.chunks):
             raise HTTPException(404, "Signing section is not ready")
-        path = job.directory / f"{asset}.bin"
+        # Sections travel as compact PLS2; the PLS1 original stays on disk and bounds the job's disk budget.
+        path = job.directory / ("topology.bin" if asset == "topology" else f"{asset}.pls2")
         if not path.is_file():
             raise HTTPException(404, "Signing section is not ready")
         return FileResponse(path, media_type="application/octet-stream", headers={"Cache-Control": "private, no-store"})

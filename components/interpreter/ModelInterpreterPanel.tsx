@@ -25,6 +25,8 @@ export type ModelPanelProps = {
   onTrackError?: () => void;
   liveInput?: LiveSigningInput;
   onLiveRetry?: () => void;
+  /** No prepared or live signing exists for this media; explain that instead of searching for a track. */
+  signingUnavailable?: { onShowSupported?: () => void };
 };
 
 export function ModelInterpreterPanel({ children, ...props }: ModelPanelProps & { children: ReactNode }) {
@@ -34,7 +36,7 @@ export function ModelInterpreterPanel({ children, ...props }: ModelPanelProps & 
   return <PreparedPanel key={`${props.mediaId}:${settings.language}:${props.examSessionId ?? "lesson"}`} {...props}>{children}</PreparedPanel>;
 }
 
-function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrackReady, onTrackError, liveInput, onLiveRetry, children }: ModelPanelProps & { children: ReactNode }) {
+function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrackReady, onTrackError, liveInput, onLiveRetry, signingUnavailable, children }: ModelPanelProps & { children: ReactNode }) {
   const [settings, update] = useInterpreterSettings();
   const [track, setTrack] = useState<PreparedSigningTrack | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,9 +45,10 @@ function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrac
   const [attempt, setAttempt] = useState(0);
   const copy = INTERPRETER_COPY[lang];
   const bn = lang === "bn";
+  const unavailable = Boolean(signingUnavailable);
 
   useEffect(() => {
-    if (liveInput) { setLoading(false); return; }
+    if (liveInput || unavailable) { setLoading(false); return; }
     if (!mediaId) { setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true);
@@ -61,7 +64,7 @@ function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrac
       .catch(() => { if (!controller.signal.aborted) setError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [mediaId, settings.language, examSessionId, attempt, liveInput]);
+  }, [mediaId, settings.language, examSessionId, attempt, liveInput, unavailable]);
 
   if (preview && !examSessionId) return <>{children}</>;
 
@@ -80,7 +83,12 @@ function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrac
           </label>
         </div>
 
-        {liveInput ? settings.language === "ase" ? <LiveSigningPlayer input={liveInput} source={source} lang={lang} onReady={onTrackReady} onError={onTrackError} onRetry={onLiveRetry} />
+        {!liveInput && signingUnavailable ? <div className="flex flex-col justify-center gap-3 rounded-xl bg-paper-deep/45 p-5" style={{ minHeight: SIZE_TRACKS[settings.size].minHeight }} role="status">
+            <p className="text-sm leading-relaxed text-ink">{bn ? "এই ভিডিওর জন্য ASL দোভাষী নেই।" : "This video doesn’t have ASL interpreter support yet."}</p>
+            <p className="text-sm leading-relaxed text-ink-dim">{bn ? "এই ডেমোতে নির্বাচিত পাঠের জন্য ASL আগে থেকে তৈরি করা আছে। অন্য ভিডিওর লাইভ তৈরি করতে GPU সার্ভার লাগে।" : "In this demo, ASL signing is prepared in advance for selected lessons. Generating it live for other videos needs a GPU signing server."}</p>
+            {signingUnavailable.onShowSupported && <button type="button" onClick={signingUnavailable.onShowSupported} className="min-h-10 self-start rounded-lg border border-ink-faint/30 px-3 text-xs font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-polaris-500">{bn ? "ASL প্রস্তুত পাঠ দেখান" : "Show ASL-ready lessons"}</button>}
+          </div>
+          : liveInput ? settings.language === "ase" ? <LiveSigningPlayer input={liveInput} source={source} lang={lang} onReady={onTrackReady} onError={onTrackError} onRetry={onLiveRetry} />
           : <div className="rounded-xl bg-paper-deep/45 p-5 text-sm leading-relaxed text-ink-dim" role="status">{bn ? "লাইভ মডেল এখন ASL সমর্থন করে। শুরু করতে ASL নির্বাচন করুন।" : "The live model currently supports ASL. Select ASL to start signing."}</div>
           : track && !loading && !error ? (
           <>
