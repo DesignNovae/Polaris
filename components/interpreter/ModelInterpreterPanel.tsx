@@ -114,8 +114,10 @@ function PreparedPanel({ mediaId, source, lang, className, examSessionId, onTrac
         )}
 
         {!examSessionId && <div className="flex flex-wrap items-center gap-2 text-xs text-ink-dim">
-          <span>{copy.layout}</span>
-          {(["beside", "focus", "overlay"] as const).map((layout) => <button key={layout} type="button" aria-pressed={settings.layout === layout} onClick={() => update({ layout })} className={`min-h-10 rounded-lg px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polaris-500 ${settings.layout === layout ? "bg-ink text-paper" : "border border-ink-faint/25 text-ink"}`}>{copy.layouts[layout]}</button>)}
+          <span id="interpreter-layout-label">{copy.layout}</span>
+          <div role="group" aria-labelledby="interpreter-layout-label" className="flex flex-1 rounded-lg border border-ink-faint/25 p-0.5">
+            {(["beside", "focus", "overlay"] as const).map((layout) => <button key={layout} type="button" aria-pressed={settings.layout === layout} onClick={() => update({ layout })} className={`min-h-8 flex-1 rounded-md px-2 font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-polaris-500 ${settings.layout === layout ? "bg-ink text-paper" : "text-ink-dim hover:text-ink"}`}>{copy.layouts[layout]}</button>)}
+          </div>
         </div>}
       </div>
     </Card>
