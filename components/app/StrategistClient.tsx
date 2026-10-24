@@ -702,7 +702,9 @@ export function StrategistClient({
         )}>
           <div className={cn(
             "flex items-center gap-2",
-            hasConversation ? "flex-wrap lg:flex-nowrap" : "mb-2",
+            // Wrap at every width: beside the chat list and context strip the
+            // column is often too narrow for the mode pills plus the picker.
+            hasConversation ? "flex-wrap" : "mb-2",
           )}>
             {bp === "mobile" && (
               <button
