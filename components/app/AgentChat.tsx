@@ -104,6 +104,9 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
   }, [demo]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
+  // Read by the thread-sync effect, which must not replace a reply mid-stream.
+  const streamingRef = useRef(false);
+  streamingRef.current = streaming;
   // What the strategist is doing right now ("Searching the web…" etc).
   // Cleared on each `done` or `error`, and on each new send.
   const [thinking, setThinking] = useState<string | null>(null);
@@ -351,35 +354,42 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
   /* ─── Thread sync with the /strategist page ───
    * Both surfaces share one active thread (id in localStorage). The rail
    * reloads that thread's messages whenever the route changes - so a
-   * conversation started on /strategist continues here, and vice versa. */
+   * conversation started or continued on /strategist appears here, and vice
+   * versa. A new or cleared thread empties the rail instead of leaving the
+   * previous conversation on screen. A reply still streaming here is kept. */
   const pathnameForSync = usePathname();
   const threadIdRef = useRef<string | null>(null);
   const loadedThreadRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (streamingRef.current) return;
     if (demo) {
       const thread = getDemoStrategistThread();
       threadIdRef.current = thread?.id ?? null;
       loadedThreadRef.current = thread?.id ?? null;
-      if (thread?.messages.length) {
-        setMessages(thread.messages.map((message) => ({
-          id: message.id,
-          role: message.role === "user" ? "user" : "agent",
-          text: message.text,
-          sources: message.sources,
-          createdAt: message.createdAt,
-        })));
-      }
+      setMessages((thread?.messages ?? []).map((message) => ({
+        id: message.id,
+        role: message.role === "user" ? "user" : "agent",
+        text: message.text,
+        sources: message.sources,
+        createdAt: message.createdAt,
+      })));
       return;
     }
     const id = localStorage.getItem(ACTIVE_THREAD_KEY) || null;
     threadIdRef.current = id;
-    if (!id || loadedThreadRef.current === id) return;
+    if (!id) {
+      // /strategist started a new chat (or the thread was removed).
+      if (loadedThreadRef.current) setMessages([]);
+      loadedThreadRef.current = null;
+      return;
+    }
     let cancelled = false;
     fetch(`/api/chat/threads/${id}/messages`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (cancelled || !d?.messages) return;
+        if (cancelled || !d?.messages || streamingRef.current) return;
+        const sameThread = loadedThreadRef.current === id;
         loadedThreadRef.current = id;
         const loaded: StrategistMessage[] = d.messages.map(
           (m: { id: string; role: "user" | "assistant"; text: string; sources?: StrategistSource[]; createdAt?: string }) => ({
@@ -390,7 +400,8 @@ export function AgentChat({ studentInitials, pathLabel, contextChips = [], demo 
             createdAt: m.createdAt ?? new Date().toISOString(),
           }),
         );
-        if (loaded.length) setMessages(loaded);
+        // Saves are best-effort and may lag a reply that just finished here.
+        setMessages((current) => (sameThread && loaded.length < current.length ? current : loaded));
       })
       .catch(() => { /* thread may have been deleted - keep local cache */ });
     return () => { cancelled = true; };
