@@ -3,9 +3,14 @@
 import { useEffect, useState } from "react";
 import { PolarisLoadingScreen } from "./PolarisLoading";
 
-// Background refreshes and streamed conversations already own their status UI.
-const quietPaths =
-  /^\/api\/(?:session|analytics|community\/messages|monitor\/view)(?:\/|$)/;
+/**
+ * Full-screen activity for requests that genuinely block the page.
+ *
+ * Opt-in: only requests sent with `X-Polaris-Loading: blocking` show it. Every
+ * other request (AI generation, practice batches, chat, polling) already owns
+ * its in-place status, and covering a page that has rendered made it look stuck.
+ * Route changes keep their own loading screens (each route's loading.tsx).
+ */
 export function LoadingActivity() {
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -14,24 +19,10 @@ export function LoadingActivity() {
     const visible = new Set<symbol>();
     let mounted = true;
     const wrapped: typeof fetch = async (input, init) => {
-      const url = new URL(
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url,
-        location.href,
-      );
       const headers = new Headers(
         init?.headers ?? (input instanceof Request ? input.headers : undefined),
       );
-      if (
-        url.origin !== location.origin ||
-        !url.pathname.startsWith("/api/") ||
-        quietPaths.test(url.pathname) ||
-        headers.get("X-Polaris-Background") === "1" ||
-        url.searchParams.get("count") === "1"
-      )
+      if (headers.get("X-Polaris-Loading") !== "blocking")
         return original(input, init);
       const id = Symbol();
       timers.set(
